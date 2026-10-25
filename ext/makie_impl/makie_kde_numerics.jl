@@ -99,26 +99,32 @@ end
 
 # Enclose quartile interpolation and weighted rank arithmetic. Exact original
 # plateaus retain zero IQR; unresolved intervals are rejected by the caller.
-function _kde_iqr_bounds(values, weights, centered, weighted)
+_kde_iqr_bounds(values, weights, centered, weighted) =
+    _kde_iqr_bounds(values, weights, centered, weighted, nothing)
+
+function _kde_iqr_bounds(values, weights, centered, weighted, coordinate_bounds)
+    coordinate(i, upper) = isnothing(coordinate_bounds) ? centered[i] : coordinate_bounds[upper ? 2 : 1][i]
     order = weighted ? sortperm(collect(zip(values, weights))) : sortperm(values)
     n = length(order)
     down(x) = prevfloat(x)
     up(x) = nextfloat(x)
     function interpolate(j, fraction, upper)
-        j <= 1 && return centered[first(order)]
-        a, b = centered[order[j-1]], centered[order[j]]
+        j <= 1 && return coordinate(first(order), upper)
+        alo, ahi = coordinate(order[j-1], false), coordinate(order[j-1], true)
+        blo, bhi = coordinate(order[j], false), coordinate(order[j], true)
+        a = upper ? ahi : alo
         values[order[j-1]] == values[order[j]] && return a
-        a < b || return upper ? Inf : -Inf
+        isnothing(coordinate_bounds) && !(alo < bhi) && return upper ? Inf : -Inf
         round = upper ? up : down
-        gap = max(0.0, round(b-a))
-        return clamp(round(a + max(0.0, round(fraction*gap))), a, b)
+        gap = max(0.0, upper ? up(bhi-alo) : down(blo-ahi))
+        return clamp(round(a + max(0.0, round(fraction*gap))), alo, bhi)
     end
     if !weighted
         offset, remainder = divrem(n-1, 4)
         positions = ((1+offset, remainder/4),
             (n-offset-(remainder>0), remainder == 0 ? 0.0 : 1-remainder/4))
         quartiles = map(positions) do (i, fraction)
-            fraction == 0 && return (centered[order[i]], centered[order[i]], i, i)
+            fraction == 0 && return (coordinate(order[i], false), coordinate(order[i], true), i, i)
             return (interpolate(i+1, fraction, false), interpolate(i+1, fraction, true), i, i+1)
         end
     else
@@ -139,7 +145,7 @@ function _kde_iqr_bounds(values, weights, centered, weighted)
                 max(0.0, down((1-p)*lower[first(order)]))))
             target_hi = up(up(p*total_hi) + up((1-p)*upper[first(order)]))
             prefix_lo = prefix_hi = 0.0
-            qlo, qhi = centered[first(order)], centered[last(order)]
+            qlo, qhi = coordinate(first(order), false), coordinate(last(order), true)
             left, right = 1, n
             found_lo = found_hi = false
             for j in eachindex(order)
@@ -167,6 +173,9 @@ function _kde_iqr_bounds(values, weights, centered, weighted)
     end
     q25, q75 = quartiles
     all(isfinite, (q25[1], q25[2], q75[1], q75[2])) || return (-Inf, Inf)
+    if !isnothing(coordinate_bounds) && values[order[q25[3]]] == values[order[q75[4]]]
+        return (0.0, 0.0)
+    end
     if q25[1] == q25[2] == q75[1] == q75[2]
         return values[order[q25[3]]] == values[order[q75[4]]] ? (0.0, 0.0) : (-Inf, Inf)
     end
@@ -340,7 +349,7 @@ function _kde_cell_mass(density, xedges, yedges)
 end
 
 _kde_unbounded_error(message) = _kde_numerical_error(
-    "unbounded estimate $message; recenter coordinates or change units, or use a histogram")
+    "unbounded estimate $message; convert coordinates and weights to Float64, recenter or change units, or use a histogram")
 
 function _kde_positive_normal(value)
     v = float(value)
@@ -350,10 +359,21 @@ end
 function _kde_check_unbounded_bandwidth(values, weights, h, weighted)
     isfinite(h) && h > 0 || _kde_unbounded_error("has an invalid bandwidth")
     length(values) <= 1 && return nothing
+    narrowed_h = Float64(h)
+    isfinite(narrowed_h) && narrowed_h > 0 || _kde_unbounded_error("cannot represent its bandwidth witness")
+    witness_h = (narrowed_h > h ? prevfloat(narrowed_h) : narrowed_h,
+        narrowed_h < h ? nextfloat(narrowed_h) : narrowed_h)
     sd = weighted ? std(values, Weights(weights ./ maximum(weights))) : std(values)
     isfinite(sd) || _kde_unbounded_error("has nonfinite variance")
+    relative_weights = weighted ? weights ./ maximum(weights) : weights
+    reference_weights = weighted ? Float64.(relative_weights) : nothing
+    count = weighted ? sum(reference_weights)^2 / sum(abs2, reference_weights) : length(values)
+    isfinite(count) && count > 1 || _kde_unbounded_error("cannot resolve its reference effective count")
     if allequal(values)
         iszero(sd) || _kde_unbounded_error("cannot resolve constant-data variance")
+        reference = 0.9 * count^(-0.2)
+        all(v -> abs(v / reference - 1) <= _KDE_UNBOUNDED_RTOL, witness_h) ||
+            _kde_unbounded_error("cannot resolve its constant-data bandwidth reliably")
         return nothing
     end
     _kde_positive_normal(sd * sd) || _kde_unbounded_error("cannot resolve its variance")
@@ -365,11 +385,55 @@ function _kde_check_unbounded_bandwidth(values, weights, h, weighted)
     span = maximum(abs, centered)
     isfinite(span) && span > 0 || _kde_unbounded_error("cannot resolve its centered span")
     centered ./= span
-    reference = weighted ? _weighted_kde_bandwidth(centered, Float64.(weights)) :
+    reference = weighted ? _weighted_kde_bandwidth(centered, reference_weights) :
         KernelDensity.default_bandwidth(centered)
     !isnothing(reference) && isfinite(reference) && reference > 0 &&
         abs((h / span) / reference - 1) <= _KDE_UNBOUNDED_RTOL ||
         _kde_unbounded_error("cannot resolve its bandwidth reliably")
+    # Start again from the source: the first-origin witness can lose local
+    # quartile gaps. Both enclosure endpoints must support the selected h.
+    centered .= values
+    origin = weighted ? only(quantile(centered, Weights(reference_weights), [0.25])) :
+        quantile(centered, 0.25)
+    centered .-= origin
+    span = maximum(abs, centered)
+    isfinite(span) && span > 0 || _kde_unbounded_error("cannot resolve its quartile-centered span")
+    lower, upper = similar(centered), similar(centered)
+    coordinate_error = 0.0
+    for i in eachindex(centered)
+        narrowed = Float64(values[i])
+        lo = narrowed > values[i] ? prevfloat(narrowed) : narrowed
+        hi = narrowed < values[i] ? nextfloat(narrowed) : narrowed
+        lower[i] = prevfloat(prevfloat(lo-origin) / span)
+        upper[i] = nextfloat(nextfloat(hi-origin) / span)
+        scaled = centered[i] / span
+        !iszero(centered[i]) && iszero(scaled) &&
+            _kde_unbounded_error("loses a centered deviation in reference scaling")
+        centered[i] = scaled
+        coordinate_error = max(coordinate_error,
+            nextfloat(scaled-lower[i]), nextfloat(upper[i]-scaled))
+    end
+    reference_sd = weighted ? std(centered, Weights(reference_weights)) : std(centered)
+    _kde_positive_normal(reference_sd * reference_sd) ||
+        _kde_unbounded_error("cannot resolve its reference variance")
+    # SD changes by at most E in the weighted population norm, or sqrt(2)E
+    # for corrected SD. Use 2E to cover coordinate conversion/conditioning.
+    sd_error = nextfloat(2 * coordinate_error)
+    sd_lo = max(0.0, prevfloat(reference_sd-sd_error))
+    sd_hi = nextfloat(reference_sd+sd_error)
+    iqr_lo, iqr_hi = _kde_iqr_bounds(values, relative_weights, centered, weighted, (lower, upper))
+    if iszero(iqr_lo) && iszero(iqr_hi)
+        widths = (sd_lo, sd_hi)
+    else
+        0 < iqr_lo <= iqr_hi < Inf || _kde_unbounded_error("cannot resolve its interquartile width")
+        widths = (min(sd_lo, iqr_lo/1.34), min(sd_hi, iqr_hi/1.34))
+    end
+    for width in widths
+        reference = 0.9 * width * count^(-0.2)
+        isfinite(reference) && reference > 0 &&
+            all(v -> abs((v / span) / reference - 1) <= _KDE_UNBOUNDED_RTOL, witness_h) ||
+            _kde_unbounded_error("cannot resolve its bandwidth reliably")
+    end
     return nothing
 end
 

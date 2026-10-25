@@ -347,15 +347,18 @@ Float64 first. Relative weights genuinely below Float64 representation remain
 excluded from the convolution population.
 
 Unbounded estimates retain the existing bandwidth rule and fixed FFT grid.
-Admission checks the selected bandwidth against a centered, scaled calculation,
-the actual Float64 grid and cell edges, convolution arithmetic, and raw density
-mass. The Float64 FFT buffer range is checked even when input arithmetic uses
-BigFloat. Numerically ambiguous effective sample counts or bandwidths, large offsets
+Admission checks the selected bandwidth against centered, scaled calculations,
+including bounds on weighted quartile ranks and coordinate conversion. Constant
+populations also require reliable effective-count arithmetic. The actual Float64
+grid and cell edges, convolution arithmetic, and raw density mass are checked.
+The Float64 FFT buffer range is checked even when input arithmetic uses BigFloat.
+Numerically ambiguous effective sample counts or bandwidths, large offsets
 relative to grid spacing, and unsafe coordinate units raise an error before any
-visibility mask or credible-region calculation. Recenter coordinates, change
-units, or use a histogram. Accepted estimates are not rescaled or replaced by a
-different estimator. These checks bound arithmetic fidelity; they do not remove
-the inherited fixed-grid approximation or four-bandwidth periodic tails.
+visibility mask or credible-region calculation. Convert coordinates and weights
+to Float64, recenter or change units, or use a histogram. Accepted estimates are
+not rescaled or replaced by a different estimator. These conservative admission
+checks do not remove the inherited fixed-grid approximation or four-bandwidth
+periodic tails.
 
 Bounded estimates also retain their selected bandwidth. Admission checks it
 against a calculation in local coordinates, including bounds on quartile-rank

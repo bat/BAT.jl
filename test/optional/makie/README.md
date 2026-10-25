@@ -113,6 +113,15 @@ live entry points, original-target support forwarding, explicit rendered edges,
 transposition and empty/window/support transitions. The precompile workload uses
 truthful bounded samples so strict support checks run during extension building.
 
+`unbounded_bandwidth` checks quartile-rank, coordinate-conversion and effective-count
+admission against exact-rational ranks/moments, including constant low-precision
+weights and wider coordinate controls. It preserves admitted dependency output,
+exercises both public paths and rejected controls/updates, and verifies an actual
+rank failure with truthful untimed general-weight display data during fixed-work
+sampling. Samples, callbacks, chain/walker/context/default RNGs and autonomous
+owner cleanup are compared with an unobserved run. The seeded accepted-bandwidth
+oracle permits 2^-19 relative error; it is not a universal total-2^-20 proof.
+
 `unbounded_kde` checks admitted legacy parity, independent bandwidth/mass and
 Gaussian-mixture oracles, source-precision weight loss, translated/scaled grids,
 and explicit numerical rejection. `unbounded_kde_integration` checks all four
