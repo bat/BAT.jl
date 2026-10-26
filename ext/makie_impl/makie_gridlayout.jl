@@ -264,10 +264,11 @@ function _update_grid_axis!(axis::Axis, plots, spec::Makie.BlockSpec, previous)
         any(isnothing, attributes[:limits])
     # Makie's matcher can reuse plots across missing/present keyword attributes,
     # even when the converted input type changes (e.g. scalar/vector markersize).
-    # Rebuild only on structural changes; ordinary data updates still reuse plots.
+    # It can also append a changed polygon after reused overlays. Rebuild the
+    # owned cell's plots when a fill changes, keeping the axis and its view state.
     old_plots = plots[]
     compatible = length(old_plots) == length(spec.plots) &&
-        all(_same_plot_structure(a, b) for (a, b) in zip(old_plots, spec.plots))
+        all(_can_reuse_plot(a, b) for (a, b) in zip(old_plots, spec.plots))
     compatible || (plots[] = PlotSpec[])
     plots[] = spec.plots
     # Demand checked geometry and colors inside the owned view boundary, before
@@ -286,9 +287,10 @@ function _update_grid_axis!(axis::Axis, plots, spec::Makie.BlockSpec, previous)
     return nothing
 end
 
-function _same_plot_structure(a::PlotSpec, b::PlotSpec)
+function _can_reuse_plot(a::PlotSpec, b::PlotSpec)
     return a.type === b.type && length(a.args) == length(b.args) &&
         all(typeof(x) === typeof(y) for (x, y) in zip(a.args, b.args)) &&
         keys(a.kwargs) == keys(b.kwargs) &&
-        all(typeof(a.kwargs[key]) === typeof(b.kwargs[key]) for key in keys(a.kwargs))
+        all(typeof(a.kwargs[key]) === typeof(b.kwargs[key]) for key in keys(a.kwargs)) &&
+        (a.type !== :Poly || (isequal(a.args, b.args) && isequal(a.kwargs, b.kwargs)))
 end

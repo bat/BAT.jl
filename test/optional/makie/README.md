@@ -80,6 +80,16 @@ subscription cleanup, including empty/automatic-limit cells. The adapter uses
 Makie's scene-level plot-spec updater; the ordinary caller-owned SpecApi path
 has separate behavior.
 
+`layer_order` checks actual pixels across shrinking and growing histogram windows
+with statistical overlays enabled. It compares the same final data before and
+after an overlay round trip, checks the mean independently, and retains axes
+and unchanged fills. `gl_layer_order.jl` runs the same checks on a hidden stopped
+native screen; run it separately with a native display and an external deadline:
+
+```sh
+timeout 600 julia --startup-file=no --threads=2,1 --project=/path/to/gl-project test/optional/makie/gl_layer_order.jl
+```
+
 The `api_boundaries` case covers initial picker clamping, positive integer grid
 sizes, heterogeneous sample metadata, exact timed-weight conversion, and static
 control subscription cleanup. `lifecycle_interactive_interrupt` injects an
