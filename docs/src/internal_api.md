@@ -72,14 +72,21 @@ BAT.UnitTransformInit
 BAT.UnshapeTransformation
 BAT.WhiteningAlgorithm
 
+BAT._bat_weightedmeasure
+BAT._own_batch
+BAT._transport_batch
+BAT._vcat_batches
 BAT.argchoice_msg
+BAT.batch_varshape
 BAT.bg_R_2sqr
+BAT.checked_logdensities
 BAT.checked_logdensityof
 BAT.dist_samples_mean_zscores
 BAT.drop_low_weight_samples
 BAT.fft_autocor
 BAT.fft_autocov
 BAT.find_marginalmodes
+BAT.flatbatch
 BAT.get_bin_centers
 BAT.get_iid_sampleable_approx
 BAT.getlikelihood
@@ -89,6 +96,7 @@ BAT.has_uhc_support
 BAT.hmc_find_good_stepsize
 BAT.hmc_nuts_transition
 BAT.is_log_zero
+BAT.is_std_mvnormal
 BAT.issymmetric_around_origin
 BAT.log_zero_density
 BAT.logvalof
@@ -100,7 +108,9 @@ BAT.smallest_credible_intervals
 BAT.sum_first_dim
 BAT.supports_rand
 BAT.transform_function
+BAT.transform_samples
 BAT.transform_witness
 BAT.trunc_logpdf_ratio
 BAT.truncate_dist_hard
+BAT.unflatbatch
 ```

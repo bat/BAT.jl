@@ -247,12 +247,11 @@ println("Stddev: $(std(samples))")
 
 unshaped_samples, f_flatten = bat_transform(Vector, samples)
 
-# The statisics above (mode, mean and std-dev) are presented in shaped form.
-# However, it's not possible to represent statistics with matrix shape, e.g.
-# the parameter covariance matrix, this way. So the covariance has to be
-# accessed in unshaped form:
+# The statistics above (mode, mean and std-dev) have the structure of the
+# parameters. The parameter covariance matrix refers to the flat real-valued
+# vectors instead, in the order of `unshaped_samples`:
 
-par_cov = cov(unshaped_samples)
+par_cov = cov(samples)
 println("Covariance: $par_cov")
 
 
@@ -331,9 +330,8 @@ tbl = Table(samples)
 
 samples_mode = mode(samples)
 
-# Like the samples themselves, the result can be viewed in both shaped and
-# unshaped form. `samples_mode` is presented as a 0-dimensional array that
-# contains a NamedTuple, this representation preserves the shape information:
+# Like the samples themselves, `samples_mode` has the structure of the
+# parameters, it is a NamedTuple:
 
 samples_mode isa NamedTuple
 
@@ -440,7 +438,7 @@ samples = bat_sample(
 # FileIO.save("results.jld2", Dict("samples" => samples))
 # ```
 #
-# JLD2 persists the full information (including value shapes), so you can
+# JLD2 persists the full information (including the variate structure), so you can
 # reload exactly the same data into memory in a new Julia session via
 #
 # ```julia
@@ -463,8 +461,9 @@ samples = bat_sample(
 #
 # The resulting files have an intuitive HDF5 layout and can be read with the
 # standard HDF5 libraries, so they are easily accessible from other programming
-# languages as well. Not all value shape information can be preserved, though.
-# To read BAT.jl HDF5 sample data, use
+# languages as well. HDF5 attributes mark the structure of the variates (named
+# tuples, arrays and constant parameters), so BAT.jl reads them back in the same
+# structure. To read BAT.jl HDF5 sample data, use
 #
 # ```julia
 # using BAT
