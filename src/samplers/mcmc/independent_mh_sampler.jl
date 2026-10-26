@@ -85,9 +85,9 @@ function mcmc_propose_transition(
     genctxs::AbstractVector,
 )
     proposal_measure = batmeasure(proposal.global_proposal)
-    proposed_z = map(genctx -> rand(genctx, proposal_measure), genctxs)
+    proposed_z = VectorOfSimilarVectors(map(genctx -> rand(genctx, proposal_measure), genctxs))
 
-    hastings_correction = checked_logdensityof.(proposal_measure, current_z) .- checked_logdensityof.(proposal_measure, proposed_z)
+    hastings_correction = checked_logdensities(proposal_measure, current_z) .- checked_logdensities(proposal_measure, proposed_z)
     return proposed_z, hastings_correction
 end
 

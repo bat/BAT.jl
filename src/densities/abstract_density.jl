@@ -109,6 +109,32 @@ ZygoteRules.@adjoint checked_logdensityof(target, v) = begin
     (logval, eval_logval_pullback)
 end
 
+"""
+    checked_logdensities(measure, X::AbstractVector)
+
+*BAT-internal, not part of stable public API.*
+
+Batched counterpart of [`checked_logdensityof`](@ref): evaluates the
+log-densities of `measure` over the batch of variates `X` with
+`MeasureBase.logdensities` and applies the same checks to each result.
+
+The batch is evaluated without any checks, the results are inspected
+afterwards, so the evaluation itself stays a single fusable operation.
+"""
+function checked_logdensities(target, X::AbstractVector)
+    return _check_density_logvals(target, X, _batch_logdensities(target, X))
+end
+
+# Measures evaluate the whole batch at once, other densities have no batched
+# API and are mapped over it:
+_batch_logdensities(target::AbstractMeasure, X::AbstractVector) = logdensities(target, X)
+_batch_logdensities(target, X::AbstractVector) = map(logdensityof(target), X)
+
+function _check_density_logvals(target, X, logvals::AbstractVector{<:Real})
+    any(_invalid_density_logval, logvals) || return logvals
+    return map((v, logval) -> _check_density_logval(target, v, logval), X, logvals)
+end
+
 function _check_density_logval(target, v, logval::Real)
     R = float(typeof(logval))
     if _invalid_density_logval(logval)

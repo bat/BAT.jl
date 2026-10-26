@@ -30,4 +30,19 @@ import Zygote
         @test_throws BAT.EvalException BAT.checked_logdensityof(d_inf, [Inf, 1.0])
         @test_throws BAT.EvalException BAT.checked_logdensityof(d_inf, [0.5, 1.0])
     end
+
+    @testset "checked_logdensities" begin
+        d_nan = logfuncdensity(x -> NaN)
+        d_inf = logfuncdensity(x -> +Inf)
+
+        # Same policy as checked_logdensityof, applied per variate:
+        @test BAT.checked_logdensities(d_nan, [[Inf, 1.0], [-Inf, 2.0]]) == [-Inf, -Inf]
+        @test_throws BAT.EvalException BAT.checked_logdensities(d_nan, [[Inf, 1.0], [0.5, 1.0]])
+        @test_throws BAT.EvalException BAT.checked_logdensities(d_inf, [[Inf, 1.0]])
+
+        m = unshaped(batmeasure(MvNormal([1.0, 2.0], [2.0 1.5; 1.5 3.0])))
+        X = nestedview(randn(StableRNG(7), 2, 5))
+        @test BAT.checked_logdensities(m, X) ≈ BAT.checked_logdensityof.(m, X)
+        @test BAT.checked_logdensities(m, collect(X)) ≈ BAT.checked_logdensityof.(m, X)
+    end
 end
