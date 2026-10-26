@@ -25,10 +25,7 @@
         throw(ArgumentError("Symbol :$(vsel[2]) refers to a multivariate parameter. Use :($(vsel[2])[i]) instead."))
     end
 
-    vs = varshape(maybe_shaped_samples)
-    samples = unshaped.(maybe_shaped_samples)
-    filter ? samples = BAT.drop_low_weight_samples(samples) : nothing
-    reshaped_samples = vs.(samples)
+    samples = filter ? drop_low_weight_samples(maybe_shaped_samples) : maybe_shaped_samples
 
     bins = get(plotattributes, :bins, 200)
     seriestype = get(plotattributes, :seriestype, :smallest_intervals)
@@ -38,17 +35,13 @@
         colorbar = get(plotattributes, :colorbar, false)
     end
 
-    xlabel, ylabel  = if !isshaped(maybe_shaped_samples)
-        "v$xindx", "v$yindx"
-    else
-        getstring(maybe_shaped_samples, xindx), getstring(maybe_shaped_samples, yindx)
-    end
+    xlabel, ylabel = getstring(samples, xindx), getstring(samples, yindx)
 
     xguide := get(plotattributes, :xguide, xlabel)
     yguide := get(plotattributes, :yguide, ylabel)
 
     marg = MarginalDist(
-        reshaped_samples,
+        samples,
         vsel,
         bins = bins,
         closed = closed
@@ -59,6 +52,7 @@
 
         acc = findall(x -> x > 0, samples.weight)
         rej = findall(x -> x <= 0, samples.weight)
+        xy = _flat_params(samples, [xindx, yindx])
 
         color = parse(RGBA{Float64}, get(plotattributes, :seriescolor, :green))
         label = get(plotattributes, :label, isempty(rej) ? "samples" : "accepted")
@@ -70,7 +64,7 @@
             markerstrokewidth := 0
             markeralpha := 0.6
             markercolor := [w >= 1 ? color : RGBA(convert(RGB, color), color.alpha * w) for w in samples.weight[acc]]
-            (flatview(samples.v)[xindx, acc], flatview(samples.v)[yindx, acc])
+            (xy[1, acc], xy[2, acc])
         end
 
         if !isempty(rej)
@@ -80,7 +74,7 @@
                 markersize := base_markersize
                 markerstrokewidth := 0
                 markercolor := :red
-                (flatview(samples.v)[xindx, rej], flatview(samples.v)[yindx, rej])
+                (xy[1, rej], xy[2, rej])
             end
         end
 

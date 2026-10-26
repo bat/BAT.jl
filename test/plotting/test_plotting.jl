@@ -4,4 +4,5 @@ using Test
 
 Test.@testset "plotting" begin
     include("test_MarginalDist.jl")
+    include("test_recipes.jl")
 end
