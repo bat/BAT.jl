@@ -54,7 +54,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, algorithm::IIDSampling, context:
     rng = get_rng(context)
     n = algorithm.nsamples
 
-    v = _canonical_variates(rand(rng, m^n), varshape(m))
+    v = _own_batch(rand(rng, m^n), m)
     # ToDo: Parallelize:
     logd = map(logdensityof(m), v)
 

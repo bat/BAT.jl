@@ -1,242 +1,89 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-transform_samples(::typeof(identity), inputs::AbstractVector) = inputs
+"""
+    BAT.transform_samples(f, X::AbstractVector)
+    BAT.transform_samples(f, samples::DensitySampleVector)
 
-function transform_samples(
-    f::Any,
-    xs::AbstractVector
-)
-    unshaped_f = _unshaped_trafo(f)
-    x_shape, y_shape = _trafo_input_output_shape(f, xs)
-    _transform_xs_impl(f, unshaped_f, xs, x_shape, y_shape)
+*BAT-internal, not part of stable public API.*
+
+Apply the variate transformation `f` to the batch of variates `X`, resp. to
+the variates of `samples`, with a result in the layout of BAT's sample
+storage. The log-density values of samples are corrected by the
+log-abs-det Jacobian of `f`, they become `NaN` if `f` doesn't provide one.
+
+Transports transform the whole batch at once, log-abs-det Jacobians
+included. Value shapes and `Base.Fix2(unshaped, vs)` convert between flat
+and structured batches. Other functions, also those with a log-abs-det
+Jacobian, are applied variate by variate on the host.
+"""
+function transform_samples end
+
+transform_samples(f, X::AbstractVector) = _transform_batch(f, _canonical_batch(X))
+transform_samples(f, samples::DensitySampleVector) = _transform_samples(f, samples)
+
+
+_transform_batch(::typeof(identity), X::AbstractVector) = X
+_transform_batch(f::ComposedFunction, X::AbstractVector) = _transform_batch(f.outer, _transform_batch(f.inner, X))
+_transform_batch(f::FunctionChain, X::AbstractVector) = foldl((Y, g) -> _transform_batch(g, Y), fchainfs(f), init = X)
+_transform_batch(f::TransportFunction, X::AbstractVector) = _transport_batch(f, X)
+_transform_batch(vs::AbstractValueShape, X::AbstractVector) = _batch_with_shape(X, vs)
+
+_transform_batch(f::Base.Fix2{typeof(unshaped)}, X::AbstractVector) = nestedview(flatbatch(_own_batch(X, f.x)))
+
+_transform_batch(f, X::AbstractVector) = _canonical_batch(map(f, X))
+
+
+_transform_samples(::typeof(identity), samples::DensitySampleVector) = samples
+_transform_samples(f::ComposedFunction, samples::DensitySampleVector) = _transform_samples(f.outer, _transform_samples(f.inner, samples))
+_transform_samples(f::FunctionChain, samples::DensitySampleVector) = foldl((Y, g) -> _transform_samples(g, Y), fchainfs(f), init = samples)
+
+function _transform_samples(f::TransportFunction, samples::DensitySampleVector)
+    Y, logd_Y = _transport_batch(f, samples.v, samples.logd)
+    return _with_new_variates(samples, Y, logd_Y)
 end
 
+# Reshaping has a zero log-abs-det Jacobian:
+_transform_samples(f::Union{AbstractValueShape,Base.Fix2{typeof(unshaped)}}, samples::DensitySampleVector) =
+    _with_new_variates(samples, _transform_batch(f, samples.v), copy(samples.logd))
 
-transform_samples(::typeof(identity), inputs::DensitySampleVector) = inputs
+_transform_samples(f, samples::DensitySampleVector) = _transform_samples_impl(f, samples, _trafo_ladj_available(f, samples.v))
 
-function transform_samples(
-    f::Any,
-    xsv::DensitySampleVector
-)
-    unshaped_f = _unshaped_trafo(f)
-    x_shape, y_shape = _trafo_input_output_shape(f, xsv.v)
-    ladjavail = _trafo_ladj_available(f, xsv.v)
-    _transform_xsv_impl(f, unshaped_f, xsv, x_shape, y_shape, ladjavail)
+function _transform_samples_impl(f, samples::DensitySampleVector, ::Val{true})
+    X = samples.v
+    ys_ladjs = [with_logabsdet_jacobian(f, X[i]) for i in eachindex(samples.logd)]
+    Y = _canonical_batch(map(first, ys_ladjs))
+    return _with_new_variates(samples, Y, samples.logd .- map(getsecond, ys_ladjs))
 end
 
-
-function _transform_xs_impl(
-    f::Any,
-    ::Missing,
-    xs::AbstractVector,
-    ::Union{AbstractValueShape,Missing},
-    ::Missing
-)
-    return f.(xs)
+function _transform_samples_impl(f, samples::DensitySampleVector, ::Val{false})
+    Y = _transform_batch(f, samples.v)
+    return _with_new_variates(samples, Y, Fill(NaN, length(eachindex(samples.logd))))
 end
 
-# Shaped outputs from shaped or unshaped inputs:
-_transform_xs_impl(f::Any, ::Missing, xs::AbstractVector, ::AbstractValueShape, y_shape::AbstractValueShape) = _transform_xs_shaped(f, xs, y_shape)
-_transform_xs_impl(f::Any, ::Missing, xs::AbstractVector, ::Missing, y_shape::AbstractValueShape) = _transform_xs_shaped(f, xs, y_shape)
+_with_new_variates(samples::DensitySampleVector, Y::AbstractVector, logd::AbstractVector{<:Real}) =
+    DensitySampleVector((Y, logd, deepcopy(samples.weight), deepcopy(samples.info), deepcopy(samples.aux)))
 
-function _transform_xs_shaped(f::Any, xs::AbstractVector, y_shape::AbstractValueShape)
-    ys_unshaped = _trafo_create_unshaped_ys(f, xs, y_shape)
 
-    @assert axes(ys_unshaped) == axes(xs)
-    @assert ys_unshaped isa ArrayOfSimilarArrays
+"""
+    BAT._transport_batch(f::TransportFunction, X::AbstractVector)
+    BAT._transport_batch(f::TransportFunction, X::AbstractVector, logd::AbstractVector{<:Real})
 
-    @threads for i in eachindex(ys_unshaped, xs)
-        y = f(xs[i])
-        ys_unshaped[i] = unshaped(y, y_shape)
-    end
+*BAT-internal, not part of stable public API.*
 
-    ys = y_shape.(ys_unshaped)
-    return ys
+Transport the batch of variates `X` via `f`, with a result in the layout
+of BAT's sample storage. With `logd`, returns the transported batch and
+the log-density values corrected by the log-abs-det Jacobians of `f`.
+"""
+function _transport_batch end
+
+_transport_batch(f::TransportFunction, X::AbstractVector) = _own_batch(transports(f, X), f.ν)
+
+function _transport_batch(f::TransportFunction, X::AbstractVector, logd::AbstractVector{<:Real})
+    length(eachindex(logd)) == length(eachindex(X)) || throw(DimensionMismatch("Number of variates and log-density values differ"))
+    Y, ladjs = transports_with_ladj(f, X)
+    return _own_batch(Y, f.ν), logd .- ladjs
 end
-
-function _transform_xs_impl(
-    ::Any,
-    f_unshaped::Any,
-    xs::AbstractVector,
-    x_shape::AbstractValueShape,
-    y_shape::AbstractValueShape
-)
-    xs_unshaped = _trafo_unshape_inputs(xs, x_shape)
-
-    ys_unshaped = _trafo_create_unshaped_ys(f_unshaped, xs_unshaped, y_shape)
-
-    @assert axes(ys_unshaped) == axes(xs)
-    @assert ys_unshaped isa ArrayOfSimilarArrays
-
-    @threads for i in eachindex(ys_unshaped, xs_unshaped)
-        y = f_unshaped(xs_unshaped[i])
-        ys_unshaped[i] = y
-    end
-
-    ys = y_shape.(ys_unshaped)
-    return ys
-end
-
-
-function _transform_xs_impl_withlogd(
-    f::Any,
-    ::Missing,
-    xs::AbstractVector,
-    logd_xs::AbstractVector,
-    ::Union{AbstractValueShape,Missing},
-    ::Missing
-)
-    ys_ladjs = Base.Fix1(with_logabsdet_jacobian, f).(xs)
-    ys = map(first, ys_ladjs)
-    ladjs = map(x -> x[2], ys_ladjs)
-    logd_ys = logd_xs - ladjs
-    return ys, logd_ys
-end
-
-# Shaped outputs from shaped or unshaped inputs:
-_transform_xs_impl_withlogd(f::Any, ::Missing, xs::AbstractVector, logd_xs::AbstractVector, ::AbstractValueShape, y_shape::AbstractValueShape) = _transform_xs_shaped_withlogd(f, xs, logd_xs, y_shape)
-_transform_xs_impl_withlogd(f::Any, ::Missing, xs::AbstractVector, logd_xs::AbstractVector, ::Missing, y_shape::AbstractValueShape) = _transform_xs_shaped_withlogd(f, xs, logd_xs, y_shape)
-
-function _transform_xs_shaped_withlogd(f::Any, xs::AbstractVector, logd_xs::AbstractVector, y_shape::AbstractValueShape)
-    ys_unshaped = _trafo_create_unshaped_ys(f, xs, y_shape)
-    logd_ys = zero(logd_xs)
-
-    @assert axes(ys_unshaped) == axes(xs)
-    @assert ys_unshaped isa ArrayOfSimilarArrays
-
-    @threads for i in eachindex(ys_unshaped, xs)
-        y, ladj = with_logabsdet_jacobian(f, xs[i])
-        ys_unshaped[i] = unshaped(y, y_shape)
-        logd_ys[i] = logd_xs[i] - ladj
-    end
-
-    ys = y_shape.(ys_unshaped)
-    return ys, logd_ys
-end
-
-function _transform_xs_impl_withlogd(
-    ::Any,
-    f_unshaped::Any,
-    xs::AbstractVector,
-    logd_xs::AbstractVector,
-    x_shape::AbstractValueShape,
-    y_shape::AbstractValueShape
-)
-    xs_unshaped = _trafo_unshape_inputs(xs, x_shape)
-
-    ys_unshaped = _trafo_create_unshaped_ys(f_unshaped, xs_unshaped, y_shape)
-    logd_ys = zero(logd_xs)
-
-    @assert axes(ys_unshaped) == axes(xs)
-    @assert ys_unshaped isa ArrayOfSimilarArrays
-
-    @threads for i in eachindex(ys_unshaped, xs_unshaped)
-        y, ladj = with_logabsdet_jacobian(f_unshaped, xs_unshaped[i])
-        ys_unshaped[i] = y
-        logd_ys[i] = logd_xs[i] - ladj
-    end
-
-    ys = y_shape.(ys_unshaped)
-    return ys, logd_ys
-end
-
-
-
-function _transform_xsv_impl(
-    f::Any, f_unshaped::Any,
-    xsv::DensitySampleVector,
-    x_shape::Union{AbstractValueShape,Missing},
-    y_shape::Union{AbstractValueShape,Missing},
-    ::Val{false}
-)
-    ys = _transform_xs_impl(f, f_unshaped, xsv.v, x_shape, y_shape)
-
-    DensitySampleVector((
-        ys,
-        Fill(NaN, length(eachindex(xsv.logd))),
-        deepcopy(xsv.weight),
-        deepcopy(xsv.info),
-        deepcopy(xsv.aux),
-    ))
-end
-
-
-function _transform_xsv_impl(
-    f::Any, f_unshaped::Any,
-    xsv::DensitySampleVector,
-    x_shape::Union{AbstractValueShape,Missing},
-    y_shape::Union{AbstractValueShape,Missing},
-    ::Val{true}
-)
-    ys, logd_ys = _transform_xs_impl_withlogd(f, f_unshaped, xsv.v, xsv.logd, x_shape, y_shape)
-
-    DensitySampleVector((
-        ys,
-        logd_ys,
-        deepcopy(xsv.weight),
-        deepcopy(xsv.info),
-        deepcopy(xsv.aux),
-    ))
-end
-
-
-
-_unshaped_trafo(::Any) = missing
-
-
-const _ESCompatible = Union{
-    AbstractArray{<:Real},
-    AbstractArray{<:AbstractArray{<:Real}},
-    ShapedAsNTArray
-}
-
-# Whether a variate type has a value shape, nested named tuples included.
-# Resolved by dispatch so that the point shape stays inferrable:
-_has_valshape(::Type) = Val(false)
-_has_valshape(::Type{<:Union{Real,AbstractArray{<:Real}}}) = Val(true)
-_has_valshape(::Type{<:ShapedAsNT}) = Val(true)
-_has_valshape(::Type{<:NamedTuple{names,T}}) where {names,T<:Tuple} = _all_have_valshape(T)
-
-_all_have_valshape(::Type{Tuple{}}) = Val(true)
-_all_have_valshape(::Type{T}) where {T<:Tuple} = _all_have_valshape(_has_valshape(Base.tuple_type_head(T)), Base.tuple_type_tail(T))
-_all_have_valshape(::Val{true}, ::Type{T}) where {T<:Tuple} = _all_have_valshape(T)
-_all_have_valshape(::Val{false}, ::Type) = Val(false)
-
-_get_point_shape(xs::_ESCompatible) = elshape(xs)
-
-_get_point_shape(xs::AbstractVector) = _get_point_shape_impl(xs, _has_valshape(eltype(xs)))
-_get_point_shape_impl(xs::AbstractVector, ::Val{true}) = valshape(first(xs))
-_get_point_shape_impl(::AbstractVector, ::Val{false}) = missing
-
-_maybe_valshape(x) = _maybe_valshape(x, _has_valshape(typeof(x)))
-_maybe_valshape(x, ::Val{true}) = valshape(x)
-_maybe_valshape(::Any, ::Val{false}) = missing
-
-
-_trafo_unshape_inputs(xs::AbstractVector, x_shape::AbstractValueShape) = inverse(x_shape).(xs)
-_trafo_unshape_inputs(xs::ArrayOfSimilarVectors{<:Real}, ::AbstractValueShape) = unshaped.(xs)
-_trafo_unshape_inputs(xs::ShapedAsNTArray, ::AbstractValueShape) = unshaped.(xs)
-_trafo_unshape_inputs(xs::DensitySampleVector, ::AbstractValueShape) = unshaped.(xs)
-
-
-function _trafo_input_output_shape(f, xs::AbstractVector)
-    x_shape = _get_point_shape(xs)
-    maybe_y_shape = _trafo_resultshape(f, x_shape)
-    y_shape = _trafo_output_shape_impl(f, xs, maybe_y_shape)
-    return x_shape, y_shape
-end
-
-_trafo_output_shape_impl(::Any, ::AbstractVector, y_shape::AbstractValueShape) = y_shape
-
-function _trafo_output_shape_impl(f::Any, xs::AbstractVector, ::Missing)
-    dummy_x = first(xs)
-    dummy_y = f(dummy_x)
-    return _maybe_valshape(dummy_y)
-end
-
-_trafo_resultshape(f, x_shape::AbstractValueShape) = resultshape(f, x_shape)
-_trafo_resultshape(::Any, ::Missing) = missing
 
 
 function _trafo_ladj_available(f, xs::AbstractVector)
@@ -251,32 +98,6 @@ _trafo_ladj_available_impl(::Any, ::AbstractVector, ::Type{<:NoLogAbsDetJacobian
 _trafo_ladj_available_impl(f, xs::AbstractVector, ::Any) = Val(with_logabsdet_jacobian(f, first(xs)) isa Tuple{<:Any,<:Any})
 
 
-function _trafo_output_numtype(f, xs::AbstractVector)
-    realnumtype(_trafo_output_type(f, xs))
-end
-
-
-function _trafo_output_type(f, xs::AbstractVector)
-    R = Core.Compiler.return_type(f, Tuple{eltype(xs)})
-    return _trafo_output_type_impl(f, xs, R, R)
-end
-
-_trafo_output_type_impl(::Any, ::AbstractVector, ::DataType, ::Type{R}) where R = R
-
-function _trafo_output_type_impl(f::Any, xs::AbstractVector, ::Type, ::Type)
-    return typeof(f(first(xs)))
-end
-
-
-function _trafo_create_unshaped_ys(f, xs, y_shape::AbstractValueShape)
-    R = _trafo_output_numtype(f, xs)
-    cpunit = get_compute_unit(xs)
-    m = totalndof(y_shape)
-    n = length(eachindex(xs))
-    return VectorOfSimilarVectors(allocate_array(cpunit, R, (m, n)))
-end
-
-
 function _transform_dsv!!(f, dsv_y::DensitySampleVector, dsv_x::DensitySampleVector)
     xs = dsv_x.v
     ys_ladjs = with_logabsdet_jacobian.(f, xs)
@@ -289,18 +110,6 @@ function _transform_dsv!!(f, dsv_y::DensitySampleVector, dsv_x::DensitySampleVec
 
     return dsv_y
 end
-
-
-_trafo_input_output_shape(f::TransportFunction, @nospecialize(xs::AbstractVector)) =
-    (varshape(f.μ), varshape(f.ν))
-
-_unshaped_trafo(f::TransportFunction) = transport_to(unshaped(f.ν), unshaped(f.μ))
-
-# Type inference through a transport of a product measure with many marginals
-# fails. A transport may change the precision, so the output number type is
-# the input number type promoted with that of the target measure's variates:
-_trafo_output_numtype(f::TransportFunction, xs::AbstractVector) =
-    promote_type(realnumtype(eltype(xs)), realnumtype(typeof(testvalue(f.ν))))
 
 
 # Transporting a sample transports its log-density value along:

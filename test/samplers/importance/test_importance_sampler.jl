@@ -4,7 +4,8 @@ using BAT
 using Test
 
 using Random, Distributions, StatsBase
-using DensityInterface: logfuncdensity
+using DensityInterface: logfuncdensity, logdensityof
+using FillArrays: Fill
 using MeasureBase: UnknownMass, massof, weightedmeasure
 using Random123: Philox4x
 
@@ -53,5 +54,12 @@ using Random123: Philox4x
             BATContext(rng = Philox4x((564, 2903))),
         )
         @test massof(unknown) isa UnknownMass
+    end
+
+    @testset "prior_importance_sampler structured samples" begin
+        posterior = PosteriorMeasure(logfuncdensity(v -> -abs2(v.a) / 2), distprod(a = Normal(), c = 4.2))
+        smpls = bat_sample(posterior, PriorImportanceSampler(nsamples = 100), BATContext(rng = Philox4x((564, 2904)))).result
+        @test smpls.v.c isa Fill
+        @test smpls.logd ≈ [logdensityof(posterior, smpls.v[i]) for i in eachindex(smpls)]
     end
 end

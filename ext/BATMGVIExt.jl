@@ -154,7 +154,7 @@ function BAT.evalmeasure_impl(em::BAT.EvaluatedMeasure, algorithm::MGVISampling,
     elapsed_time = time() - start_time
     @debug "Generated final MGVI samples in transformed space after $nsteps, produced $n_samples_indep independent samples after $(@sprintf "%.1f s" elapsed_time)."
 
-    smpls = inverse(f_pretransform).(transformed_smpls)
+    smpls = BAT.transform_samples(inverse(f_pretransform), transformed_smpls)
     smpls_mnlp = last(smpls.info).mnlp
 
     elapsed_time = time() - start_time

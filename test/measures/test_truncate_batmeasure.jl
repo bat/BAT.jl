@@ -59,6 +59,14 @@ using ArraysOfArrays, Distributions, StatsBase, IntervalSets
 
     @test @inferred(truncate_batmeasure(posterior, bounds)) isa PosteriorMeasure
 
+    let μ = batmeasure(Normal()), t = truncate_batmeasure(μ, [-1..2])
+        @test logdensityof(t, 0.5) ≈ logdensityof(μ, 0.5)
+        @test logdensityof(t, 3.0) == -Inf
+        @test MeasureBase.massof(t) ≈ cdf(Normal(), 2) - cdf(Normal(), -1)
+        @test truncate_batmeasure(PosteriorMeasure(likelihood, Normal()), [-1..2]) isa PosteriorMeasure
+        @test_throws ArgumentError truncate_batmeasure(μ, [-1..2, 0..1])
+    end
+
     trunc_pstr = truncate_batmeasure(posterior, bounds)
     @test @inferred(BAT.checked_logdensityof(unshaped(trunc_pstr), [1, 2, 0, 3])) ≈ BAT.checked_logdensityof(unshaped(posterior), [1, 2, 0, 3])
     @test @inferred(BAT.checked_logdensityof(unshaped(trunc_pstr), [-1, -1, -1, -1])) ≈ -Inf

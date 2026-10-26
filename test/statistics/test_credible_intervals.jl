@@ -1,6 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 using BAT
+using ArraysOfArrays, FillArrays, StructArrays
 using IntervalSets
 using StatsBase
 using Test
@@ -55,4 +56,14 @@ using Test
     logweights = exp.(BAT.ULogarithmic, [BAT.Double64(1e100), BAT.Double64(1e100, 1000.0)])
     intervals = BAT.smallest_credible_intervals([0, 1], Weights(logweights); p = 2//5, mode = :connected)
     @test any(iv -> 1 in iv, intervals)
+end
+
+
+@testset "credible intervals of structured samples" begin
+    X = StructArray((a = [0.0, 1.0, 2.0, 3.0], b = nestedview([0.0 1.0 2.0 3.0; 4.0 5.0 6.0 7.0]), c = Fill(4.2, 4)))
+    smpls = DensitySampleVector(v = X, logd = zeros(4))
+    flat_ivs = BAT.smallest_credible_intervals(unshaped.(smpls))
+    ivs = BAT.smallest_credible_intervals(smpls)
+    @test ivs.a == flat_ivs[1] && ivs.b == flat_ivs[2:3]
+    @test isnothing(ivs.c)
 end

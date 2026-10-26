@@ -103,10 +103,15 @@ A vector of [`DensitySample`](@ref) elements.
 `StructArrays.StructArray{<:DensitySample,...}`, though this is subject to
 change without deprecation.
 
+The variates are stored in the layout that `rand(μ^n)` produces for the
+measure `μ` they belong to: a vector of numbers for scalar variates, nested
+arrays (ArraysOfArrays) for array variates and a `StructArray` for named
+tuple variates, with constant components stored as `Fill` columns.
+
 Constructors:
 
 ```julia
-function DensitySampleVector(;
+DensitySampleVector(;
     v::AbstractVector,
     logd::AbstractVector{<:Real},
     weight::Union{AbstractVector{<:Real}, Symbol},
@@ -116,9 +121,13 @@ function DensitySampleVector(;
 ```
 
 ```julia
+DensitySampleVector(X, μ::AbstractMeasure; logd, weight, info, aux)
+```
+
+```julia
 DensitySampleVector(
     (
-        v::AbstractVector{<:AbstractVector{<:Real}},
+        v::AbstractVector,
         logd::AbstractVector{<:Real},
         weight::AbstractVector{<:Real},
         info::AbstractVector{<:Any},
@@ -129,11 +138,21 @@ DensitySampleVector(
 
 With `weight = :multiplicity` repeated samples will be replaced by a
 single sample, with a weight equal to the number of repetitions.
+
+`DensitySampleVector(X, μ)` takes the variates `X` of the measure `μ`,
+either as a batch of variates (e.g. from `rand(μ^n)`) or as a matrix whose
+columns are the free components of the variates in the flat
+standard-variate layout of `μ`. Point-mass components of `μ` are stored as
+`Fill` columns with a copy of their value. The variates must match that
+value.
+
+All variates must share one layout (e.g. arrays of one size), variates with
+value-dependent layouts can't be stored.
 """
 const DensitySampleVector{
     P,T<:AbstractFloat,W<:Real,R,Q,
     PV<:AbstractVector{P},TV<:AbstractVector{T},WV<:AbstractVector{W},RV<:AbstractVector{R},QV<:AbstractVector{Q},
-    IDX # Can't be just Int yet, for compatibility with older versions of ArraysOfArrays and ValueShapes
+    IDX # Can't be just Int: transported batches come with CartesianIndex{1} indices
 } = StructArray{
     DensitySample{P,T,W,R,Q},
     1,
@@ -160,6 +179,7 @@ abstract type SampleID end
 _create_undef_vector(::Type{T}, len::Integer) where T = Vector{T}(undef, len)
 
 
+# Flat, growable storage, e.g. for MCMC output in standard space:
 function DensitySampleVector{P,T,W,R,Q}(::UndefInitializer, len::Integer, npar::Integer) where {
     PT<:Real, P<:AbstractVector{PT}, T<:AbstractFloat, W<:Real, R, Q
 }
@@ -178,33 +198,6 @@ DensitySampleVector(::Type{S}, varlen::Integer) where {P<:AbstractVector{<:Real}
     DensitySampleVector{P,T,W,R,Q}(undef, 0, varlen)
 
 
-_canonical_variates(xs::VectorOfSimilarArrays) = xs
-_canonical_variates(xs::AbstractSlices) = convert(VectorOfSimilarArrays, xs)
-_canonical_variates(xs::AbstractVector{<:AbstractArray}) = convert(VectorOfSimilarArrays, xs)
-_canonical_variates(xs::AbstractVector{<:Real}) = xs
-# Product measures over named tuples generate plain named tuples, BAT's
-# sample storage is shaped: the shape comes from the variates themselves.
-_canonical_variates(xs::AbstractVector{<:NamedTuple}) = _shaped_nt_variates(xs)
-_canonical_variates(xs::StructVector{<:NamedTuple}) = _shaped_nt_variates(xs)
-_canonical_variates(xs::StructVector) = xs
-
-function _shaped_nt_variates(xs::AbstractVector{<:NamedTuple})
-    isempty(xs) && throw(ArgumentError("Can't infer the variate shape of an empty vector of NamedTuple variates"))
-    return _shaped_nt_variates(xs, valshape(first(xs)))
-end
-
-_shaped_nt_variates(xs::AbstractVector{<:NamedTuple}, vs::NamedTupleShape) =
-    vs.(VectorOfSimilarVectors(map(Base.Fix2(unshaped, vs), xs)))
-
-# Variates of a measure are stored with the variate shape of that measure,
-# which knows about constant components that carry no degrees of freedom:
-_canonical_variates(xs::AbstractVector, ::AbstractValueShape) = _canonical_variates(xs)
-_canonical_variates(xs::AbstractVector{<:NamedTuple}, vs::NamedTupleShape) = _shaped_nt_variates(xs, vs)
-_canonical_variates(xs::StructVector{<:NamedTuple}, vs::NamedTupleShape) = _shaped_nt_variates(xs, vs)
-_canonical_variates(xs::ShapedAsNTArray) = xs
-
-
-# ToDo: Use Fill instead of fill? Will likely require an `as_appendable` function.
 function DensitySampleVector(;
     v::AbstractVector,
     logd::AbstractVector{<:Real} = fill(NaN, length(v)),
@@ -212,14 +205,21 @@ function DensitySampleVector(;
     info::AbstractVector = fill(nothing, length(eachindex(v))),
     aux::AbstractVector = fill(nothing, length(eachindex(v)))
 )
+    X = _checked_batch(_canonical_batch(v))
     if weight == :multiplicity
-        v = _canonical_variates(v)
-        idxs, weight = repetition_to_weights(v)
-        return DensitySampleVector((v[idxs], logd[idxs], weight, info[idxs], aux[idxs]))
+        idxs, weight = repetition_to_weights(X)
+        return DensitySampleVector((X[idxs], logd[idxs], weight, info[idxs], aux[idxs]))
     else
-        return DensitySampleVector((_canonical_variates(v), logd, weight, info, aux))
+        return DensitySampleVector((X, logd, weight, info, aux))
     end
 end
+
+DensitySampleVector(X::AbstractVector, μ::AbstractMeasure; kwargs...) = DensitySampleVector(; v = _own_batch(X, μ), kwargs...)
+
+DensitySampleVector(M::AbstractMatrix{<:Real}, μ::AbstractMeasure; kwargs...) =
+    DensitySampleVector(; v = unflatbatch(μ, M), kwargs...)
+
+DensitySampleVector(X::AbstractArray, d::Distribution; kwargs...) = DensitySampleVector(X, batmeasure(d); kwargs...)
 
 
 function Base.similar(s::DensitySampleVector, sz::Tuple)
@@ -253,16 +253,27 @@ end
     DensitySample(A.v[I...], A.logd[I...], A.weight[I...], A.info[I...], A.aux[I...])
 
 @inline Base.getindex(A::StructArray{<:DensitySample}, I::Union{Int,AbstractArray,Colon}...) =
-    DensitySampleVector((A.v[I...], A.logd[I...], A.weight[I...], A.info[I...], A.aux[I...]))
+    DensitySampleVector((_own_consts(A.v[I...]), A.logd[I...], A.weight[I...], A.info[I...], A.aux[I...]))
 
-# Specialize push! likewise, StructArrays would convert the sample to the
-# element type of A first:
+# Specialize push! and append! likewise, StructArrays would convert the
+# sample to the element type of A first. Only flat storage can grow:
 function Base.push!(A::DensitySampleVector, s::DensitySample)
+    _check_growable(A.v)
     push!(A.v, s.v)
     push!(A.logd, s.logd)
     push!(A.weight, s.weight)
     push!(A.info, s.info)
     push!(A.aux, s.aux)
+    A
+end
+
+function Base.append!(A::DensitySampleVector, B::DensitySampleVector)
+    _check_growable(A.v)
+    append!(A.v, B.v)
+    append!(A.logd, B.logd)
+    append!(A.weight, B.weight)
+    append!(A.info, B.info)
+    append!(A.aux, B.aux)
     A
 end
 
@@ -272,13 +283,32 @@ Base.IndexStyle(::StructArray{<:DensitySample, 1}) = IndexLinear()
 # Specialize comparison, currently StructArray seems fall back to `(==)(A::AbstractArray, B::AbstractArray)`
 import Base.==
 function(==)(A::DensitySampleVector, B::DensitySampleVector)
-    A.v == B.v &&
+    _batches_equal(==, A.v, B.v) &&
     A.logd == B.logd &&
     A.weight == B.weight &&
     A.info == B.info &&
     A.aux == B.aux
 end
 
+
+function Base.isequal(A::DensitySampleVector, B::DensitySampleVector)
+    _batches_equal(isequal, A.v, B.v) &&
+    isequal(A.logd, B.logd) &&
+    isequal(A.weight, B.weight) &&
+    isequal(A.info, B.info) &&
+    isequal(A.aux, B.aux)
+end
+
+
+function Base.vcat(X::DensitySampleVector, Xs::DensitySampleVector...)
+    DensitySampleVector((
+        _vcat_batches(X.v, map(Y -> Y.v, Xs)...),
+        vcat(X.logd, map(Y -> Y.logd, Xs)...),
+        vcat(X.weight, map(Y -> Y.weight, Xs)...),
+        vcat(X.info, map(Y -> Y.info, Xs)...),
+        vcat(X.aux, map(Y -> Y.aux, Xs)...),
+    ))
+end
 
 function Base.merge!(X::DensitySampleVector, Xs::DensitySampleVector...)
     for Y in Xs
@@ -287,7 +317,7 @@ function Base.merge!(X::DensitySampleVector, Xs::DensitySampleVector...)
     X
 end
 
-Base.merge(X::DensitySampleVector, Xs::DensitySampleVector...) = merge!(deepcopy(X), Xs...)
+Base.merge(X::DensitySampleVector, Xs::DensitySampleVector...) = vcat(X, Xs...)
 
 function checked_push!(samples::DensitySampleVector, new_sample::DensitySample)
     if !isempty(samples) && last(samples).v == new_sample.v
@@ -299,24 +329,18 @@ function checked_push!(samples::DensitySampleVector, new_sample::DensitySample)
 end
 
 
-function Base.Broadcast.broadcasted(shaper::Union{AbstractValueShape, typeof(unshaped)}, A::DensitySampleVector)
-    DensitySampleVector((
-        shaper.(A.v),
-        A.logd,
-        A.weight,
-        A.info,
-        A.aux
-    ))
-end
+# Samples with the free components of their variates as flat real vectors:
+_flat_samples(A::DensitySampleVector) = DensitySampleVector((nestedview(flatbatch(A.v)), A.logd, A.weight, A.info, A.aux))
 
-function foobar(shaper::Union{AbstractValueShape, typeof(unshaped)}, A::DensitySampleVector)
-    DensitySampleVector((
-        shaper.(A.v),
-        A.logd,
-        A.weight,
-        A.info,
-        A.aux
-    ))
+# Samples with flat variates reshaped to variates of shape `vs`:
+_reshaped_samples(vs::AbstractValueShape, A::DensitySampleVector) =
+    DensitySampleVector((unflatbatch(vs, flatbatch(A.v)), A.logd, A.weight, A.info, A.aux))
+
+Base.Broadcast.broadcasted(::typeof(unshaped), A::DensitySampleVector) = _flat_samples(A)
+
+function Base.Broadcast.broadcasted(vs::AbstractValueShape, A::DensitySampleVector)
+    Base.depwarn("Broadcasting a value shape over a DensitySampleVector is deprecated, construct samples from their measure via `DensitySampleVector(X, μ; logd, weight, info, aux)` instead.", :broadcasted)
+    _reshaped_samples(vs, A)
 end
 
 
@@ -328,7 +352,7 @@ end
 
 
 
-ValueShapes.varshape(A::DensitySampleVector) = elshape(A.v)
+ValueShapes.varshape(A::DensitySampleVector) = batch_varshape(A.v)
 
 
 @inline _ncolons(::Val{N}) where N = ntuple(_ -> Colon(), Val{N}())
@@ -354,18 +378,41 @@ _cor(X::AbstractVectorOfSimilarVectors, w::AbstractWeights) =
 # plain moments of the represented weighted empirical measure - without a
 # finite-sample bias correction, which would require knowing how the
 # samples were generated. These moments are invariant under global weight
-# rescaling and under repetition compression/expansion:
-function _get_statw(f::Function, samples::DensitySampleVector, resultshape::AbstractValueShape)
-    shape = varshape(samples)
-    X = unshaped.(samples.v)
-    w = ProbabilityWeights(_canonical_rel_weights(samples.weight))
-    r_unshaped = f(X, w)
-    resultshape(r_unshaped)
+# rescaling and under repetition compression/expansion. They are computed
+# leaf by leaf and have the structure of the variates:
+_stat_weights(samples::DensitySampleVector) = ProbabilityWeights(_canonical_rel_weights(samples.weight))
+
+_map_leafkinds(f, X::AbstractVector) = _map_leaves(L -> f(_leafkind(L), L), X)
+
+_const_zero(x::Number) = zero(float(x))
+_const_zero(x) = map(_const_zero, x)
+
+function Statistics.mean(samples::DensitySampleVector)
+    w = _stat_weights(samples)
+    _map_leafkinds(samples.v) do kind, X
+        _leaf_mean(kind, X, w)
+    end
 end
 
-Statistics.mean(samples::DensitySampleVector) = _get_statw(_mean, samples, varshape(samples))
-Statistics.var(samples::DensitySampleVector) = _get_statw((X, w) -> _var(X, w, corrected = false), samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
-Statistics.std(samples::DensitySampleVector) = _get_statw((X, w) -> _std(X, w, corrected = false), samples, replace_const_shapes(ValueShapes.const_zero_shape, varshape(samples)))
+_leaf_mean(::_ScalarLeaf, X::AbstractVector, w::AbstractWeights) = mean(X, w)
+_leaf_mean(::_ArrayLeaf, X::AbstractVector, w::AbstractWeights) = _mean(X, w)
+_leaf_mean(::_ConstLeaf, X::AbstractVector, ::AbstractWeights) = _owned_const(getindex_value(X))
+
+function Statistics.var(samples::DensitySampleVector)
+    w = _stat_weights(samples)
+    _map_leafkinds(samples.v) do kind, X
+        _leaf_var(kind, X, w)
+    end
+end
+
+_leaf_var(::_ScalarLeaf, X::AbstractVector, w::AbstractWeights) = var(X, w, corrected = false)
+_leaf_var(::_ArrayLeaf, X::AbstractVector, w::AbstractWeights) = _var(X, w, corrected = false)
+_leaf_var(::_ConstLeaf, X::AbstractVector, ::AbstractWeights) = _const_zero(getindex_value(X))
+
+Statistics.std(samples::DensitySampleVector) = _sqrt_leaves(var(samples))
+
+_sqrt_leaves(x::Number) = sqrt(x)
+_sqrt_leaves(x) = map(_sqrt_leaves, x)
 
 Statistics.median(samples::DensitySampleVector) = quantile(samples, 0.5)
 
@@ -393,44 +440,56 @@ function _weighted_empirical_quantile(v::AbstractVector, w::AbstractVector, p::R
     return v[last_idx]
 end
 
+# Weighted quantiles need scalar indexing, they are host-only:
 function Statistics.quantile(samples::DensitySampleVector, p::Real)
-    shape = varshape(samples)
-    flat_samples = flatview(unshaped.(samples.v))
-    n_params = size(flat_samples)[1]
     w = _canonical_rel_weights(samples.weight)
-    quantile_params = map(Base.OneTo(n_params)) do param
-        _weighted_empirical_quantile(view(flat_samples, param, :), w, p)
+    _map_leafkinds(samples.v) do kind, X
+        _leaf_quantile(kind, X, w, p)
     end
-    shape(quantile_params)
 end
 
-function _get_stat(f::Function, samples::DensitySampleVector)
-    shape = varshape(samples)
-    X = unshaped.(samples.v)
-    r_unshaped = f(X)
-    shape(r_unshaped)
+_leaf_quantile(::_ScalarLeaf, X::AbstractVector, w::AbstractVector, p::Real) = _weighted_empirical_quantile(X, w, p)
+_leaf_quantile(::_ConstLeaf, X::AbstractVector, ::AbstractVector, ::Real) = _owned_const(getindex_value(X))
+
+function _leaf_quantile(::_ArrayLeaf, X::AbstractVector, w::AbstractVector, p::Real)
+    rows = _leaf_rows(X)
+    reshape([_weighted_empirical_quantile(view(rows, i, :), w, p) for i in axes(rows, 1)], innersize(X))
 end
 
-Base.minimum(samples::DensitySampleVector) = _get_stat(minimum, samples)
-Base.maximum(samples::DensitySampleVector) = _get_stat(maximum, samples)
+# Flat storage of a leaf of array variates, one row per array element:
+_leaf_rows(X::AbstractVectorOfSimilarArrays) = reshape(flatview(X), :, length(eachindex(X)))
 
-Statistics.cov(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cov(samples.v, ProbabilityWeights(_canonical_rel_weights(samples.weight)), corrected = false)
-Statistics.cor(samples::DensitySampleVector{<:AbstractVector{<:Real}}) = _cor(samples.v, ProbabilityWeights(_canonical_rel_weights(samples.weight)))
+Base.minimum(samples::DensitySampleVector) = _map_leafkinds(_leaf_extremum(minimum), samples.v)
+Base.maximum(samples::DensitySampleVector) = _map_leafkinds(_leaf_extremum(maximum), samples.v)
+
+_leaf_extremum(f) = (kind, X) -> _leaf_extremum(f, kind, X)
+_leaf_extremum(f, ::_ScalarLeaf, X::AbstractVector) = f(X)
+_leaf_extremum(f, ::_ArrayLeaf, X::AbstractVector) = reshape(f(_leaf_rows(X), dims = 2), innersize(X))
+_leaf_extremum(::Any, ::_ConstLeaf, X::AbstractVector) = _owned_const(getindex_value(X))
+
+Statistics.cov(samples::DensitySampleVector) = cov(flatbatch(samples.v), _stat_weights(samples), 2; corrected = false)
+Statistics.cor(samples::DensitySampleVector) = cor(flatbatch(samples.v), _stat_weights(samples), 2)
 
 function Base.isapprox(a::DensitySampleVector, b::DensitySampleVector; kwargs...)
     axes(a) == axes(b) || return false
-    return isapprox(flatview(unshaped.(a.v)), flatview(unshaped.(b.v)); kwargs...) &&
+    return varshape(a) == varshape(b) &&
+        isapprox(flatbatch(a.v), flatbatch(b.v); kwargs...) &&
         isapprox(a.logd, b.logd; kwargs...) &&
         isapprox(a.weight, b.weight; kwargs...)
 end
 
+# The variate with the highest log-density, and its index:
 function _get_mode(samples::DensitySampleVector)
-    shape = varshape(samples)
     i = findmax(samples.logd)[2]
-    v_unshaped = unshaped.(samples.v)[i]
-    v = deepcopy(shape(v_unshaped))
+    v = _map_leafkinds(samples.v) do kind, X
+        _leaf_variate(kind, X, i)
+    end
     (v, i)
 end
+
+_leaf_variate(::_ScalarLeaf, X::AbstractVector, i) = X[i]
+_leaf_variate(::_ArrayLeaf, X::AbstractVector, i) = collect(X[i])
+_leaf_variate(::_ConstLeaf, X::AbstractVector, ::Any) = _owned_const(getindex_value(X))
 
 
 StatsBase.mode(samples::DensitySampleVector) = _get_mode(samples)[1]
@@ -513,35 +572,47 @@ function repetition_to_weights(v::AbstractVector)
 end
 
 
+# Reports compute their statistics on the free components of the variates
+# in their standard-variate layout, constants are listed separately:
 function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector)
     # ToDo: Forward context somehow instead of creating a new one here?
     context = BATContext()
 
-    usmplv = unshaped.(smplv)
+    vs = varshape(smplv)
+    flat_smplv = _flat_samples(smplv)
+    has_free_pars = totalndof(vs) > 0
     nsamples = length(eachindex(smplv))
     total_weight = sum(smplv.weight)
-    ess = round.(Int, bat_eff_sample_size(usmplv, context).result)
+
+    ess_line = if has_free_pars
+        ess = round.(Int, bat_eff_sample_size(flat_smplv, context).result)
+        "* Effective sample size: between $(minimum(ess)) and $(maximum(ess))"
+    else
+        ""
+    end
 
     lazyreport!(rpt, """
     ### Sampling result
 
     * Total number of samples: $nsamples
     * Total weight of samples: $total_weight
-    * Effective sample size: between $(minimum(ess)) and $(maximum(ess))
+    $ess_line
     """)
 
-    only_one_ci(viv::AbstractVector{<:AbstractInterval}) = length(viv) == 1 ? only(viv) : :multiple
+    if has_free_pars
+        only_one_ci(viv::AbstractVector{<:AbstractInterval}) = length(viv) == 1 ? only(viv) : :multiple
 
-    marg_tbl = _marginal_table(smplv)
-    mod_marg_tbl = merge(Tables.columns(marg_tbl), (credible_intervals = map(only_one_ci, marg_tbl.credible_intervals),))
-    marg_headermap = Dict(:parameter => "Parameter", :mean => "Mean", :std => "Std. dev.", :global_mode => "Gobal mode", :marginal_mode => "Marg. mode", :credible_intervals => "Cred. interval", :marginal_histogram => "Histogram")
-    lazyreport!(
-        rpt,
-        "#### Marginals",
-        lazytable(mod_marg_tbl, headers = marg_headermap)
-    )
+        marg_tbl = _marginal_table(vs, flat_smplv)
+        mod_marg_tbl = merge(Tables.columns(marg_tbl), (credible_intervals = map(only_one_ci, marg_tbl.credible_intervals),))
+        marg_headermap = Dict(:parameter => "Parameter", :mean => "Mean", :std => "Std. dev.", :global_mode => "Global mode", :marginal_mode => "Marg. mode", :credible_intervals => "Cred. interval", :marginal_histogram => "Histogram")
+        lazyreport!(
+            rpt,
+            "#### Marginals",
+            lazytable(mod_marg_tbl, headers = marg_headermap)
+        )
+    end
 
-    fixed_tbl = _rpt_table_of_constparvals(smplv)
+    fixed_tbl = _rpt_table_of_constparvals(vs)
     if !isempty(fixed_tbl)
         marg_headermap = Dict(:parameter => "Parameter", :value => "Value")
 
@@ -555,23 +626,23 @@ function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector)
 end
 
 
-function _marginal_table(smplv::DensitySampleVector)
-    parnames = map(string, all_active_names(elshape(smplv.v)))
+# Per-parameter statistics of the flat samples `flat_smplv`, named after
+# the free components of the variate shape `vs`:
+function _marginal_table(vs::AbstractValueShape, flat_smplv::DensitySampleVector{<:AbstractVector{<:Real}})
+    parnames = map(string, all_active_names(vs))
 
-    usmplv = unshaped.(smplv)
+    credible_intervals = smallest_credible_intervals(flat_smplv)
 
-    credible_intervals = smallest_credible_intervals(usmplv)
+    mhists = _marginal_histograms(flat_smplv)
 
-    mhists = _marginal_histograms(usmplv)
-
-    mm_alg = bat_default(bat_marginalmode, Val(:algorithm), usmplv)
-    marginal_mode = bat_marginalmode_impl(usmplv, mm_alg, _g_dummy_context).result
+    mm_alg = bat_default(bat_marginalmode, Val(:algorithm), flat_smplv)
+    marginal_mode = bat_marginalmode_impl(flat_smplv, mm_alg, _g_dummy_context).result
 
     TypedTables.Table(
         parameter = parnames,
-        mean = mean(usmplv),
-        std = std(usmplv),
-        global_mode = mode(usmplv),
+        mean = mean(flat_smplv),
+        std = std(flat_smplv),
+        global_mode = mode(flat_smplv),
         marginal_mode = marginal_mode,
         credible_intervals = credible_intervals,
         marginal_histogram = mhists,
@@ -579,8 +650,8 @@ function _marginal_table(smplv::DensitySampleVector)
 end
 
 
-function _rpt_table_of_constparvals(smplv::DensitySampleVector)
-    constpars = _const_parameters(elshape(smplv.v))
+function _rpt_table_of_constparvals(vs::AbstractValueShape)
+    constpars = _const_parameters(vs)
     # Need to convert, otherwise these can become Vector{Union{}} if constpars is empty:
     parkeys = convert(Vector{Symbol}, Symbol.(first.(constpars)))::Vector{Symbol}
     str_parvalues = convert(Vector{String}, string.(last.(constpars)))::Vector{String}
@@ -589,7 +660,7 @@ end
 
 function _marginal_histograms(smpl::DensitySampleVector{<:AbstractVector{<:Real}}; nbins = 40)
     trimmed_smpl = drop_low_weight_samples(smpl)
-    V = flatview(trimmed_smpl.v)
+    V = flatbatch(trimmed_smpl.v)
     W = Weights(trimmed_smpl.weight)
     [fit(Histogram, V[i,:], W, nbins = nbins) for i in axes(V,1)]
 end

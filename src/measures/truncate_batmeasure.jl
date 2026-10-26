@@ -10,20 +10,24 @@ Truncate `density` to `bounds`, the resulting density will be effectively
 zero outside of those bounds. In contrast `Distributions.truncated`,
 `truncate_batmeasure` does *not* renormalize the density.
 
-Requires `varshape(density) isa ArrayShape`.
-
-Only supports densities that are essentially products of univariate
-distributions, as well as posterior densities with such densities as priors.
+Measures with scalar variates are truncated to `only(bounds)` via
+MeasureBase's `truncate`. Measures with array variates must essentially be
+products of univariate distributions. Posterior measures are truncated via
+their priors.
 """
 function truncate_batmeasure end
 export truncate_batmeasure
 
 
 function truncate_batmeasure(density::AbstractPosteriorMeasure, bounds::AbstractArray{<:Interval})
-    @argcheck varshape(density) isa ArrayShape
+    @argcheck varshape(density) isa Union{ScalarShape,ArrayShape}
     PosteriorMeasure(getlikelihood(density), truncate_batmeasure(getprior(density), bounds))
 end
 
+function truncate_batmeasure(m::AbstractMeasure, bounds::AbstractArray{<:Interval})
+    length(eachindex(bounds)) == 1 || throw(ArgumentError("truncate_batmeasure supports measures with scalar variates and products of univariate distributions, but got a measure of type $(nameof(typeof(m))) and $(length(eachindex(bounds))) bounds"))
+    truncate(m, only(bounds))
+end
 
 
 function truncate_batmeasure(m::AsMeasure{<:MultivariateDistribution}, bounds::AbstractArray{<:Interval})

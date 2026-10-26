@@ -135,7 +135,7 @@ using Random123
         )
         samples = smplres.result
         @test first(samples).info.chaincycle >= 2
-        @test samples.v isa ShapedAsNTArray
+        @test samples.v isa StructVector && varshape(samples) == varshape(objective)
         @test smplres.verified
     end
 
