@@ -10,9 +10,9 @@ end
 
 bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::Distribution) = ModeAsDefined()
 
-bat_default(::typeof(bat_bgml), ::Val{:algorithm}, likelihood, prior) = bat_default(bat_findmode, Val(:algorithm), lbqintegral(likelihood, prior))
+bat_default(::typeof(bat_bgml), ::Val{:algorithm}, likelihood, prior) = bat_default(bat_findmode, Val(:algorithm), PosteriorMeasure(likelihood, prior))
 
-bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::BATDistMeasure) = ModeAsDefined()
+bat_default(::typeof(bat_findmode), ::Val{:algorithm}, ::AsMeasure{<:Distribution}) = ModeAsDefined()
 
 function bat_default(::typeof(bat_findmode), ::Val{:algorithm}, m::EvaluatedMeasure)
     bat_default(bat_findmode, Val(:algorithm), unevaluated(m))

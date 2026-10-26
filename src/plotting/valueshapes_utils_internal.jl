@@ -18,33 +18,12 @@ function asindex(
     return key
 end
 
-#for MarginalDist
-function asindex(marg::MarginalDist, name::Union{Expr, Symbol})
-    idx = asindex(marg.origvalshape, name)
-    if idx in marg.dims
-        return idx
-    else
-        throw(ArgumentError("Key :$name not in MarginalDist"))
-    end
-end
+asindex(marg::MarginalDist, name::Union{Expr, Symbol}) = asindex(varshape(marg), name)
 
 
-function getstring(samples::BAT.DensitySampleVector, idx::Integer)
-    if isshaped(samples)
-        vs = varshape(samples)
-        names = all_active_names(vs)
-        return names[idx]
-    else
-        throw(ArgumentError("Samples are unshaped. Key :$name cannot be matched. Use index instead."))
-    end
-end
-
-function getstring(marg::MarginalDist, idx::Integer)
-    vs = marg.dist.shape
-    names = all_active_names(vs)
-    if checkbounds(Bool, names, idx)
-        return names[idx]
-    else
-        throw(ArgumentError("Index $idx not in $marg"))
-    end
+# Name of the free parameter at position `idx`:
+function getstring(x::Union{DensitySampleVector, MarginalDist}, idx::Integer)
+    names = all_active_names(varshape(x))
+    checkbounds(Bool, names, idx) || throw(ArgumentError("Parameter position $idx is out of bounds, there are $(length(names)) free parameters"))
+    return names[idx]
 end

@@ -44,7 +44,7 @@ export RandomWalk
 struct RandomWalkProposalState{
     TA<:Real,
     TAI<:Tuple{Vararg{Real}},
-    Q<:BATMeasure
+    Q<:AbstractMeasure
 } <: SimpleMCMCProposalState
     target_acceptance::TA
     target_acceptance_int::TAI
@@ -62,7 +62,7 @@ bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::RandomWalk) = 
 
 function _create_proposal_state(
     proposal::RandomWalk,
-    target::BATMeasure,
+    target::AbstractMeasure,
     context::BATContext,
     v_init::AbstractVector{PV},
     f_transform::Function,
@@ -84,9 +84,8 @@ function _full_random_walk_proposal(m::AbstractMeasure, n_dims::Integer)
     return m
 end
 
-function _full_random_walk_proposal(m::BATDistMeasure, n_dims::Integer)
-    d = convert(Distribution, m)
-    return batmeasure(_full_random_walk_proposal(d, n_dims))
+function _full_random_walk_proposal(m::AsMeasure{<:Distribution}, n_dims::Integer)
+    return batmeasure(_full_random_walk_proposal(m.obj, n_dims))
 end
 
 # A user-supplied full multivariate innovation distribution would need a
@@ -126,11 +125,13 @@ function mcmc_propose_transition(
 )
     proposal_measure = batmeasure(proposal.proposaldist)
 
-    transition = map(genctx -> rand(genctx, proposal_measure), genctxs)
-    proposed_z = current_z .+ transition
+    # Flat batches of walker positions, so that the proposal measure can
+    # evaluate the Hastings terms for all walkers at once:
+    transition = VectorOfSimilarVectors(map(genctx -> rand(genctx, proposal_measure), genctxs))
+    proposed_z = nestedview(flatview(current_z) .+ flatview(transition))
 
-    p_prop_to_curr = checked_logdensityof.(proposal_measure, -transition)
-    p_curr_to_prop = checked_logdensityof.(proposal_measure, transition) 
+    p_prop_to_curr = checked_logdensities(proposal_measure, nestedview(-flatview(transition)))
+    p_curr_to_prop = checked_logdensities(proposal_measure, transition)
 
     hastings_correction = p_prop_to_curr .- p_curr_to_prop
 

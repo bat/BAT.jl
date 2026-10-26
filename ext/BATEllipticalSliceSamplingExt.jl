@@ -2,7 +2,8 @@
 
 module BATEllipticalSliceSamplingExt
 
-using Distributions: Distribution, logpdf
+using Distributions: Distribution, MvNormal, logpdf
+using LinearAlgebra: Diagonal
 using HeterogeneousComputing: get_rng
 using InverseFunctions: inverse
 
@@ -27,12 +28,12 @@ function BAT.evalmeasure_impl(
         ArgumentError("NormalBased transformation must preserve the posterior structure"),
     )
     prior_measure = BAT.getprior(target)
-    prior_measure isa BAT.BATDistMeasure || throw(
+    BAT.is_std_mvnormal(prior_measure) || throw(
         ArgumentError(
             "The posterior prior must support transformation to a Gaussian probability distribution",
         ),
     )
-    prior = Distribution(prior_measure)
+    prior = MvNormal(Diagonal(fill(1.0, BAT.some_dof(prior_measure))))
     likelihood = BAT.getlikelihood(target)
     model = EllipticalSliceSampling.ESSModel(
         prior,

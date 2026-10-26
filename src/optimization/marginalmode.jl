@@ -19,8 +19,7 @@ end
 
 
 function bat_marginalmode_impl(samples::DensitySampleVector, algorithm::BinnedModeEstimator, context::BATContext)
-    shape = varshape(samples)
-    flat_samples = flatview(unshaped.(samples.v))
+    flat_samples = flatbatch(samples.v)
     n_params = size(flat_samples)[1]
     nt_samples = ntuple(i -> flat_samples[i,:], n_params)
     marginalmode_params = Vector{Float64}()
@@ -36,5 +35,5 @@ function bat_marginalmode_impl(samples::DensitySampleVector, algorithm::BinnedMo
         end
         push!(marginalmode_params, marginalmode_param[1][1])
     end
-    (result = shape(marginalmode_params),)
+    (result = _unflat_variate(varshape(samples), marginalmode_params, _owned_const),)
 end

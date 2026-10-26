@@ -31,11 +31,7 @@
     orientation = get(plotattributes, :orientation, :vertical)
     (orientation != :vertical) ? swap=true : swap = false
 
-    xlabel = if !isshaped(maybe_shaped_samples)
-        "v$idx"
-    else
-        getstring(maybe_shaped_samples, idx)
-    end
+    xlabel = getstring(maybe_shaped_samples, idx)
 
     ylabel = "p("*xlabel*")"
 
@@ -64,7 +60,7 @@
     #------ stats ----------------------------
     stats = MCMCBasicStats(maybe_shaped_samples)
 
-    line_height = maximum(convert(Histogram, marg.dist isa ReshapedDist ? marg.dist.dist : marg.dist).weights)*1.03
+    line_height = maximum(_marg_hist(marg).weights)*1.03
 
     mean_options = convert_to_options(mean)
     globalmode_options = convert_to_options(globalmode)

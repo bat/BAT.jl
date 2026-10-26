@@ -10,21 +10,21 @@ _maycopy_val(tpl::Tuple) = map(_maycopy_val, tpl)
 _maycopy_val(nt::NamedTuple) = map(_maycopy_val, nt)
 
 
-function _rand_v_for_target(target::BATMeasure, src::AbstractMeasure, n::Integer, context::BATContext)
-    conv_src = batmeasure(src)
-    xs = samplesof(evalmeasure(conv_src, IIDSampling(nsamples = n), context)).v
-    vs_target = varshape(batmeasure(target))
-    vs_src = varshape(conv_src)
-    reshape_variates(vs_target, vs_src, xs)
+# Random variates from `src` with the variate shape of `target`, reshaped via
+# the flat layout where the shapes differ:
+function _rand_v_for_target(target::AbstractMeasure, src::AbstractMeasure, n::Integer, context::BATContext)
+    xs = samplesof(evalmeasure(batmeasure(src), IIDSampling(nsamples = n), context)).v
+    _batch_with_shape(xs, varshape(batmeasure(target)))
 end
 
-
-function _rand_v_for_target(::BATMeasure, src::DensitySampleMeasure, n::Integer, context::BATContext)
-    rand(get_gencontext(context), src^n)
+function _rand_v_for_target(target::AbstractMeasure, src::DensitySampleMeasure, n::Integer, context::BATContext)
+    idxs = _rand_subsample_idxs(get_gencontext(context), src, n)
+    _batch_with_shape(samplesof(src).v[idxs], varshape(batmeasure(target)))
 end
 
-function _rand_v_for_target(::BATMeasure, src::DensitySampleVector, n::Integer, context::BATContext)
-    return samplesof(evalmeasure(src, RandResampling(nsamples = n), context)).v
+function _rand_v_for_target(target::AbstractMeasure, src::DensitySampleVector, n::Integer, context::BATContext)
+    xs = samplesof(evalmeasure(src, RandResampling(nsamples = n), context)).v
+    _batch_with_shape(xs, varshape(batmeasure(target)))
 end
 
 
@@ -102,15 +102,15 @@ function bat_initval_impl(target::MeasureLike, n::Integer, ::InitFromTarget, con
 end
 
 
-function bat_initval_impl(m::BATPushFwdMeasure, algorithm::InitFromTarget, context::BATContext)
-    f, m_orig = gettransform(m), transport_origin(m)
+function bat_initval_impl(m::PushforwardMeasure, algorithm::InitFromTarget, context::BATContext)
+    f, m_orig = gettransform(m), m.origin
     v_orig = bat_initval_impl(m_orig, algorithm, context).result
     v = f(v_orig)
     (result = v,)
 end
 
-function bat_initval_impl(m::BATPushFwdMeasure, n::Integer, algorithm::InitFromTarget, context::BATContext)
-    f, m_orig = gettransform(m), transport_origin(m)
+function bat_initval_impl(m::PushforwardMeasure, n::Integer, algorithm::InitFromTarget, context::BATContext)
+    f, m_orig = gettransform(m), m.origin
     vs_orig = bat_initval_impl(m_orig, n, algorithm, context).result
     vs = BAT.transform_samples(f, vs_orig)
     (result = vs,)
@@ -129,8 +129,8 @@ end
 """
     struct InitFromSamples <: InitvalAlgorithm
 
-Generates initial values for sampling, optimization, etc. by direct sampling
-from a given i.i.d. sampleable source.
+Generates initial values for sampling, optimization, etc. by random
+resampling from a given set of samples.
 
 Constructors:
 
@@ -155,8 +155,8 @@ end
 """
     struct InitFromIID <: InitvalAlgorithm
 
-Generates initial values for sampling, optimization, etc. by random
-resampling from a given set of samples.
+Generates initial values for sampling, optimization, etc. by direct sampling
+from a given i.i.d. sampleable source.
 
 Constructors:
 
@@ -213,6 +213,8 @@ function apply_trafo_to_init(f_transform::Function, initalg::ExplicitInit)
     xs_tr = transform_samples(f_transform, initalg.xs)
     ExplicitInit(xs_tr)
 end
+
+apply_trafo_to_init(f_transform::Function, initalg::InitFromIID) = InitFromIID(pushfwd(f_transform, initalg.src))
 
 function apply_trafo_to_init(f_transform::Function, initalg::InitFromSamples)
     # ToDo: Pass context to apply_trafo_to_init

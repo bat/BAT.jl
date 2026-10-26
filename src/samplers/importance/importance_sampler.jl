@@ -72,7 +72,7 @@ function evalmeasure_impl(
     # @show samples #disable for testing
 
     transformed_smpls = DensitySampleVector(v = samples, logd = logvals, weight = weights)
-    smpls = inverse(f_pretransform).(transformed_smpls)
+    smpls = transform_samples(inverse(f_pretransform), transformed_smpls)
 
     ess = bat_eff_sample_size_impl(smpls, KishESS(), context).result
 
@@ -94,7 +94,7 @@ function evalmeasure_impl(
 end
 
 
-function _gen_samples(m::BATMeasure, algorithm::SobolSampler, context::BATContext)
+function _gen_samples(m::AbstractMeasure, algorithm::SobolSampler, context::BATContext)
     T = get_precision(context)
     n = getdof(m)
     # ToDo: Use BAT context for precision, etc:
@@ -109,11 +109,14 @@ function _gen_samples(m::BATMeasure, algorithm::SobolSampler, context::BATContex
 end
 
 
-function _gen_samples(m::BATMeasure, algorithm::GridSampler, context::BATContext)
+function _gen_samples(m::AbstractMeasure, algorithm::GridSampler, context::BATContext)
     dim = _rv_dof(m)
     ppa = algorithm.ppa
     # ToDo: Use BAT context for precision, etc:
-    ranges = [range(0.0, 1.0, length = trunc(Int, ppa)) for i in 1:dim]
+    # Cell midpoints: the transport of the unit hypercube maps its boundary
+    # to infinite variates.
+    n = trunc(Int, ppa)
+    ranges = [range(inv(2*n), 1 - inv(2*n), length = n) for i in 1:dim]
     p = vec(collect(Iterators.product(ranges...)))
     return [collect(p[i]) for i in 1:length(p)]
 end
@@ -153,25 +156,21 @@ function evalmeasure_impl(
     m isa AbstractPosteriorMeasure || throw(ArgumentError(
         "PriorImportanceSampler requires a posterior measure, got $(nameof(typeof(m)))"
     ))
-    shape = varshape(m)
-
     prior = convert_for(bat_sample, getprior(m))
     prior_samples = samplesof(evalmeasure(prior, IIDSampling(nsamples = algorithm.nsamples), context))
-    unshaped_prior_samples = unshaped.(prior_samples)
 
-    v = unshaped_prior_samples.v
-    prior_weight = unshaped_prior_samples.weight
-    posterior_logd = map(logdensityof(unshaped(m)), v)
-    weight = exp.(posterior_logd - unshaped_prior_samples.logd) .* prior_weight
+    v = prior_samples.v
+    posterior_logd = map(logdensityof(m), v)
+    weight = exp.(posterior_logd - prior_samples.logd) .* prior_samples.weight
 
     est_integral = _prior_importance_mass(mean(weight), massof(prior))
     # ToDo: Add integral error estimate
 
-    smpls = shape.(DensitySampleVector(v = v, logd = posterior_logd, weight = weight))
+    smpls = DensitySampleVector(v = v, logd = posterior_logd, weight = weight)
 
     ess = bat_eff_sample_size_impl(smpls, KishESS(), context).result
 
-    n_dof = some_dof(m)
+    n_dof = _dofval_or_nothing(getdof(m))
     dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
     # A stored sample generation scheme did not produce the new empirical

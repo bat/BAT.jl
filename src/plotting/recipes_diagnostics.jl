@@ -1,16 +1,14 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 struct MCMCDiagnostics
     samples::DensitySampleVector{<:AbstractVector{<:Real}}
-    chainresults::Array{}
-end
 
-MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
-    MCMCDiagnostics(unshaped.(samples), chainresults)
+    MCMCDiagnostics(samples::DensitySampleVector) = new(unshaped.(samples))
+end
 
 
 @recipe function f(mcmc::MCMCDiagnostics;
-                    vsel = collect(1 : size(mcmc.samples.v.data, 1)),
-                    chains = collect(1 : size(mcmc.chainresults, 1)),
+                    vsel = collect(1 : totalndof(varshape(mcmc.samples))),
+                    chains = collect(eachindex(unique(mcmc.samples.info.chainid))),
                     diagnostics = [:histogram, :kde, :trace, :acf],
                     trace = Dict(),
                     kde = Dict(),
@@ -37,13 +35,14 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
 
         #indices of samples from current chain
         r = mcmc.samples.info.chainid .== unique_chain_ids[chain]
+        chain_samples = mcmc.samples[r]
 
         for p in vsel
             if description
                 @series begin
                     subplot := ctr
                     label --> ""
-                    annotations --> (1.5, 2.5, "Chain $chain  \n Parameter $p \n $(nsamples(mcmc.chainresults[chain])) Samples")
+                    annotations --> (1.5, 2.5, "Chain $chain  \n Parameter $p \n $(count(r)) Samples")
                     grid --> false
                     xaxis --> false
                     yaxis --> false
@@ -53,15 +52,12 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
             end
 
             # samples from current chain
-            s = flatview(mcmc.samples[r].v)[p, :]
+            s = vec(_flat_params(chain_samples, p))
 
             for d in diagnostics
 
                 # samples histogram
                 if d == :histogram
-
-                    chain_samples = mcmc.samples[r]
-
                     @series begin
                         subplot := ctr
                         seriestype --> get(histogram, "seriestype", :stephist)
@@ -125,6 +121,7 @@ MCMCDiagnostics(samples::DensitySampleVector, chainresults = []) =
 
                     k = KernelDensity.kde(
                         s,
+                        weights = chain_samples.weight,
                         bandwidth = bandwidth,
                         boundary = boundary,
                         npoints = npoints,
