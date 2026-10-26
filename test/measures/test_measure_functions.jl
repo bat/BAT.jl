@@ -33,4 +33,18 @@ using DensityInterface, Distributions, MeasureBase, ValueShapes
         @test varshape(m_arr) == ArrayShape{Real}(3)
     end
 
+    @testset "deprecated wrappers" begin
+        @test (@test_deprecated lbqintegral(logfuncdensity(x -> -x .* x), Normal())) isa PosteriorMeasure
+
+        hd = @test_deprecated distbind(
+            NamedTupleDist(a = Normal(2, 1), b = Exponential(1.3)), merge
+        ) do v
+            NamedTupleDist(c = Normal(v.a, v.b), d = Weibull())
+        end
+        x = rand(hd)
+        @test x isa NamedTuple{(:a, :b, :c, :d)}
+        @test logdensityof(hd, x) ≈
+            logpdf(Normal(2, 1), x.a) + logpdf(Exponential(1.3), x.b) +
+            logpdf(Normal(x.a, x.b), x.c) + logpdf(Weibull(), x.d)
+    end
 end
