@@ -33,6 +33,7 @@ using ElasticArrays
 using FFTW
 using FillArrays
 using ForwardDiffPullbacks
+using FillArrays: AbstractFill, getindex_value
 using FunctionChains
 using IntervalSets
 using InverseFunctions
