@@ -14,7 +14,7 @@ e.g. a [`BAT.MeasureLike`](@ref).
 
 Constructors:
 
-* ```DensitySampleVector(v::Any, logd::Real, weight::Real, info::Any, aux::Any)```
+* ```DensitySample(v::Any, logd::Real, weight::Real, info::Any, aux::Any)```
 
 Fields:
 

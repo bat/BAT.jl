@@ -129,8 +129,8 @@ end
 """
     struct InitFromSamples <: InitvalAlgorithm
 
-Generates initial values for sampling, optimization, etc. by direct sampling
-from a given i.i.d. sampleable source.
+Generates initial values for sampling, optimization, etc. by random
+resampling from a given set of samples.
 
 Constructors:
 
@@ -155,8 +155,8 @@ end
 """
     struct InitFromIID <: InitvalAlgorithm
 
-Generates initial values for sampling, optimization, etc. by random
-resampling from a given set of samples.
+Generates initial values for sampling, optimization, etc. by direct sampling
+from a given i.i.d. sampleable source.
 
 Constructors:
 
