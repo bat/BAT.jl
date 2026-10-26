@@ -182,12 +182,25 @@ _canonical_variates(xs::VectorOfSimilarArrays) = xs
 _canonical_variates(xs::AbstractSlices) = convert(VectorOfSimilarArrays, xs)
 _canonical_variates(xs::AbstractVector{<:AbstractArray}) = convert(VectorOfSimilarArrays, xs)
 _canonical_variates(xs::AbstractVector{<:Real}) = xs
-function _raw_namedtuple_variates_error()
-    throw(ArgumentError("Raw NamedTuple variates require an explicit shape; construct a ShapedAsNTArray with a NamedTupleShape before passing them to DensitySampleVector."))
-end
-_canonical_variates(::AbstractVector{<:NamedTuple}) = _raw_namedtuple_variates_error()
-_canonical_variates(::StructVector{<:NamedTuple}) = _raw_namedtuple_variates_error()
+# Product measures over named tuples generate plain named tuples, BAT's
+# sample storage is shaped: the shape comes from the variates themselves.
+_canonical_variates(xs::AbstractVector{<:NamedTuple}) = _shaped_nt_variates(xs)
+_canonical_variates(xs::StructVector{<:NamedTuple}) = _shaped_nt_variates(xs)
 _canonical_variates(xs::StructVector) = xs
+
+function _shaped_nt_variates(xs::AbstractVector{<:NamedTuple})
+    isempty(xs) && throw(ArgumentError("Can't infer the variate shape of an empty vector of NamedTuple variates"))
+    return _shaped_nt_variates(xs, valshape(first(xs)))
+end
+
+_shaped_nt_variates(xs::AbstractVector{<:NamedTuple}, vs::NamedTupleShape) =
+    vs.(VectorOfSimilarVectors(map(Base.Fix2(unshaped, vs), xs)))
+
+# Variates of a measure are stored with the variate shape of that measure,
+# which knows about constant components that carry no degrees of freedom:
+_canonical_variates(xs::AbstractVector, ::AbstractValueShape) = _canonical_variates(xs)
+_canonical_variates(xs::AbstractVector{<:NamedTuple}, vs::NamedTupleShape) = _shaped_nt_variates(xs, vs)
+_canonical_variates(xs::StructVector{<:NamedTuple}, vs::NamedTupleShape) = _shaped_nt_variates(xs, vs)
 _canonical_variates(xs::ShapedAsNTArray) = xs
 
 

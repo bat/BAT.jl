@@ -7,7 +7,8 @@ using Cuba
 using BAT
 BAT.pkgext(::Val{:Cuba}) = BAT.PackageExtension{:Cuba}()
 
-using BAT: MeasureLike, BATMeasure, unevaluated
+using BAT: MeasureLike, unevaluated
+using MeasureBase: AbstractMeasure
 using BAT: CubaIntegration
 using BAT: transform_and_unshape, auto_renormalize
 

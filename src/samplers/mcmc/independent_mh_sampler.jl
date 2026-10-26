@@ -39,7 +39,7 @@ export MCMCGlobalProposal
 struct MCMCGlobalProposalProposalState{
     TA<:Real,
     TAI<:Tuple{Vararg{Real}},
-    Q<:BATMeasure,
+    Q<:AbstractMeasure,
 } <: SimpleMCMCProposalState
     target_acceptance::TA
     target_acceptance_int::TAI
@@ -58,7 +58,7 @@ bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::MCMCGlobalProp
 
 function _create_proposal_state(
     proposal::MCMCGlobalProposal,
-    target::BATMeasure,
+    target::AbstractMeasure,
     context::BATContext,
     v_init::AbstractVector{PV},
     f_transform::Function,

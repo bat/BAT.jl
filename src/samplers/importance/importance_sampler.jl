@@ -94,7 +94,7 @@ function evalmeasure_impl(
 end
 
 
-function _gen_samples(m::BATMeasure, algorithm::SobolSampler, context::BATContext)
+function _gen_samples(m::AbstractMeasure, algorithm::SobolSampler, context::BATContext)
     T = get_precision(context)
     n = getdof(m)
     # ToDo: Use BAT context for precision, etc:
@@ -109,11 +109,14 @@ function _gen_samples(m::BATMeasure, algorithm::SobolSampler, context::BATContex
 end
 
 
-function _gen_samples(m::BATMeasure, algorithm::GridSampler, context::BATContext)
+function _gen_samples(m::AbstractMeasure, algorithm::GridSampler, context::BATContext)
     dim = _rv_dof(m)
     ppa = algorithm.ppa
     # ToDo: Use BAT context for precision, etc:
-    ranges = [range(0.0, 1.0, length = trunc(Int, ppa)) for i in 1:dim]
+    # Cell midpoints: the transport of the unit hypercube maps its boundary
+    # to infinite variates.
+    n = trunc(Int, ppa)
+    ranges = [range(inv(2*n), 1 - inv(2*n), length = n) for i in 1:dim]
     p = vec(collect(Iterators.product(ranges...)))
     return [collect(p[i]) for i in 1:length(p)]
 end
@@ -171,7 +174,7 @@ function evalmeasure_impl(
 
     ess = bat_eff_sample_size_impl(smpls, KishESS(), context).result
 
-    n_dof = some_dof(m)
+    n_dof = _dofval_or_nothing(getdof(m))
     dsm = DensitySampleMeasure(smpls, dof = n_dof, ess = ess)
 
     # A stored sample generation scheme did not produce the new empirical

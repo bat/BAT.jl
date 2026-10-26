@@ -40,7 +40,7 @@ function PolarShellDistribution(
     length(base_dist) == 2 || throw(ArgumentError("PolarShellDistribution requires a two-dimensional base distribution"))
 
     base_measure = batmeasure(base_dist)
-    r_transform = BAT.DistributionTransform(radial_dist, truncated(Normal(), 0, Inf))
+    r_transform = transport_to(asmeasure(radial_dist), Half(StdNormal()))
     shell_transform = ShellRTransform(r_transform)
     full_transform = ffcomp(shell_transform, _cart_to_polar)
     m = pushfwd(full_transform, base_measure)
@@ -51,7 +51,7 @@ end
 
 Distributions.insupport(d::PolarShellDistribution, x::AbstractVector) = length(d) == length(x)
 
-Base.eltype(::Type{PolarShellDistribution{DB}}) where DB = eltype(DB)
+Base.eltype(::Type{<:PolarShellDistribution{DB}}) where DB = eltype(DB)
 
 Base.length(d::PolarShellDistribution) = length(d._base_dist)
 
@@ -85,19 +85,10 @@ function Distributions._rand!(rng::AbstractRNG, d::PolarShellDistribution, A::Ab
 end
 
 
-std_dist_from(src_d::PolarShellDistribution) = StandardMvNormal(length(src_d))
-
-function apply_dist_trafo(trg_d::StandardMvNormal, src_d::PolarShellDistribution, src_v::AbstractVector{<:Real})
-    @argcheck length(trg_d) == length(src_d)
-    apply_dist_trafo(trg_d, src_d._m.origin.dist, src_d._m.finv(src_v))
-end
-
-std_dist_to(trg_d::PolarShellDistribution) = StandardMvNormal(length(trg_d))
-
-function apply_dist_trafo(trg_d::PolarShellDistribution, src_d::StandardMvNormal, src_v::AbstractVector{<:Real})
-    @argcheck length(trg_d) == length(src_d)
-    trg_d._m.f(apply_dist_trafo(trg_d._m.origin.dist, src_d, src_v))
-end
+# The distribution is defined by a pushforward measure, so its measure
+# representation is that pushforward (densities, draws and transports come
+# from MeasureBase then):
+MeasureBase.AbstractMeasure(d::PolarShellDistribution) = d._m
 
 
 

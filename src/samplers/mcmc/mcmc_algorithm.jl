@@ -113,7 +113,7 @@ The following methods must be defined for subtypes of `MCMCIterator` (e.g.
 ```julia
 BAT.get_proposal(chain::SomeMCMCIter)::MCMCProposalState
 
-BAT.mcmc_target(chain::SomeMCMCIter)::BATMeasure
+BAT.mcmc_target(chain::SomeMCMCIter)::AbstractMeasure
 
 BAT.get_context(chain::SomeMCMCIter)::BATContext
 

@@ -14,7 +14,7 @@ using Random123
     cmat = [1.0 1.5; 1.5 4.0]
     Σ = @inferred PDMat(cmat)
     mv_dist = MvNormal(mvec, Σ)
-    likelihood = logfuncdensity(logdensityof(BAT.BATDistMeasure(mv_dist)))
+    likelihood = logfuncdensity(logdensityof(batmeasure(mv_dist)))
     prior = product_distribution(Uniform.([-5, -8], [5, 8]))
     nchains = 4
     nwalkers = 1

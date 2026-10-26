@@ -6,7 +6,7 @@ function temper_mcmc_target!! end
 
 struct MCMCNoTemperingState <: TemperingState end
 
-temper_mcmc_target!!(tempering::MCMCNoTemperingState, target::BATMeasure, stepno::Integer) = tempering, target
+temper_mcmc_target!!(tempering::MCMCNoTemperingState, target::AbstractMeasure, stepno::Integer) = tempering, target
 
-create_temperering_state(tempering::NoMCMCTempering, target::BATMeasure) = MCMCNoTemperingState()
+create_temperering_state(tempering::NoMCMCTempering, target::AbstractMeasure) = MCMCNoTemperingState()
 create_temperering_state(tempering::NoMCMCTempering, mc_state::MCMCChainState) = create_temperering_state(tempering, mc_state.target)

@@ -9,7 +9,7 @@
 State of a MCMC chain.
 """
 mutable struct MCMCChainState{
-    M<:BATMeasure,
+    M<:AbstractMeasure,
     PR<:RNGPartition,
     FT<:Function,
     P<:MCMCProposalState,
@@ -44,7 +44,7 @@ _contains_hamiltonian_mc(proposal::MCMCProposal) =
 
 function MCMCChainState(
     samplingalg::TransformedMCMC,
-    target::BATMeasure,
+    target::AbstractMeasure,
     chainid::Integer,
     x_init::AbstractVector{PV},
     context::BATContext
@@ -708,7 +708,7 @@ end
 
 function _construct_mcmc_state(
     samplingalg::TransformedMCMC,
-    target::BATMeasure,
+    target::AbstractMeasure,
     rngpart::RNGPartition,
     id::Integer,
     initval_alg::InitvalAlgorithm,
@@ -721,7 +721,7 @@ end
 
 _gen_mcmc_states(
     samplingalg::TransformedMCMC,
-    target::BATMeasure,
+    target::AbstractMeasure,
     rngpart::RNGPartition,
     ids::AbstractRange{<:Integer},
     initval_alg::InitvalAlgorithm,
