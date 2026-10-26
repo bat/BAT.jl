@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 # Shared setup of the static (all-samples-already-exist) entry points:
 # builds the compute graph, registers the samples, and applies the initial
 # variable selection. Deliberately does NOT call warmup_makie_shaders() --
@@ -35,11 +36,8 @@ function _setup_static_graph(
         return result
     end
 
-    # Registered per (chainid, walkerid): BAT's merged multi-chain result is
-    # chain-block-concatenated, so a single shared row window would reveal one
-    # chain's entire block before the next -- the step window must apply per walker.
-    # Groups are MATERIALIZED (not index views) so each registered walker has the
-    # same concrete .v.data-backed structure as a live walker.
+    # Apply step windows per chain/walker rather than to the concatenated result.
+    # Materialize each group to match the live walker's .v.data-backed storage.
     samples_graph = graph[:samples][]
     current_idxs_graph = graph[:current_idxs][]
     info_T = eltype(unshaped_samples.info)
@@ -87,15 +85,12 @@ function _setup_static_graph(
     return graph, n_dof
 end
 
-# Makie resolves an argument it has no recipe for to Scatter. Without this
-# declaration the conversion below had to claim ::Type{<:AbstractPlot} just to
-# be reached, which collided with Makie's own conversions for several plot
-# types and left `used_attributes` no signature that both fires and stays
-# unambiguous. Naming what this actually produces -- a grid layout -- fixes both.
+
+# Select layout conversion explicitly to avoid the Scatter fallback and overlapping Makie
+# conversion methods.
 Makie.plottype(::DensitySampleVector) = Makie.Plot{Makie.plot}
 
-# Makie forwards conversion keywords only where they are declared here;
-# accepting them in the signature below is not enough to ever receive them.
+# Makie only forwards conversion keywords declared by used_attributes.
 Makie.used_attributes(::Type{<:Makie.Plot{Makie.plot}}, ::DensitySampleVector) =
     (:recipes, :vsel, :N_max, :trace_nsteps, :support, :step_intervals, :dark)
 
@@ -108,12 +103,10 @@ function Makie.convert_arguments(
     trace_nsteps::Integer = 20,
     support = nothing,
     step_intervals = nothing,
-    # This embed path draws under the caller's own theme; `dark` only informs the
-    # few cycling-affected colors (config stats_color) that can't come from a theme.
+    # The caller owns the theme; dark selects overlay colors that override Makie cycling.
     dark::Bool = false,
 )
-    # Backend-specific shader warmup -- can only happen once a concrete backend
-    # is loaded, so it lives at the entry points, not in _setup_static_graph.
+    # Warmup requires a concrete rendering backend.
     warmup_makie_shaders()
 
     graph, _ = _setup_static_graph(
@@ -141,7 +134,7 @@ function BAT.bat_makie_plot(
     support = nothing,
     step_intervals = nothing,
 )
-    # TODO: MD, Discuss config handling and passing of user attribute overwrites
+    # TODO: Support user configuration and attribute overrides.
 
     # Deferred display must also defer this optional temporary-figure render.
     display && warmup_makie_shaders()
@@ -153,7 +146,6 @@ function BAT.bat_makie_plot(
         support = support, step_intervals = step_intervals,
     )
 
-    # PickerInfo (concrete, type-erased callback) -- see makie_render_utils.jl.
     picker_info = PickerInfo(
         n_dof,
         N_max,
@@ -173,8 +165,7 @@ function BAT.bat_makie_plot(
         try
             _maybe_display(built.fig)
         catch
-            # Construction's theme scope has ended before any renderer join.
-            # A failed display never hands this figure's ownership to the caller.
+            # A failed display leaves the figure owned here.
             try
                 _close_owned_live_screens!(built.fig)
             catch err
@@ -187,8 +178,8 @@ function BAT.bat_makie_plot(
     return built.fig
 end
 
-# Everything the light and dark themes share; bat_theme()/bat_theme_dark() build
-# on this via merge (recursive per attribute path, override wins), adding only what differs.
+
+# Shared attributes for the light and dark themes.
 function _bat_base_theme()
     return Theme(
         fontsize = 20,
@@ -279,6 +270,7 @@ function _bat_base_theme()
     )
 end
 
+
 function BAT.bat_theme()
     # Background -> panel -> widget shade ladder, see _panel_bg_color.
     panel_color = _panel_bg_color(RGB(1, 1, 1))
@@ -313,6 +305,7 @@ function BAT.bat_theme()
         ),
     ))
 end
+
 
 function BAT.bat_theme_dark()
     # Nice dark purple:

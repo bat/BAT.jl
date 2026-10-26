@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 # Owned display metadata. A compressed sample row can cover several cycles.
 struct SampleStepSpan
     row::Int
@@ -7,6 +8,8 @@ struct SampleStepSpan
     first::Int64
     last::Int64
 end
+
+
 const WalkerStepSpans = Vector{SampleStepSpan}
 const ChainStepSpans = Vector{WalkerStepSpans}
 const SampleStepSpans = Vector{ChainStepSpans}
@@ -15,7 +18,8 @@ _empty_walker_spans(outputs) = [SampleStepSpan[] for _ in outputs]
 function _push_step_span!(spans, span::SampleStepSpan)
     if !isempty(spans)
         prev = last(spans)
-        if prev.row == span.row && prev.cycle == span.cycle && prev.last < typemax(Int64) && prev.last + 1 == span.first
+        if prev.row == span.row && prev.cycle == span.cycle &&
+            prev.last < typemax(Int64) && prev.last + 1 == span.first
             spans[end] = SampleStepSpan(prev.row, prev.cycle, prev.first, span.last)
             return spans
         end
@@ -23,6 +27,7 @@ function _push_step_span!(spans, span::SampleStepSpan)
     push!(spans, span)
     return spans
 end
+
 
 # Use BAT's merge rule, recording where each input row went. Never change the
 # sampler's merging or infer time identity from coordinate equality.
@@ -47,6 +52,8 @@ function _append_timed_walkers(old, fresh, old_time, fresh_time)
     end
     return merged, timing
 end
+
+
 function _append_timed_chains(old, fresh, old_time, fresh_time)
     axes(old) == axes(fresh) == axes(old_time) == axes(fresh_time) ||
         throw(ArgumentError("Mismatched display chain/timing topology"))
@@ -54,11 +61,13 @@ function _append_timed_chains(old, fresh, old_time, fresh_time)
     return first.(pairs), last.(pairs)
 end
 
+
 # Static callers explicitly declare repetition intervals, rather than asking us
 # to guess a weighting scheme or recover cycle boundaries from sample IDs.
 function _static_step_spans(samples, intervals)
     isnothing(intervals) && return nothing
-    length(intervals) == length(samples) || throw(ArgumentError("step_intervals must have one entry per sample row"))
+    length(intervals) == length(samples) ||
+        throw(ArgumentError("step_intervals must have one entry per sample row"))
     result = SampleStepSpan[]
     groups = Dict{Tuple{Int32,Int32,Int32},Vector{SampleStepSpan}}()
     for row in eachindex(samples)
@@ -107,6 +116,7 @@ struct SampleWindowData{S}
     chainids::Vector{Int32}
 end
 
+
 function _sample_window_data(samples, current_idxs, timing)
     walkers = Any[]
     ranges = UnitRange{Int}[]
@@ -129,7 +139,8 @@ function _sample_window_data(samples, current_idxs, timing)
                 cycles = Dict{Int32,Vector{SampleStepSpan}}()
                 for s in timing[i][j]
                     s.row <= nrows || continue
-                    1 <= s.row && 1 <= s.first <= s.last || throw(ArgumentError("Invalid sample timing"))
+                    1 <= s.row && 1 <= s.first <= s.last ||
+                        throw(ArgumentError("Invalid sample timing"))
                     push!(get!(() -> SampleStepSpan[], cycles, s.cycle), s)
                 end
                 for cycle in sort!(collect(keys(cycles)))
@@ -161,6 +172,7 @@ struct WindowStepGroup
     ends::Vector{Int64}
 end
 
+
 function _window_selection(data::SampleWindowData, window)
     selected = WindowStepGroup[]
     if data.timed
@@ -175,7 +187,9 @@ function _window_selection(data::SampleWindowData, window)
             push!(selected, WindowStepGroup(g.chain, g.walker, g.cycle, rows, starts, ends))
             if !isnothing(window)
                 for k in eachindex(rows)
-                    mass[rows[k]] = Base.Checked.checked_add(get(mass, rows[k], Int64(0)), ends[k] - starts[k] + 1)
+                    mass[rows[k]] = Base.Checked.checked_add(
+                        get(mass, rows[k], Int64(0)), ends[k] - starts[k] + 1
+                    )
                 end
             end
         end
@@ -199,6 +213,7 @@ function _window_selection(data::SampleWindowData, window)
         return (data.samples[rows], selected)
     end
 end
+
 
 # Grouping/recency is shared by all cells; coordinates are gathered per marginal.
 function _window_trace_groups(groups, nsteps)
@@ -230,6 +245,7 @@ function _window_trace_groups(groups, nsteps)
     return result
 end
 
+
 # Initialization cursors own only integers, never candidate coordinate arrays.
 struct InitStepSegment
     cycle::Int32
@@ -238,13 +254,16 @@ struct InitStepSegment
     before::Tuple{Int,Int64}
     after::Tuple{Int,Int64}
 end
+
+
 _sample_cursor(samples) = isempty(samples) ? (0, Int64(0)) : (length(samples), Int64(last(samples.weight)))
 
 function BAT.prepare_visualizer_init!(vis::BATVisualizer{BATMakieVisualization}, algorithm)
     claimed = Ref(false)
     try
         _claim_live_visualizer!(vis, claimed)
-        vis.content.capture_init[] = algorithm.store_burnin && algorithm.sample_weighting isa BAT.RepetitionWeighting
+        vis.content.capture_init[] =
+            algorithm.store_burnin && algorithm.sample_weighting isa BAT.RepetitionWeighting
     catch err
         if claimed[]
             _fail_visualizer!(vis, err, catch_backtrace(), :prepare)
@@ -269,6 +288,8 @@ function BAT.clear_visualizer_init!(vis::BATVisualizer{BATMakieVisualization})
     vis.content.capture_init[] = false
     return nothing
 end
+
+
 function BAT.reset_visualizer_init!(vis::BATVisualizer{BATMakieVisualization}, chain, walkers)
     lock(vis.content.buffer_lock) do
         for j in walkers
@@ -279,13 +300,19 @@ function BAT.reset_visualizer_init!(vis::BATVisualizer{BATMakieVisualization}, c
     end
     return nothing
 end
+
+
 function BAT.begin_visualizer_init_segment(vis::BATVisualizer{BATMakieVisualization}, chain, output)
     return (
         cycle = chain.info.cycle, step = chain.stepno,
         cursors = _sample_cursor.(output), zero = iszero.(chain.current.x.weight)
     )
 end
-function BAT.end_visualizer_init_segment!(vis::BATVisualizer{BATMakieVisualization}, before, chain, output)
+
+
+function BAT.end_visualizer_init_segment!(
+    vis::BATVisualizer{BATMakieVisualization}, before, chain, output
+)
     lock(vis.content.buffer_lock) do
         for j in eachindex(output)
             key = (chain.info.id, chain.current.x.info[j].walkerid)
@@ -302,6 +329,8 @@ function BAT.end_visualizer_init_segment!(vis::BATVisualizer{BATMakieVisualizati
     end
     return nothing
 end
+
+
 function _initial_step_spans(vis, state, outputs)
     state.chain_state.weighting isa BAT.RepetitionWeighting || return nothing
     all(iszero, state.chain_state.current.x.weight) || return nothing

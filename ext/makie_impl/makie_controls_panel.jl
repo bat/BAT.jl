@@ -1,20 +1,16 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# Empirically measured natural label widths at the design theme/fontsize --
-# re-measure if any label text or the ambient fontsize changes.
+
+# Measured label widths; update when labels or theme font size change.
 const _LBL_ROW_WIDTH = 80.0        # max("Upper", "Diagonal", "Lower")
 const _LBL_STATS_WIDTH = 116.0     # "Stats overlay"
 const _LBL_TRACE_WIDTH = 122.0     # "Trace overlay"
 const _LBL_MARGINALS_WIDTH = 182.0 # "Displayed Marginals"
 const _LBL_MARGINALS_CAPPED_WIDTH = 292.0 # "Displayed Marginals (1-10 of NN)"
 const _UI_COL2_MENU_WIDTH = 200.0  # fixed recipe-menu column width (colsize! below)
-# The vsel picker shows at most this many variables (matrix cells scale down
-# with N, but past 10 the matrix stops being usable UI; further dims stay
-# selectable via the vsel argument).
+# Limit the picker to ten variables; further coordinates remain selectable through vsel.
 const _PICKER_MAX_N = 10
-# Deterministic picker geometry, purely N-derived (no reactive rescaling):
-# cells shrink and pack tighter as N grows so the matrix fits the panel for
-# every N up to _PICKER_MAX_N.
+# Size picker cells from N so the matrix fits the panel without reactive rescaling.
 _picker_cell_size(N::Integer) = clamp(176.0 / (N + 1), 14.0, 24.0)
 _picker_gap(N::Integer) = N <= 5 ? 5.0 : 3.0
 _picker_fontsize(N::Integer) = clamp(0.55 * _picker_cell_size(N), 7.0, 12.0)
@@ -27,9 +23,10 @@ const _UI_LAYOUT_ROW_GAP = 16.0
 # theme fontsize or Menu styling changes).
 const _UI_CONTROL_ROW_HEIGHT = 36.0
 
-# Panel width computed by plain arithmetic, NOT GridLayoutBase bottom-up sizing: a nothing-deferring
-# GridLayout anywhere in the chain breaks determinability.
-function _controls_panel_width(picker_info::Union{PickerInfo,Nothing}, ui_box_pad::Real; has_trace_col::Bool = true)
+# Compute panel width explicitly: a GridLayout with deferred width prevents bottom-up sizing.
+function _controls_panel_width(
+    picker_info::Union{PickerInfo,Nothing}, ui_box_pad::Real; has_trace_col::Bool = true
+)
     fixed_cols = _LBL_ROW_WIDTH + _UI_COL2_MENU_WIDTH + _LBL_STATS_WIDTH +
                  (has_trace_col ? _LBL_TRACE_WIDTH : 0.0)
     picker_col_width = if isnothing(picker_info)
@@ -43,12 +40,10 @@ function _controls_panel_width(picker_info::Union{PickerInfo,Nothing}, ui_box_pa
     return 2 * ui_box_pad + fixed_cols + picker_col_width + (n_cols - 1) * _UI_LAYOUT_COL_GAP
 end
 
-# Fixed width (not Auto()) so a panel piece never depends on the grid's Aspect-driven column; halign=:center
-# keeps it centered under the grid.
+
+# Fixed widths keep panel sizing independent of the grid's aspect ratio.
 _fix_panel_size!(x, panel_width::Real) = (x.width[] = Fixed(panel_width); x.halign[] = :center)
 
-# Looks up `current_recipe`'s dropdown label; raises a clear ArgumentError instead of an opaque "invalid
-# index: nothing" if it isn't one of `options`.
 function _default_recipe_label(options::Vector, current_recipe)
     idx = findfirst(x -> x[2] == current_recipe, options)
     isnothing(idx) && throw(ArgumentError(
@@ -58,6 +53,7 @@ function _default_recipe_label(options::Vector, current_recipe)
     ))
     return options[idx][1]
 end
+
 
 # Preserve the original construction/display error if best-effort cleanup fails.
 function _empty_failed_static_figure!(fig)
@@ -69,6 +65,7 @@ function _empty_failed_static_figure!(fig)
     return nothing
 end
 
+
 function _build_fig(
     graph::ComputeGraph,
     gridlayout::Any,
@@ -77,14 +74,12 @@ function _build_fig(
     has_trace_info::Bool = false,
     live_vis = nothing,
 )
-    # Panel rows get their own Fixed widths (_fix_panel_size!) so the grid's Aspect/Auto column is never
-    # capped by the panel's width need.
+    # Panel rows have independent fixed widths; the plot grid can still expand.
     n_grid = size(graph[:live_map][], 1)
     grid_growth = 170 * max(n_grid - 3, 0)
     ui_box_pad = to_value(Makie.theme(:fontsize)) / 3
     panel_width = _controls_panel_width(picker_info, ui_box_pad; has_trace_col = has_trace_info)
-    # The figure must be at least as wide as the fixed-width panel (plus a
-    # small margin), or a wide picker matrix gets clipped at the figure edge.
+    # Leave enough figure width for the panel and its margin.
     fig_w = max(min(665 + grid_growth, 1600), ceil(Int, panel_width) + 24)
     fig = Figure(size = (fig_w, min(850 + grid_growth, 1785)))
     try
@@ -97,6 +92,7 @@ function _build_fig(
     end
 end
 
+
 function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     picker_info::Union{PickerInfo,Nothing}, ui_box_pad, panel_width;
     has_chain_info::Bool, has_trace_info::Bool, live_vis)
@@ -106,12 +102,10 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     _bind_interactive_grid!(fig, gridlayout; live_vis = live_vis)
 
     colsize!(fig.layout, 1, Aspect(1, 1))
-    # Auto(), not Relative: the axis-only grid reports no natural size, so this row gets the remainder after
-    # rows 2/3 claim their content heights.
+    # Auto assigns the plot grid the space left by the two control rows.
     rowsize!(fig.layout, 1, Auto())
 
-    # A 3x3 wrapper reserves fixed padding around the center content cell.
-    # Explicit dimensions allow sizing row/column 3; the Box supplies its background.
+    # Reserve fixed padding around the central content cell.
     toggle_row = fig[2, 1] = GridLayout(3, 3)
     rowgap!(toggle_row, 0)
     colgap!(toggle_row, 0)
@@ -127,8 +121,6 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     _fix_panel_size!(toggle_row, panel_width)
     rowsize!(fig.layout, 2, Auto())
 
-    # Collapsible block holding everything else; same panel treatment and panel_width as toggle_row, so both
-    # bars match by construction.
     controls_layout = fig[3, 1] = GridLayout(3, 3)
     rowgap!(controls_layout, 0)
     colgap!(controls_layout, 0)
@@ -140,16 +132,13 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     rowsize!(controls_layout, 3, Fixed(ui_box_pad))
     colsize!(controls_layout, 1, Fixed(ui_box_pad))
     colsize!(controls_layout, 3, Fixed(ui_box_pad))
-    # Only valid after the fig[3,1] assignment above -- rowgap!(_, 2, _) throws until GridLayoutBase has grown
-    # fig.layout to 3 rows.
+    # Set gaps after assigning content, once all three tracks exist.
     rowgap!(fig.layout, 2, ui_box_pad)
 
-    # One GridLayout for labels/menus (cols 1-4) AND the vsel picker (col 5), so they share grid rows and
-    # align pixel-exactly by construction.
+    # Share tracks between labels, menus and the variable picker.
     ui_layout = controls_layout[2, 2] = GridLayout()
 
-    # The default Auto() width means content-sized, NOT fill-the-cell; width = nothing is what defers to the
-    # assigned cell's width.
+    # A width of nothing fills the assigned cell; Auto would size to content.
     for gl in (toggle_row_content, ui_layout)
         gl.width[] = nothing
     end
@@ -178,9 +167,8 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     default_diag = _default_recipe_label(options1D, graph[:diagonal_recipe][])
     default_lower = _default_recipe_label(options2D, graph[:lower_recipe][])
 
-    # Constructed BOTTOM-FIRST with direction pinned :up -- click dispatch, not
-    # looks: all Menus share one event-handler priority (registration order), and
-    # bottom-first + :up guarantees an open list (which only covers menus above it) is checked first.
+    # Construct upward-opening menus bottom-first so an open list receives clicks before the
+    # menus it covers. Equal-priority handlers run in registration order.
     menu_lower = Menu(
         fig,
         options = options2D,
@@ -317,7 +305,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
         lbl_stats, toggle_upper, toggle_diag, toggle_lower,
     ]
 
-    # Only for sources with explicit step timing; Row 3 (Diagonal) stays unassigned -- a trace is inherently 2D.
+    # Trace controls require step timing and only apply to off-diagonal cells.
     if has_trace_info
         lbl_trace = Label(fig, "Trace overlay")
         ui_layout[1, 4] = lbl_trace
@@ -333,7 +321,6 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     end
 
     colsize!(ui_layout, 1, Auto())
-    # Same constant the width formula uses -- a bare literal could drift.
     colsize!(ui_layout, 2, _UI_COL2_MENU_WIDTH)
     colsize!(ui_layout, 3, Auto())
     has_trace_info && colsize!(ui_layout, 4, Auto())
@@ -371,11 +358,11 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
         append!(ui_blocks, picker_blocks)
     end
 
-    # Starts collapsed; update=true applies that at construction, since `on` only fires on future notifications.
+    # Apply the initial collapsed state when registering the callback.
     controls_visible = Observable(false)
     _view_on(subscription_owner, controls_visible; update = true) do vis
         rowsize!(fig.layout, 3, vis ? Auto() : Fixed(0))
-        # Not in ui_blocks, so hidden directly: row 3's Fixed(0) alone leaves a ~1px rounding sliver of the Box visible.
+        # Hide the background explicitly; Fixed(0) alone can leave a rounding sliver.
         controls_box.visible[] = vis
         for b in ui_blocks
             _set_block_visible!(b, vis)
@@ -386,17 +373,17 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     end
 
     if !isnothing(live_vis)
-        # Describe the observed population, including in retained/exported views.
-        # Keep this outside the collapsible controls and independent of the window.
+        # Keep the observed-population label visible independently of the controls and selected
+        # window.
         Label(fig[4, 1], "Observed sampling history\nMay include initialization and burn-in";
             tellwidth = false)
     end
 
-    # Exposed so the live path can retrofit the index slider post-run.
     guarded_slider! = isnothing(live_vis) ? add_index_slider! :
         () -> _with_live_view(add_index_slider!, live_vis)
     return (fig = fig, add_index_slider! = guarded_slider!, range_controls = range_controls)
 end
+
 
 # Native IntervalSlider scans its range to locate values and uses floating-point
 # index arithmetic while dragging. Bound that work independently of elapsed
@@ -412,6 +399,7 @@ function Base.getindex(grid::SampleRangeGrid, i::Int)
     return n == 1 ? Int64(1) : Int64(1 + div(Int128(i - 1) * (grid.limit - 1), n - 1))
 end
 
+
 function _parse_sample_window(text, limit)
     text isa AbstractString || return nothing
     endpoints = split(text, ':')
@@ -421,13 +409,13 @@ function _parse_sample_window(text, limit)
     return 1 <= lo <= hi <= limit ? (lo, hi) : nothing
 end
 
-# Pure decision logic, kept separate from widget wiring for direct testing. The active set, not sibling
-# checkbox states, is the source of truth.
+
+# Derive selection from the active set rather than sibling checkbox state.
 function _vsel_after_toggle(active_vars::Set{<:Integer}, i::Integer, j::Integer, is_on::Bool)
     return is_on ? union(active_vars, (i, j)) : setdiff(active_vars, (i, j))
 end
 
-# Both endpoints must be selected (a diagonal cell i==j just needs i).
+
 _checkbox_should_be_checked(active_vars::Set{<:Integer}, i::Integer, j::Integer) =
     (i in active_vars) && (j in active_vars)
 
@@ -437,8 +425,7 @@ _checkbox_should_be_checked(active_vars::Set{<:Integer}, i::Integer, j::Integer)
 const _BLOCK_NATURAL_SIZE = WeakKeyDict{Any,Tuple{Any,Any}}()
 _natural_size!(b) = get!(() -> (b.width[], b.height[]), _BLOCK_NATURAL_SIZE, b)
 
-# Sets an Observable without notifying -- collapses one widget's attribute writes into a single relayout; each
-# widget's last write must still notify.
+# Batch attribute writes without notification; the last write must notify to trigger relayout.
 _silent_set!(observable, val) = setexcludinghandlers!(observe(observable), val)
 
 function _set_block_visible!(b, v::Bool)
@@ -450,8 +437,8 @@ function _set_block_visible!(b, v::Bool)
 end
 _set_block_visible!(b::Union{Label,Box}, v::Bool) = (b.visible[] = v)
 
-# Checkbox's clickable area is a fixed-size square (`size`), independent of its bbox, so `size` must be
-# zeroed/restored too (captured weakly, for GC).
+# Checkbox hit testing uses size independently of its bounding box. Capture the widget weakly
+# when hiding/restoring both.
 const _CHECKBOX_NATURAL_SIZE = WeakKeyDict{Checkbox,Float64}()
 function _set_block_visible!(b::Checkbox, v::Bool)
     _silent_set!(b.blockscene.visible, v)
@@ -467,12 +454,9 @@ function _set_block_visible!(b::Checkbox, v::Bool)
     return nothing
 end
 
-# Builds the "Displayed Marginals" title + picker matrix over the first
-# min(N, _PICKER_MAX_N) variables; only the lower triangle incl. diagonal
-# (i >= j) is interactive, since (i,j)/(j,i) are the same marginal. All cell/
-# gap/font sizes are fixed, N-derived values (_picker_cell_size and friends)
-# set once at construction -- deterministic square geometry at every N, and
-# exactly what _controls_panel_width budgets for.
+
+# Build the capped variable picker with fixed square cells. Only the lower triangle is
+# interactive because mirrored cells select the same marginal.
 function _build_vsel_picker!(
     fig::Figure,
     ui_layout::GridLayout,
@@ -498,8 +482,7 @@ function _build_vsel_picker!(
 
     picker_layout = ui_layout[2:4, picker_col] = GridLayout()
 
-    # Color derived from the actual background (see _status_text_color) -- a hardcoded :red is illegible on
-    # the dark theme.
+    # Choose a status color legible against the current background.
     status_label = Label(fig, "", fontsize = 12, color = _status_text_color(fig.scene.backgroundcolor[]))
 
     initial_vsel_set = Set(_clamp_vsel(initial_vsel, N, N_max))
@@ -527,8 +510,6 @@ function _build_vsel_picker!(
                 checkboxes[(i, j)] = cb
                 push!(all_blocks, cb)
             else
-                # Widget shade from the actual background (two ladder steps), not a hardcoded gray that
-                # clashes with the dark theme.
                 bx = Box(fig,
                     color = _panel_bg_color(_panel_bg_color(fig.scene.backgroundcolor[])),
                     width = cb_size, height = cb_size)
@@ -539,10 +520,8 @@ function _build_vsel_picker!(
     end
     picker_layout[N_shown+2, 1:(N_shown+1)] = status_label
 
-    # Fixed square tracks and tight gaps, set only now that the content has
-    # created the tracks (gap/size calls on a still-empty GridLayout don't
-    # extend to tracks added later): cells stay square no matter how the
-    # surrounding rows/columns stretch.
+    # Set fixed track sizes after content has created the tracks; later layout growth must not
+    # stretch the square cells.
     rowgap!(picker_layout, gap)
     colgap!(picker_layout, gap)
     for k in 1:N_shown+1
@@ -550,11 +529,8 @@ function _build_vsel_picker!(
         rowsize!(picker_layout, k, Fixed(cell))
     end
 
-    # ui_layout's rows 2:4 do NOT auto-grow for the row-spanning matrix
-    # (GridLayoutBase sizes Auto tracks from single-span content only, so an
-    # oversized span silently overflows into the neighboring rows) -- give
-    # all three rows explicit equal heights whenever the matrix needs more
-    # than the natural control-row height.
+    # Auto tracks ignore spanning content. Enlarge all three rows equally when the picker
+    # exceeds their natural height.
     status_h = 16.0
     matrix_h = (N_shown + 1) * cell + (N_shown + 1) * gap + status_h
     row_h = max(_UI_CONTROL_ROW_HEIGHT, (matrix_h - 2 * _UI_LAYOUT_ROW_GAP) / 3)
@@ -583,8 +559,7 @@ function _build_vsel_picker!(
             active_vars[] = new_vars
             apply_vsel!(sort(collect(new_vars)))
 
-            # Resync every checkbox as a total function of the new active set (unchecking an off-diagonal
-            # deselects a still-referenced diagonal by design).
+            # Resync all checkboxes: deselecting a pair also deselects its diagonal variables.
             updating_programmatically[] = true
             for ((i2, j2), cb2) in checkboxes
                 cb2.checked[] = _checkbox_should_be_checked(new_vars, i2, j2)
@@ -595,6 +570,7 @@ function _build_vsel_picker!(
 
     return all_blocks
 end
+
 
 # Programmatic and widget changes use the same single graph transaction.
 function _apply_sample_window!(graph, window; live_vis = nothing)
@@ -608,6 +584,7 @@ function _apply_sample_window!(graph, window; live_vis = nothing)
     _view_graph_update!(graph, live_vis; window_steps = window)
     return true
 end
+
 
 # Static controls preserve direct graph updates; live controls use the view owner.
 _view_graph_update!(graph, ::Nothing; kwargs...) = update!(graph; kwargs...)

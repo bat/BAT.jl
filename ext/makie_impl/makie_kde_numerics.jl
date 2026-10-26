@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 # Pure numerical helpers for the four Makie KDE recipes. Bounds are hard
 # support, not a viewport. Outputs own their arrays; inputs are never mutated.
 const _KDE_CUTOFF_BANDWIDTHS = 4.0 # omitted Gaussian image tails are small, not zero
@@ -16,7 +17,8 @@ function _kde_support_bounds(support)
     isnothing(support) && return (-Inf, Inf)
     length(support) == 2 || throw(ArgumentError("KDE support requires two bounds"))
     rawlo, rawhi = support
-    rawlo isa Real && rawhi isa Real || throw(ArgumentError("KDE support bounds must be real numbers"))
+    rawlo isa Real && rawhi isa Real ||
+        throw(ArgumentError("KDE support bounds must be real numbers"))
     rawlo < rawhi || throw(ArgumentError("KDE support must have lo < hi and no NaN bounds"))
     lo, hi = Float64(rawlo), Float64(rawhi)
     ((isfinite(rawlo) && !isfinite(lo)) || (isfinite(rawhi) && !isfinite(hi))) &&
@@ -24,6 +26,7 @@ function _kde_support_bounds(support)
     lo < hi || throw(ArgumentError("KDE support has no positive Float64 width"))
     return (lo, hi)
 end
+
 
 _support_is_binding(lo::Real, hi::Real) = isfinite(lo) || isfinite(hi)
 
@@ -44,6 +47,7 @@ function _rescale_kde_weights(weights::AbstractVector)
     end
     return relative
 end
+
 
 function _kde_population(coords::Tuple, weights::AbstractVector, bounds::Tuple)
     all(v -> length(v) == length(weights), coords) ||
@@ -69,9 +73,12 @@ function _kde_population(coords::Tuple, weights::AbstractVector, bounds::Tuple)
     return map(v -> v[keep], coords), w[keep]
 end
 
+
 # Weighted counterpart of KernelDensity.default_bandwidth: uncorrected weighted
 # standard deviation/IQR and Kish effective count. Preserve its existing fallback.
-function _weighted_kde_bandwidth(values::AbstractVector{<:Real}, weights::AbstractVector{<:Real}, alpha::Float64 = 0.9)
+function _weighted_kde_bandwidth(
+    values::AbstractVector{<:Real}, weights::AbstractVector{<:Real}, alpha::Float64 = 0.9
+)
     isempty(weights) && return nothing
     w_max = maximum(weights)
     (isfinite(w_max) && w_max > 0) || return nothing
@@ -92,10 +99,12 @@ function _weighted_kde_bandwidth(values::AbstractVector{<:Real}, weights::Abstra
     return alpha * width * n_eff^(-0.2)
 end
 
+
 function _kde_bandwidth(values::AbstractVector, weights::AbstractVector)
     h = allequal(weights) ? nothing : _weighted_kde_bandwidth(values, weights)
     return isnothing(h) ? KernelDensity.default_bandwidth(values) : h
 end
+
 
 # Enclose quartile interpolation and weighted rank arithmetic. Exact original
 # plateaus retain zero IQR; unresolved intervals are rejected by the caller.
@@ -182,6 +191,7 @@ function _kde_iqr_bounds(values, weights, centered, weighted, coordinate_bounds)
     return (max(0.0, down(q75[1]-q25[2])), up(q75[2]-q25[1]))
 end
 
+
 # Preserve the selected bandwidth; witness arithmetic only decides admission.
 function _kde_bounded_bandwidth(values, weights)
     fail(message) = _kde_numerical_error(
@@ -262,12 +272,14 @@ function _kde_bounded_bandwidth(values, weights)
     return h
 end
 
+
 function _kde_images(z, lo, hi)
     images = (z,)
     z - lo < _KDE_CUTOFF_BANDWIDTHS && (images = (images..., lo - (z - lo)))
     hi - z < _KDE_CUTOFF_BANDWIDTHS && (images = (images..., hi + (hi - z)))
     return images
 end
+
 
 function _kde_grid_size(span, points_per_bandwidth, minimum_points, maximum_points)
     required = points_per_bandwidth * span + 1
@@ -276,13 +288,17 @@ function _kde_grid_size(span, points_per_bandwidth, minimum_points, maximum_poin
             "required grid size $required exceeds the $maximum_points point limit; use a histogram for this population"
         )
     n = nextpow(2, max(minimum_points, ceil(Int, required)))
-    n <= maximum_points || _kde_numerical_error("required grid size $n exceeds the $maximum_points point limit")
+    n <= maximum_points ||
+        _kde_numerical_error("required grid size $n exceeds the $maximum_points point limit")
     return n
 end
 
+
 # Scan image extrema before allocating augmented samples or an FFT grid. Finite
 # remote bounds may map to infinities; they need not be convolution endpoints.
-function _kde_axis_plan(values, weights, bounds, points_per_bandwidth, minimum_points, maximum_points)
+function _kde_axis_plan(
+    values, weights, bounds, points_per_bandwidth, minimum_points, maximum_points
+)
     h = _kde_bounded_bandwidth(values, weights)
     origin = Float64(first(values))
     z = (Float64.(values) .- origin) ./ h
@@ -303,6 +319,7 @@ function _kde_axis_plan(values, weights, bounds, points_per_bandwidth, minimum_p
     return (; origin, h, z, lo, hi, bounds, grid, left, right, points_per_bandwidth)
 end
 
+
 function _kde_physical_grid(plan, z)
     x = [muladd(plan.h, v, plan.origin) for v in z]
     first(z) == plan.lo && (x[1] = plan.bounds[1])
@@ -316,6 +333,7 @@ function _kde_physical_grid(plan, z)
     return x
 end
 
+
 # Linear interpolation is nonnegative and has explicit integration semantics.
 # Endpoint clamping here only accounts for mapping a grid endpoint to physical
 # Float64 and back; admission never clamps observations to support.
@@ -324,6 +342,7 @@ function _kde_lerp(grid, values, z)
     t = clamp((z - grid[j]) / (grid[j+1] - grid[j]), 0.0, 1.0)
     return (1-t) * values[j] + t * values[j+1]
 end
+
 
 function _kde_relative_widths(x)
     widths = diff(x)
@@ -334,12 +353,14 @@ function _kde_relative_widths(x)
     return relative, scale
 end
 
+
 function _kde_relative_density(density)
     all(v -> isfinite(v) && v >= 0, density) || _kde_numerical_error("density must be finite and nonnegative")
     peak = maximum(density)
     peak > 0 || _kde_numerical_error("density has no positive mass")
     return density ./ peak, peak
 end
+
 
 # Factor a product without overflowing/underflowing it. Numerators below are
 # relative heights in [0,1]; applying the final exponent avoids unsafe h_x*h_y.
@@ -355,6 +376,7 @@ function _kde_scale_product(scales...)
     return m, exponent + e
 end
 
+
 function _kde_normalized_density(relative, scales...)
     m, e = _kde_scale_product(scales...)
     result = map(v -> ldexp(v / m, -e), relative)
@@ -363,6 +385,7 @@ function _kde_normalized_density(relative, scales...)
     return result
 end
 
+
 function _kde_normalize_curve(x, density)
     relative, _ = _kde_relative_density(density)
     widths, scale = _kde_relative_widths(x)
@@ -370,15 +393,17 @@ function _kde_normalize_curve(x, density)
     return _kde_normalized_density(relative, mass, scale)
 end
 
+
 function _kde_cell_mass(density, xedges, yedges)
     relative, _ = _kde_relative_density(density)
     wx, sx = _kde_relative_widths(xedges)
     wy, sy = _kde_relative_widths(yedges)
-    mass = [relative[i,j] * wx[i] * wy[j] for i in eachindex(wx), j in eachindex(wy)]
+    mass = [relative[i, j] * wx[i] * wy[j] for i in eachindex(wx), j in eachindex(wy)]
     total = sum(mass)
     isfinite(total) && total > 0 || _kde_numerical_error("cell probabilities have no finite positive mass")
     return (; relative, probabilities = mass ./ total, total, sx, sy)
 end
+
 
 _kde_unbounded_error(message) = _kde_numerical_error(
     "unbounded estimate $message; convert coordinates and weights to Float64, recenter or change units, or use a histogram")
@@ -387,6 +412,7 @@ function _kde_positive_normal(value)
     v = float(value)
     return isfinite(v) && v >= floatmin(typeof(v))
 end
+
 
 function _kde_check_unbounded_bandwidth(values, weights, h, weighted)
     isfinite(h) && h > 0 || _kde_unbounded_error("has an invalid bandwidth")
@@ -469,6 +495,7 @@ function _kde_check_unbounded_bandwidth(values, weights, h, weighted)
     return nothing
 end
 
+
 function _kde_check_unbounded_axis(values, grid, h)
     # Range algorithms may inspect nominal spacing instead of rounded nodes.
     physical = collect(Float64, grid)
@@ -487,7 +514,8 @@ function _kde_check_unbounded_axis(values, grid, h)
     for value in values
         k = searchsortedfirst(grid, value)
         j = k - 1
-        1 <= j < length(grid) || _kde_unbounded_error("cannot locate a positive-weight observation on its grid")
+        1 <= j < length(grid) ||
+            _kde_unbounded_error("cannot locate a positive-weight observation on its grid")
         left, right = (grid[k]-value)/s, (value-grid[j])/s
         isfinite(left) && isfinite(right) && left >= 0 && right >= 0 &&
             abs(left + right - 1) <= _KDE_UNBOUNDED_RTOL ||
@@ -495,6 +523,7 @@ function _kde_check_unbounded_axis(values, grid, h)
     end
     return s
 end
+
 
 function _kde_check_unbounded_tabulation(weights, steps::Tuple)
     total = sum(weights)
@@ -519,6 +548,7 @@ function _kde_check_unbounded_tabulation(weights, steps::Tuple)
     return nothing
 end
 
+
 function _kde_check_unbounded_density(density, steps::Tuple)
     relative, peak = _kde_relative_density(density)
     # This is an invariant check, never a normalization of the returned density.
@@ -529,6 +559,7 @@ function _kde_check_unbounded_density(density, steps::Tuple)
     return nothing
 end
 
+
 function _kde_check_unbounded_edges(edges, s)
     physical = collect(Float64, edges)
     all(isfinite, physical) && all(d -> isfinite(d) && d > 0 &&
@@ -537,13 +568,15 @@ function _kde_check_unbounded_edges(edges, s)
     return nothing
 end
 
+
 function _weighted_kde1d(values::AbstractVector, weights::AbstractVector, support = nothing)
     bounds = _kde_support_bounds(support)
     (values,), weights = _kde_population((values,), weights, (bounds,))
     if !_support_is_binding(bounds...)
         weighted = !allequal(weights)
         h = weighted ? _weighted_kde_bandwidth(values, weights) : nothing
-        weighted && isnothing(h) && _kde_unbounded_error("cannot resolve its effective sample count or bandwidth")
+        weighted && isnothing(h) &&
+            _kde_unbounded_error("cannot resolve its effective sample count or bandwidth")
         selected_h = isnothing(h) ? KernelDensity.default_bandwidth(values) : h
         _kde_check_unbounded_bandwidth(values, weights, selected_h, weighted)
         k = isnothing(h) ? kde(values; weights) : kde(values; weights, bandwidth = h)
@@ -566,6 +599,7 @@ function _weighted_kde1d(values::AbstractVector, weights::AbstractVector, suppor
     return (x = x, density = _kde_normalize_curve(x, density))
 end
 
+
 function _kde_output_cells(p)
     n = max(1, ceil(Int, (p.right - p.left) / step(p.grid)))
     n <= length(p.grid) || _kde_numerical_error("output cells exceed the FFT grid budget")
@@ -578,6 +612,7 @@ function _kde_output_cells(p)
     return (; edges, centers, x)
 end
 
+
 function _kde_center_edges(x)
     edges = vcat(first(x) - (x[2]-x[1])/2,
         [x[i] + (x[i+1]-x[i])/2 for i in 1:length(x)-1],
@@ -586,11 +621,15 @@ function _kde_center_edges(x)
     return edges
 end
 
-function _weighted_kde2d(x::AbstractVector, y::AbstractVector, weights::AbstractVector, support = nothing)
-    isnothing(support) || length(support) == 2 || throw(ArgumentError("2D KDE requires support for two coordinates"))
-    bounds = isnothing(support) ? ((-Inf,Inf), (-Inf,Inf)) :
+
+function _weighted_kde2d(
+    x::AbstractVector, y::AbstractVector, weights::AbstractVector, support = nothing
+)
+    isnothing(support) || length(support) == 2 ||
+        throw(ArgumentError("2D KDE requires support for two coordinates"))
+    bounds = isnothing(support) ? ((-Inf, Inf), (-Inf, Inf)) :
         (_kde_support_bounds(support[1]), _kde_support_bounds(support[2]))
-    (x,y), weights = _kde_population((x,y), weights, bounds)
+    (x, y), weights = _kde_population((x, y), weights, bounds)
     if !any(b -> _support_is_binding(b...), bounds)
         hx = hy = nothing
         weighted = !allequal(weights)
@@ -599,13 +638,17 @@ function _weighted_kde2d(x::AbstractVector, y::AbstractVector, weights::Abstract
             hy = _weighted_kde_bandwidth(y, weights)
         end
         use_default = isnothing(hx) || isnothing(hy)
-        weighted && use_default && _kde_unbounded_error("cannot resolve its effective sample count or bandwidth")
-        selected_hx, selected_hy = use_default ? KernelDensity.default_bandwidth((x,y)) : (hx,hy)
+        weighted && use_default &&
+            _kde_unbounded_error("cannot resolve its effective sample count or bandwidth")
+        selected_hx, selected_hy = use_default ? KernelDensity.default_bandwidth((x, y)) : (hx, hy)
         _kde_check_unbounded_bandwidth(x, weights, selected_hx, weighted)
         _kde_check_unbounded_bandwidth(y, weights, selected_hy, weighted)
-        k = use_default ? kde((x,y); weights) :
-            kde((x,y); weights, bandwidth = (hx,hy))
-        steps = (_kde_check_unbounded_axis(x, k.x, selected_hx), _kde_check_unbounded_axis(y, k.y, selected_hy))
+        k = use_default ? kde((x, y); weights) :
+            kde((x, y); weights, bandwidth = (hx, hy))
+        steps = (
+            _kde_check_unbounded_axis(x, k.x, selected_hx),
+            _kde_check_unbounded_axis(y, k.y, selected_hy)
+        )
         _kde_check_unbounded_tabulation(weights, steps)
         _kde_check_unbounded_density(k.density, steps)
         xedges, yedges = _kde_center_edges(k.x), _kde_center_edges(k.y)
@@ -620,36 +663,39 @@ function _weighted_kde2d(x::AbstractVector, y::AbstractVector, weights::Abstract
             "required 2D grid $(length(px.grid)) × $(length(py.grid)) exceeds the $_KDE_MAX_CELLS_2D cell limit; use a histogram for this population"
         )
     ax, ay, aw = Float64[], Float64[], Float64[]
-    for i in eachindex(weights), vx in _kde_images(px.z[i], px.lo, px.hi), vy in _kde_images(py.z[i], py.lo, py.hi)
+    for i in eachindex(weights), vx in _kde_images(px.z[i], px.lo, px.hi),
+        vy in _kde_images(py.z[i], py.lo, py.hi)
         push!(ax, vx)
         push!(ay, vy)
         push!(aw, weights[i])
     end
-    k = kde((ax,ay), (px.grid,py.grid); weights = aw, bandwidth = (1.0,1.0))
+    k = kde((ax, ay), (px.grid, py.grid); weights = aw, bandwidth = (1.0, 1.0))
     cx, cy = _kde_output_cells(px), _kde_output_cells(py)
     # Separable interpolation work is bounded by the same tensor grid budget.
-    along_x = [_kde_lerp(k.x, view(k.density,:,j), z) for z in cx.centers, j in eachindex(k.y)]
-    density = [_kde_lerp(k.y, view(along_x,i,:), z) for i in eachindex(cx.centers), z in cy.centers]
+    along_x = [_kde_lerp(k.x, view(k.density, :, j), z) for z in cx.centers, j in eachindex(k.y)]
+    density = [_kde_lerp(k.y, view(along_x, i, :), z) for i in eachindex(cx.centers), z in cy.centers]
     masses = _kde_cell_mass(density, cx.edges, cy.edges)
     normalized = _kde_normalized_density(masses.relative, masses.total, masses.sx, masses.sy)
     return (x = cx.x, y = cy.x, density = normalized, xedges = cx.edges, yedges = cy.edges)
 end
+
 
 # Superlevel mass of a continuous linear curve, in relative height/width units.
 function _kde_superlevel_mass(widths, y, threshold)
     total = 0.0
     for i in eachindex(widths)
         a, b = y[i], y[i+1]
-        if min(a,b) >= threshold
+        if min(a, b) >= threshold
             total += widths[i] * (a/2 + b/2)
-        elseif max(a,b) > threshold
-            high, low = max(a,b), min(a,b)
+        elseif max(a, b) > threshold
+            high, low = max(a, b), min(a, b)
             fraction = (high-threshold)/(high-low)
             total += (widths[i]*fraction) * (high/2 + threshold/2)
         end
     end
     return total
 end
+
 
 function _kde_curve_region(x, density, p)
     0 < p <= 1 || throw(ArgumentError("KDE region content must be in (0,1]"))
@@ -677,10 +723,10 @@ function _kde_curve_region(x, density, p)
     components = NamedTuple{(:x,:y),Tuple{Vector{Float64},Vector{Float64}}}[]
     for i in 1:length(x)-1
         a, b = y[i], y[i+1]
-        max(a,b) < threshold && continue
+        max(a, b) < threshold && continue
         left, right = Float64(x[i]), Float64(x[i+1])
         yl, yr = Float64(density[i]), Float64(density[i+1])
-        if min(a,b) < threshold
+        if min(a, b) < threshold
             fraction = (threshold-a)/(b-a)
             crossing = muladd(fraction, right-left, left)
             # Round crossings outward. Returned geometry contains the requested
@@ -701,7 +747,7 @@ function _kde_curve_region(x, density, p)
             push!(components[end].x, right)
             push!(components[end].y, yr)
         else
-            push!(components, (x = [left,right], y = [yl,yr]))
+            push!(components, (x = [left, right], y = [yl, yr]))
         end
     end
     area = sum(sum((c.x[i+1]-c.x[i])/scale * (c.y[i]/peak/2 + c.y[i+1]/peak/2)

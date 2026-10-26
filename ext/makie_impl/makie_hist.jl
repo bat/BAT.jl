@@ -1,8 +1,11 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 # Keep numeric geometry in Float64 until Makie applies its coordinate transform.
 # Early Float32 conversion can erase unit-scale variation around large offsets.
-_empty_hist1d_primitives() = (centers = Vector{Float64}(), weights = Vector{Float64}(), edges = Vector{Float64}())
+_empty_hist1d_primitives() = (
+    centers = Vector{Float64}(), weights = Vector{Float64}(), edges = Vector{Float64}()
+)
 _empty_hist2d_primitives() = (
     xedges = Vector{Float64}(),
     yedges = Vector{Float64}(),
@@ -26,16 +29,26 @@ _empty_hexbin2d_primitives() = (x = Float64[], y = Float64[], weights = Float64[
 function _hist_edges(::Nothing, cols, bins::Integer, closed::Symbol)
     return _get_edges(cols, (bins,), closed)
 end
+
+
 function _hist_edges(::Nothing, cols, bins::Tuple, closed::Symbol)
     return Tuple(_get_edges(cols[i], bins[i], closed) for i in 1:length(bins))
 end
+
+
 function _hist_edges(domain::Tuple{Float64,Float64}, cols, bins::Integer, closed::Symbol)
     return _get_edges(([domain[1], domain[2]],), (bins,), closed)
 end
-function _hist_edges(domain::Tuple{Tuple{Float64,Float64},Tuple{Float64,Float64}}, cols, bins::Tuple, closed::Symbol)
+
+
+function _hist_edges(
+    domain::Tuple{Tuple{Float64,Float64},Tuple{Float64,Float64}}, cols, bins::Tuple,
+    closed::Symbol
+)
     (dlo1, dhi1), (dlo2, dhi2) = domain
     return _get_edges(([dlo1, dhi1], [dlo2, dhi2]), bins, closed)
 end
+
 
 function _marginal_view_dist(
     locations::SubArray,
@@ -59,6 +72,7 @@ function _marginal_view_dist(
     return BAT._plot_fit_histogram(cols, weights, edges, normalization; closed = closed)
 end
 
+
 _low_weight_mask(weights::AbstractVector, fraction::Real = 1e-5, threshold::Real = 1e-2) =
     BAT._plot_low_weight_mask(weights, fraction, threshold)
 
@@ -79,6 +93,7 @@ function _get_bin_centers(hist::Histogram)
     return centers
 end
 
+
 # Preserve zero-mass histograms as empty displays without dividing by zero.
 # The shared histogram normalizer owns validation and normalization.
 _safe_normalize(hist::Histogram, normalization::Symbol) =
@@ -96,6 +111,7 @@ function _histogram_plot_edges(hist::Histogram)
     end
 end
 
+
 # Zero is the default inactive sentinel; one requests the full positive-mass
 # region. Validate before empty/dead-cell returns as well as before selection.
 # Duplicates remain distinct requests and count toward the fixed palette size.
@@ -110,6 +126,7 @@ function _histogram_region_levels(levels)
     return sort!(active)
 end
 
+
 function _hist1d_output(hist::Histogram, normalization::Symbol)
     h_norm = _safe_normalize(hist, normalization)
     centers = _get_bin_centers(h_norm)
@@ -122,6 +139,7 @@ function _hist1d_output(hist::Histogram, normalization::Symbol)
     )
 end
 
+
 function _hist2d_output(hist::Histogram, normalization::Symbol)
     h_norm = _safe_normalize(hist, normalization)
     xedges, yedges = _histogram_plot_edges(h_norm)
@@ -130,6 +148,7 @@ function _hist2d_output(hist::Histogram, normalization::Symbol)
     weights = map(w -> w > 0 ? BAT._plot_float64(w, "histogram height") : NaN, h_norm.weights)
     return (xedges = xedges, yedges = yedges, weights = weights)
 end
+
 
 function _quantilehist1d_output(hist::Histogram, config::NamedTuple)
     (; normalization, levels) = config
@@ -165,6 +184,7 @@ function _quantilehist1d_output(hist::Histogram, config::NamedTuple)
     return (polys = polys, fill_colors = fill_colors, stairs_data = stairs_data)
 end
 
+
 function _quantilehist2d_output(hist::Histogram, config::NamedTuple)
     (; normalization, levels) = config
     valid_intervals = _histogram_region_levels(levels)
@@ -184,6 +204,7 @@ function _quantilehist2d_output(hist::Histogram, config::NamedTuple)
     return (xedges = xedges, yedges = yedges, color_grid = color_grid)
 end
 
+
 function compute_plotting_primitives(
     ::SubArray,
     ::SubArray,
@@ -194,6 +215,7 @@ function compute_plotting_primitives(
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_hist1d_primitives()
 end
+
 
 function compute_plotting_primitives(
     marg_coords::SubArray,
@@ -225,7 +247,8 @@ _hist1d_bar_geometry_error() = throw(ArgumentError(
 function _checked_hist1d_bar_layout(
     edges::AbstractVector{Float64}, gap, dodge, n_dodge, dodge_gap, requested_width
 )
-    requested_width === Makie.automatic || throw(ArgumentError("Hist1D width is determined by bin edges"))
+    requested_width === Makie.automatic ||
+        throw(ArgumentError("Hist1D width is determined by bin edges"))
     gap isa Real && dodge_gap isa Real && isfinite(gap) && isfinite(dodge_gap) || _hist1d_bar_geometry_error()
     if dodge !== Makie.automatic
         (dodge isa Integer || dodge isa AbstractVector{<:Integer}) ||
@@ -273,6 +296,7 @@ function _checked_hist1d_bar_layout(
     return centers, widths, gap, dodge, n_dodge, dodge_gap
 end
 
+
 # Keep native BarPlot's rendering, labels and theme namespace. Only its bin
 # geometry is BAT-owned, following the checked Hexbin adapter below.
 Makie.@recipe BATCheckedHistBars (bin_edges, bin_heights) begin
@@ -285,7 +309,10 @@ function Makie.plot!(p::BATCheckedHistBars)
     # Publish every geometry control through the same check. Heights alone
     # neither invalidate the layout cache nor repeat exact arithmetic.
     Makie.map!(p, [:bin_edges, :gap, :dodge, :n_dodge, :dodge_gap, :width],
-        [:checked_centers, :checked_widths, :checked_gap, :checked_dodge, :checked_n_dodge, :checked_dodge_gap]
+        [
+            :checked_centers, :checked_widths, :checked_gap, :checked_dodge,
+            :checked_n_dodge, :checked_dodge_gap
+        ]
     ) do edges, gap, dodge, n_dodge, dodge_gap, width
         _checked_hist1d_bar_layout(edges, gap, dodge, n_dodge, dodge_gap, width)
     end
@@ -294,6 +321,8 @@ function Makie.plot!(p::BATCheckedHistBars)
         n_dodge = p.checked_n_dodge, dodge_gap = p.checked_dodge_gap)
     return p
 end
+
+
 function _validate_plot_display(p::BATCheckedHistBars)
     p.checked_centers[]
     return nothing
@@ -321,10 +350,12 @@ function compose_plotspecs(
     return [bars, stairs]
 end
 
+
 # Peak height for a diagonal cell's own y limit. The zero fallback requests
 # automatic limits for recipes without a positive finite extent.
 _diag_y_extent(::NamedTuple, ::BATMakieRecipe) = 0.0
-_diag_y_extent(primitives::NamedTuple, ::Hist1D) = isempty(primitives.weights) ? 0.0 : maximum(primitives.weights)
+_diag_y_extent(primitives::NamedTuple, ::Hist1D) =
+    isempty(primitives.weights) ? 0.0 : maximum(primitives.weights)
 
 function compute_plotting_primitives(
     ::SubArray,
@@ -336,6 +367,7 @@ function compute_plotting_primitives(
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_hist2d_primitives()
 end
+
 
 function compute_plotting_primitives(
     marg_coords::SubArray,
@@ -354,6 +386,7 @@ function compute_plotting_primitives(
     )
     return _hist2d_output(hist, :none)
 end
+
 
 function _hist2d_check_colors(weights)
     fail() = throw(ArgumentError(
@@ -374,6 +407,7 @@ function _hist2d_check_colors(weights)
         reciprocal >= 2floatmin(Float32) || fail()
     return nothing
 end
+
 
 function compose_plotspecs(
     primitives::NamedTuple,
@@ -414,6 +448,7 @@ function compute_plotting_primitives(
     return _empty_quantilehist1d_primitives()
 end
 
+
 function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
@@ -433,6 +468,7 @@ function compute_plotting_primitives(
     return _quantilehist1d_output(hist, merge(config, (normalization = :none,)))
 end
 
+
 function compose_plotspecs(
     primitives::NamedTuple,
     recipe::QuantileHist1D,
@@ -451,6 +487,7 @@ function compose_plotspecs(
     return plotspecs
 end
 
+
 _diag_y_extent(primitives::NamedTuple, ::QuantileHist1D) =
     isempty(primitives.stairs_data) ? 0.0 : maximum(p -> p[2], primitives.stairs_data)
 
@@ -466,6 +503,7 @@ function compute_plotting_primitives(
     recipe_status isa LiveRecipe && _histogram_region_levels(config.levels)
     return _empty_quantilehist2d_primitives()
 end
+
 
 function compute_plotting_primitives(
     marg_coords::SubArray,
@@ -485,6 +523,7 @@ function compute_plotting_primitives(
     )
     return _quantilehist2d_output(hist, merge(config, (normalization = :none,)))
 end
+
 
 function compose_plotspecs(
     primitives::NamedTuple,
@@ -513,6 +552,7 @@ function compute_plotting_primitives(
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_hexbin2d_primitives()
 end
+
 
 function compute_plotting_primitives(
     marg_coords::SubArray,
@@ -547,6 +587,7 @@ function compute_plotting_primitives(
     final_thresh >= 0 || BAT._plot_weight_error("hexbin threshold must be nonnegative")
     return (x = x, y = y, weights = counts, thresh = final_thresh)
 end
+
 
 function _check_hexbin_count_colors(counts::AbstractArray{<:Real})
     isempty(counts) && return counts
@@ -588,6 +629,7 @@ function _check_hexbin_count_colors(counts::AbstractArray{<:Real})
     return counts
 end
 
+
 # Internal adapter: native Hexbin owns aggregation, threshold and geometry.
 # Its hidden renderer uses a harmless fixed range. Only checked counts reach
 # the visible Scatter's Float32 color conversion.
@@ -620,6 +662,8 @@ function Makie.plot!(p::BATCheckedHexbin)
         markerspace = :data, transformation = :inherit_model)
     return p
 end
+
+
 # BAT-owned updates demand the check before handing control back to a renderer.
 # A normal native/public Makie consumer still resolves it on color demand.
 _validate_plot_display(::Makie.AbstractPlot) = nothing

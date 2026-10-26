@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 # Bounds for the whole selected histogram grid, not the visible window.
 # Keep the statistical domain unchanged; only the display envelope grows.
 function _extend_hist_axis_limit(limits, edges)
@@ -9,10 +10,12 @@ function _extend_hist_axis_limit(limits, edges)
     return (min(limits[1], lo), max(limits[2], hi))
 end
 
+
 function _histogram_axis_limits(lo, hi, idxs, n, diagonal_recipe, upper_recipe,
     lower_recipe, diagonal_config, triagonal_config)
     limits = fill((0.0, 1.0), n)
-    length(idxs) <= n || throw(ArgumentError("idxs has $(length(idxs)) entries, exceeding the grid size N_max=$n"))
+    length(idxs) <= n ||
+        throw(ArgumentError("idxs has $(length(idxs)) entries, exceeding the grid size N_max=$n"))
     (isempty(lo) || isempty(idxs)) && return limits
     for (i, v) in enumerate(idxs)
         span = hi[v] - lo[v]
@@ -28,7 +31,8 @@ function _histogram_axis_limits(lo, hi, idxs, n, diagonal_recipe, upper_recipe,
             limits[i] = _extend_hist_axis_limit(limits[i], edges)
         end
     end
-    if length(idxs) > 1 && (upper_recipe in (Hist2D, QuantileHist2D) || lower_recipe in (Hist2D, QuantileHist2D))
+    if length(idxs) > 1 &&
+        (upper_recipe in (Hist2D, QuantileHist2D) || lower_recipe in (Hist2D, QuantileHist2D))
         bins = triagonal_config.nbins
         for i in eachindex(idxs), j in i+1:length(idxs)
             # Pair primitives use (larger slot, smaller slot); their edge
@@ -41,6 +45,7 @@ function _histogram_axis_limits(lo, hi, idxs, n, diagonal_recipe, upper_recipe,
     end
     return limits
 end
+
 
 const BAT_MAKIE_RECIPES_1D = [
     Hist1D(),
@@ -71,22 +76,19 @@ function primitive_symbol(recipe, vsel::Tuple{Integer,Integer})
     return Symbol(string(recipe), "_prim_", vsel[1], "_", vsel[2])
 end
 
+
 function primitive_symbol(recipe::R, vsel::Tuple{Integer,Integer}) where {R<:BATMakieRecipe}
     return Symbol(string(typeof(recipe)), "_prim_", vsel[1], "_", vsel[2])
 end
+
 
 function marg_symbol(vsel::Tuple{Integer,Integer})
     return Symbol("marg_$(vsel[1])_$(vsel[2])")
 end
 
-# Closures registered in _init_compute_graph share its scope (including `n`):
-# assigning to a bare enclosing-scope name in one reassigns the shared variable
-# for all -- always use distinct local names.
 
-# Initial per-dim axis/bin domain from prior-sample tail quantiles; not a hard
-# bound. `target` must be the ORIGINAL untransformed measure (bat_sample's own
-# `m`), NOT mcmc_target(...): mcmc states carry the PRETRANSFORMED measure,
-# giving a standard-normal-scaled domain regardless of the real prior's scale.
+# Estimate the display domain from the original target's prior quantiles. The transformed MCMC
+# target has different coordinates; these are not hard support bounds.
 function _estimate_prior_domain(rng::AbstractRNG, target, n_dof::Integer;
     n_prior_samples::Integer = 2000, tail_prob::Real = 0.0015,
     display_shape = missing, f_display = identity)
@@ -101,22 +103,24 @@ function _estimate_prior_domain(rng::AbstractRNG, target, n_dof::Integer;
         unshaped(displayed, output_shape)
     end
     M = reduce(hcat, draws)
-    size(M, 1) == n_dof || throw(ArgumentError("Domain draws do not match the original display shape"))
+    size(M, 1) == n_dof ||
+        throw(ArgumentError("Domain draws do not match the original display shape"))
     lo = [quantile(view(M, d, :), tail_prob) for d in 1:n_dof]
     hi = [quantile(view(M, d, :), 1 - tail_prob) for d in 1:n_dof]
     return lo, hi
 end
 
-# Per-dim HARD support bounds of the prior in unshaped display coords, driving
-# KDE boundary reflection. Fallbacks are CONSERVATIVE: +-Inf = no correction.
+
+# Prior support in unshaped display coordinates for KDE reflection. Infinite bounds disable
+# correction.
 function _support_bounds(target, n_dof::Integer)
     d = _support_root_dist(target)
     isnothing(d) && return (fill(-Inf, n_dof), fill(Inf, n_dof))
     lo, hi = _component_support(d)
-    # Shape mismatch: don't guess, disable correction outright.
     length(lo) == n_dof || return (fill(-Inf, n_dof), fill(Inf, n_dof))
     return lo, hi
 end
+
 
 # Use the original measure's prior, never an EvaluatedMeasure's empirical or
 # transformed approximation: support is expressed in displayed coordinates.
@@ -127,20 +131,22 @@ _support_root_dist(m::BATWeightedMeasure) = _support_root_dist(m.base)
 _support_root_dist(d::Distribution) = d
 _support_root_dist(@nospecialize(m)) = nothing
 
-# Per-component (lo, hi) covering its unshaped dims; the NamedTupleDist walk
-# mirrors truncate_dist_hard's, so bounds land at the displayed flat-sample dims.
+# Component support follows the unshaped coordinate order, as in truncate_dist_hard.
 function _component_support(d::UnivariateDistribution)
     lo, hi = _kde_support_bounds((minimum(d), maximum(d)))
     return (Float64[lo], Float64[hi])
 end
+
+
 function _component_support(d::Distributions.Product)
     bounds = [_kde_support_bounds((minimum(c), maximum(c))) for c in d.v]
     return (Float64[first(s) for s in bounds], Float64[last(s) for s in bounds])
 end
+
+
 _component_support(d::ValueShapes.UnshapedNTD) = _component_support(d.shaped)
-# ConstValueDist occupies zero unshaped dims -- contributes nothing.
+# Constant components have no unshaped coordinates.
 _component_support(::ConstValueDist) = (Float64[], Float64[])
-# Conservative fallback for dists without per-dim support: unbounded everywhere.
 _component_support(d::Distribution) = (fill(-Inf, length(d)), fill(Inf, length(d)))
 
 function _component_support(d::NamedTupleDist)
@@ -162,8 +168,9 @@ function _component_support(d::NamedTupleDist)
     return (lo, hi)
 end
 
-# Normalizes the `support` kwarg into (support_lo, support_hi): nothing -> none;
-# explicit pairs validated loudly (caller mistake); a measure -> _support_bounds.
+
+# Normalize support to per-coordinate bounds; validate explicit pairs and infer measure bounds
+# when available.
 _support_vectors(::Nothing, n_dof::Integer) = (Float64[], Float64[])
 
 function _support_vectors(support::AbstractVector, n_dof::Integer)
@@ -177,11 +184,10 @@ function _support_vectors(support::AbstractVector, n_dof::Integer)
     return lo, hi
 end
 
+
 _support_vectors(support, n_dof::Integer) = _support_bounds(support, n_dof)
 
-# Static-path domain from the true per-dim extrema. Non-finite values must be
-# filtered: an Inf span defeats the eps-based degenerate-edges guard downstream
-# (eps(Inf) is NaN).
+# Use finite coordinate extrema; infinite spans would make degenerate-edge padding NaN.
 function _domain_from_samples(data::AbstractMatrix, n_dof::Integer)
     lo = Vector{Float64}(undef, n_dof)
     hi = Vector{Float64}(undef, n_dof)
@@ -197,6 +203,7 @@ function _domain_from_samples(data::AbstractMatrix, n_dof::Integer)
     return lo, hi
 end
 
+
 # Scan each owned walker matrix without materializing the whole history. Start
 # from the fixed prior each time: replacing pending samples can remove extrema.
 # No graph access; the caller publishes these fresh bounds with the same samples.
@@ -208,6 +215,7 @@ function _domain_including(walkers, prior_lo::Vector{Float64}, prior_hi::Vector{
     end
     return lo, hi
 end
+
 
 # Function barrier for the type-erased walker containers in live publication.
 function _include_finite_domain!(lo::Vector{Float64}, hi::Vector{Float64}, data::AbstractMatrix)
@@ -239,7 +247,7 @@ function BAT.BATVisualizer(vis::BATMakieVisualization)
     content = (
         graph = Ref{Union{Nothing,ComputeGraph}}(graph),
         buffer_lock = buffer_lock,
-        # Shares buffer_lock: waiters and notifiers must use one lock (Threads.Condition).
+        # Waiters and notifiers must share buffer_lock.
         buffer_cond = Threads.Condition(buffer_lock),
         chain_ids = Vector{Int32}(),  # MCMCChainStateInfo ids are Int32
         output_buffer = Vector{Vector{DensitySampleVector}}(),
@@ -254,8 +262,7 @@ function BAT.BATVisualizer(vis::BATMakieVisualization)
         invalid_init = Set{Tuple{Int32,Int32}}(),
         n_buffer_steps = Ref(0),
         buffer_dirty = Ref(false),
-        # Flush-trigger threshold (grows under adaptive_batching); the backpressure
-        # ceiling derives from it, so the sampler never blocks on an unreachable trigger.
+        # Derive backpressure from the flush threshold so the trigger remains reachable.
         effective_batch_size = Ref(vis.n_batch),
         buffer_ratio = vis.max_buffered / vis.n_batch,
         lifecycle = _MakieLiveControl(),
@@ -267,6 +274,8 @@ function BAT.BATVisualizer(vis::BATMakieVisualization)
 end
 
 
+# Registered closures share the enclosing scope; use distinct local names to avoid
+# reassigning captured variables.
 function _init_compute_graph(
     recipes::NamedTuple,
     triagonal_config::NamedTuple,
@@ -288,7 +297,9 @@ function _init_compute_graph(
     # range selects local steps with timing, or stored rows without timing.
     add_input!((key, value) -> Ref{Union{Nothing,Tuple{Int64,Int64}}}(value), graph, :window_steps, nothing)
     add_input!((key, value) -> Ref{Union{Nothing,SampleStepSpans}}(value), graph, :sample_timing, nothing)
-    register_computation!(graph, [:samples, :current_idxs, :sample_timing], [:window_data]) do inputs, changed, cached
+    register_computation!(
+        graph, [:samples, :current_idxs, :sample_timing], [:window_data]
+    ) do inputs, changed, cached
         @nospecialize(changed, cached)
         return (_sample_window_data(inputs.samples, inputs.current_idxs, inputs.sample_timing),)
     end
@@ -316,7 +327,8 @@ function _init_compute_graph(
     map!(
         # Per-sample chain id for ChainScatter2D; Int32[] when info has no chain
         # identity, so the graph can resolve before availability is checked.
-        (smpls, idx) -> _samples_have_chain_ids(smpls) ? Int32[s.chainid for s in view(smpls.info, 1:idx)] : Int32[],
+        (smpls, idx) -> _samples_have_chain_ids(smpls) ?
+            Int32[s.chainid for s in view(smpls.info, 1:idx)] : Int32[],
         graph,
         [:flat_samples, :current_idx],
         :flat_chainids
@@ -329,13 +341,13 @@ function _init_compute_graph(
     ) do inputs, changed, cached
         @nospecialize(changed, cached)
         idxs = inputs.idxs
-        # A real throw, not @assert: guards user-influencable state; asserts may be compiled out.
-        length(idxs) <= n || throw(ArgumentError("idxs has $(length(idxs)) entries, exceeding the grid size N_max=$n"))
+        length(idxs) <= n ||
+            throw(ArgumentError("idxs has $(length(idxs)) entries, exceeding the grid size N_max=$n"))
 
         n_active = length(idxs)
         vsel_map = Matrix{Tuple{Int,Int}}(undef, n, n)
         for i in 1:n, j in 1:n
-            # (0, 0) sentinel beyond the selection -- a live_map bypass fails loudly (index 0).
+            # Zero indices mark inactive slots and cannot select sample coordinates.
             vsel_map[i, j] = (i <= n_active && j <= n_active) ? (idxs[i], idxs[j]) : (0, 0)
         end
 
@@ -348,9 +360,9 @@ function _init_compute_graph(
     ) do inputs, changed, cached
         @nospecialize(changed, cached)
         idxs = inputs.idxs
-        length(idxs) <= n || throw(ArgumentError("idxs has $(length(idxs)) entries, exceeding the grid size N_max=$n"))
+        length(idxs) <= n ||
+            throw(ArgumentError("idxs has $(length(idxs)) entries, exceeding the grid size N_max=$n"))
 
-        # Symmetric by construction -- consumers uniformly index it as live_map[j, i].
         live_map = fill(false, n, n)
 
         n_active = length(idxs)
@@ -370,7 +382,6 @@ function _init_compute_graph(
     add_input!(graph, :show_stats_diag, false)
     add_input!(graph, :show_stats_lower, false)
 
-    # Trace2D is inherently 2D -- no show_trace_diag.
     add_input!(graph, :show_trace_upper, false)
     add_input!(graph, :show_trace_lower, false)
 
@@ -390,9 +401,8 @@ function _init_compute_graph(
     for recipe in vcat(BAT_MAKIE_RECIPES_1D, BAT_MAKIE_RECIPES_2D)
         add_input!(graph, Symbol("$(typeof(recipe))"), recipe)
     end
-    # Registered separately below (extra inputs), but still needs a per-type input node.
+    # Chain scatter and trace use additional inputs and are registered separately.
     add_input!(graph, Symbol("$(ChainScatter2D)"), ChainScatter2D())
-    # Trace2D likewise -- always-live overlay, registered separately below.
     add_input!(graph, Symbol("$(Trace2D)"), Trace2D())
     register_computation!(graph,
         [:window_segments, :triagonal_config, :show_trace_upper, :show_trace_lower], [:trace_groups]
@@ -448,28 +458,26 @@ function _init_compute_graph(
                 [primitive_symbols_1D[k]]
             ) do inputs, changed, cached
                 @nospecialize(changed, cached)
-                # By-name access -- a positional unpack silently mis-binds if inputs are reordered.
                 coords = getproperty(inputs, marg_sym)
                 weights = inputs.flat_weights
                 config = inputs.diagonal_config
                 (; live_map, vsel_map, domain_lo, domain_hi, support_lo, support_hi) = inputs
                 cell_status = live_map[i, i] ? LiveCell() : DeadCell()
                 recipe_status = determine_recipe_status(recipe, inputs.diagonal_recipe())
-                # Pass the current cell domain to the histogram recipes.
                 v = vsel_map[i, i][1]
                 cfg = (v == 0 || isempty(domain_lo)) ? config :
                     (; config..., domain = (domain_lo[v], domain_hi[v]))
-                # The hard support bounds ride along the same way (KDE boundary reflection).
                 cfg = (v == 0 || isempty(support_lo)) ? cfg :
                     (; cfg..., support = (support_lo[v], support_hi[v]))
-                return (compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, cfg),)
+                return (compute_plotting_primitives(
+                    coords, weights, recipe, recipe_status, cell_status, cfg
+                ),)
             end
         end
 
         for j in i+1:n
             marg_sym_2D = marg_symbol((j, i))
             map!(
-                # Empty view over the real smpls.v.data -- see the 1D case above.
                 (smpls, vsel_map, current_idx, live_map) ->
                     (current_idx > 0 && live_map[j, i]) ?
                         view(smpls.v.data, [vsel_map[j, i]...], 1:current_idx) :
@@ -482,7 +490,6 @@ function _init_compute_graph(
 
             for k in eachindex(primitive_symbols_2D)
                 recipe = BAT_MAKIE_RECIPES_2D[k]
-                # Full recompute, no persistent accumulator -- see the 1D loop.
                 register_computation!(graph,
                     [
                         marg_sym_2D, :flat_weights, :upper_recipe, :lower_recipe,
@@ -492,7 +499,6 @@ function _init_compute_graph(
                     [primitive_symbols_2D[k]]
                 ) do inputs, changed, cached
                     @nospecialize(changed, cached)
-                    # By-name access -- see the 1D loop's matching comment.
                     coords = getproperty(inputs, marg_sym_2D)
                     weights = inputs.flat_weights
                     config = inputs.triagonal_config
@@ -502,8 +508,7 @@ function _init_compute_graph(
                     ) = inputs
                     cell_status = live_map[j, i] ? LiveCell() : DeadCell()
                     recipe_status = determine_recipe_status(recipe, upper_recipe(), lower_recipe())
-                    # Domain/support ride along in the config as in the 1D loop;
-                    # tuple order matches the view's row order (vsel[1]=x, vsel[2]=y).
+                    # Domain and support follow the coordinate view's row order: x, then y.
                     vsel = vsel_map[j, i]
                     cfg = (vsel[1] == 0 || isempty(domain_lo)) ? config :
                         (; config..., domain = (
@@ -515,12 +520,12 @@ function _init_compute_graph(
                             (support_lo[vsel[1]], support_hi[vsel[1]]),
                             (support_lo[vsel[2]], support_hi[vsel[2]])
                         ))
-                    return (compute_plotting_primitives(coords, weights, recipe, recipe_status, cell_status, cfg),)
+                    return (compute_plotting_primitives(
+                        coords, weights, recipe, recipe_status, cell_status, cfg
+                    ),)
                 end
             end
 
-            # Registered separately (needs :flat_chainids); same primitive_symbol
-            # naming, so _init_gridlayout!'s lookup finds it transparently.
             chainscatter_primitive_sym = primitive_symbol(ChainScatter2D(), (j, i))
             register_computation!(graph,
                 [
@@ -530,9 +535,11 @@ function _init_compute_graph(
                 [chainscatter_primitive_sym]
             ) do inputs, changed, cached
                 @nospecialize(changed, cached)
-                # By-name access -- see the 1D loop's matching comment.
                 coords = getproperty(inputs, marg_sym_2D)
-                (; flat_weights, flat_chainids, upper_recipe, lower_recipe, live_map, triagonal_config) = inputs
+                (;
+                    flat_weights, flat_chainids, upper_recipe, lower_recipe,
+                    live_map, triagonal_config
+                ) = inputs
                 cell_status = live_map[j, i] ? LiveCell() : DeadCell()
                 recipe_status = determine_recipe_status(ChainScatter2D(), upper_recipe(), lower_recipe())
                 primitives = compute_plotting_primitives(
@@ -550,7 +557,9 @@ function _init_compute_graph(
                 if !inputs.live_map[j, i] || isempty(inputs.trace_groups)
                     return (_empty_trace2d_primitives(),)
                 end
-                return (_timed_trace_primitives(inputs.window_data, inputs.trace_groups, inputs.vsel_map[j, i]),)
+                return (_timed_trace_primitives(
+                    inputs.window_data, inputs.trace_groups, inputs.vsel_map[j, i]
+                ),)
             end
 
         end

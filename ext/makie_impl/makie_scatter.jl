@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 _empty_scatter2d_primitives() = (x = Float64[], y = Float64[], weights = Float64[])
 
 # Marker areas depend on relative mass. Normalize before narrowing so finite
@@ -8,6 +9,7 @@ function _scatter_relative_weights(weights)
     relative = BAT._plot_relative_weights(weights)
     return [BAT._plot_float64(w, "relative scatter weight") for w in relative]
 end
+
 
 # Normalize relative marker areas without overflowing the weight sum.
 # Uniform and non-positive-total cases retain their existing marker convention.
@@ -22,6 +24,7 @@ function _scatter_markersizes(weights::AbstractVector, markersize)
     return sqrt.(relative ./ relative_mean) .* markersize
 end
 
+
 function compute_plotting_primitives(
     ::SubArray,
     ::SubArray,
@@ -32,6 +35,7 @@ function compute_plotting_primitives(
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_scatter2d_primitives()
 end
+
 
 function compute_plotting_primitives(
     marg_coords::SubArray,
@@ -49,6 +53,7 @@ function compute_plotting_primitives(
     # Keep the graph's weight representation stable across empty/live states.
     return (x = x, y = y, weights = _scatter_relative_weights(weights))
 end
+
 
 function compose_plotspecs(
     primitives::NamedTuple,
@@ -73,9 +78,12 @@ end
 
 # Whether `samples` carries chain identity (true for MCMC SampleID types);
 # gates whether ChainScatter2D is offered in the recipe dropdown.
-_samples_have_chain_ids(samples) = isconcretetype(eltype(samples.info)) && hasfield(eltype(samples.info), :chainid)
+_samples_have_chain_ids(samples) =
+    isconcretetype(eltype(samples.info)) && hasfield(eltype(samples.info), :chainid)
 
-_empty_chainscatter2d_primitives() = (x = Float64[], y = Float64[], weights = Float64[], chainids = Int32[])
+_empty_chainscatter2d_primitives() = (
+    x = Float64[], y = Float64[], weights = Float64[], chainids = Int32[]
+)
 
 # Qualitative wrap-around palette for distinguishing chains -- deliberately a
 # small fixed set rather than a continuous colormap.
@@ -92,6 +100,7 @@ function compute_plotting_primitives(
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_chainscatter2d_primitives()
 end
+
 
 function compute_plotting_primitives(
     marg_coords::SubArray,
@@ -111,6 +120,7 @@ function compute_plotting_primitives(
     return (x = x, y = y, weights = _scatter_relative_weights(weights), chainids = chainids)
 end
 
+
 function compose_plotspecs(
     primitives::NamedTuple,
     recipe::ChainScatter2D,
@@ -127,9 +137,7 @@ function compose_plotspecs(
 
     real_markersize = _scatter_markersizes(weights, markersize)
 
-    # Colors keyed by each chain's *rank* among the sorted unique ids present,
-    # not the raw chainid: real ids are large/sparse and collide mod the
-    # palette length; same rank -> same color across all cells of one render.
+    # Use sorted chain ranks for palette indices; raw IDs can be large or sparse.
     groups = Dict{eltype(chainids),Vector{Int}}()
     for (idx, id) in pairs(chainids)
         push!(get!(() -> Int[], groups, id), idx)

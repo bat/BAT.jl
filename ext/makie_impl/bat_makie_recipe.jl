@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 abstract type CellStatus end
 
 struct LiveCell <: CellStatus end
@@ -15,14 +16,20 @@ function determine_recipe_status(subject::R1, live_recipe::R1) where {R1<:BATMak
     return LiveRecipe()
 end
 
-function determine_recipe_status(subject::R1, live_recipe::R2) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
+
+function determine_recipe_status(
+    subject::R1, live_recipe::R2
+) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
     return DeadRecipe()
 end
 
 
-function determine_recipe_status(subject::R1, live_recipe_1::R1, live_recipe_2::R1) where {R1<:BATMakieRecipe}
+function determine_recipe_status(
+    subject::R1, live_recipe_1::R1, live_recipe_2::R1
+) where {R1<:BATMakieRecipe}
     return LiveRecipe()
 end
+
 
 function determine_recipe_status(
     subject::R1, live_recipe_1::R1, live_recipe_2::R2
@@ -30,11 +37,13 @@ function determine_recipe_status(
     return LiveRecipe()
 end
 
+
 function determine_recipe_status(
     subject::R1, live_recipe_1::R2, live_recipe_2::R1
 ) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
     return LiveRecipe()
 end
+
 
 function determine_recipe_status(
     subject::R1, live_recipe_1::R2, live_recipe_2::R3
@@ -105,6 +114,7 @@ function _clamp_vsel(vsel::AbstractVector{<:Integer}, n_dof::Integer, N_max::Int
     end
     return vsel_clamped
 end
+
 
 _clamp_vsel(vsel::AbstractVector{<:Integer}, samples::DensitySampleVector, N_max::Integer) =
     _clamp_vsel(vsel, totalndof(varshape(samples)), N_max)

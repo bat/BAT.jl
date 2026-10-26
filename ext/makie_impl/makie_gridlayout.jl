@@ -1,14 +1,13 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 function _init_gridlayout!(
     graph::ComputeGraph,
     n::Integer
 )
     n = Int(n)
-    # A real ComputePipeline computation, not an Observables.lift with reentrant
-    # graph[sym][] reads inside the body (those corrupt edge-resolution state).
-    # register_computation!'s input list is static, so it names every recipe's
-    # primitives exactly once (a duplicate would make a duplicate-field NamedTuple).
+    # Declare each primitive input once. Read registered inputs inside the computation;
+    # reentrant graph lookups corrupt edge resolution.
     diag_recipes = BAT_MAKIE_RECIPES_1D
     pair_recipes = vcat(BAT_MAKIE_RECIPES_2D, [ChainScatter2D(), Trace2D()])
 
@@ -39,8 +38,7 @@ function _init_gridlayout!(
         :show_trace_lower,
     ]
 
-    # Never updated after construction, so a setup-time read (not a declared
-    # input) is sufficient.
+    # Configuration is fixed at construction.
     triagonal_config = graph[:triagonal_config][]
     diagonal_config = graph[:diagonal_config][]
 
@@ -63,11 +61,10 @@ function _init_gridlayout!(
 
         matrix = Matrix{Any}(undef, n, n)
 
-        # Keep a fixed n x n grid, collapsing inactive tracks to Fixed(0). The
-        # interactive adapter owns one axis per slot; ordinary composition also
-        # receives this same stable layout shape.
+        # Keep a fixed grid with one axis per slot; collapse inactive tracks to Fixed(0).
         n_active = length(_idxs)
-        n_active <= n || throw(ArgumentError("idxs has $(n_active) entries, exceeding the grid size N_max=$n"))
+        n_active <= n ||
+            throw(ArgumentError("idxs has $(n_active) entries, exceeding the grid size N_max=$n"))
         # Explicit Union{Auto,Fixed} eltype: GridLayoutBase.convert_contentsizes
         # rejects a plain Vector{Any}.
         cellsizes = Union{Auto,Fixed}[i <= n_active ? Auto() : Fixed(0) for i in 1:n]
@@ -89,12 +86,10 @@ function _init_gridlayout!(
             cell_active = i <= n_active
             matrix[i, i] = S.Axis(
                 plots = diagonal_plotspecs,
-                # Matches the 2D cells' aspect=1; otherwise a diagonal cell stretches.
                 aspect = 1,
                 limits = (xlims, diag_ylims),
                 xticklabelsvisible = cell_active, xticksvisible = false,
                 yticklabelsvisible = cell_active, yticksvisible = false,
-                # No fixed ytickformat: Makie's adaptive default handles all scales.
                 yticklabelrotation = pi / 2,
                 xgridvisible = cell_active,
                 ygridvisible = cell_active,
@@ -109,9 +104,8 @@ function _init_gridlayout!(
             )
 
             for j in i+1:n
-                # Orientation invariant: every off-diagonal cell shows x = column
-                # variable, y = row variable. Both mirrored cells share the
-                # (bigger, smaller)-keyed primitive, oriented for the upper cell.
+                # Each cell shows its column variable on x and row variable on y. Pair
+                # primitives are oriented for the upper cell.
                 upper_primitives = getproperty(inputs, primitive_symbol(upper_recipe, (j, i)))
                 upper_plotspecs = compose_plotspecs(upper_primitives, upper_recipe(), triagonal_config)
                 stats_specs_2D = stats_upper ?
@@ -135,7 +129,6 @@ function _init_gridlayout!(
                     ygridvisible = cell_active_upper,
                     leftspinevisible = cell_active_upper, rightspinevisible = cell_active_upper,
                     topspinevisible = cell_active_upper, bottomspinevisible = cell_active_upper,
-                    # See the diagonal cell's comment above re: plain "" vs L"".
                     xlabel = cell_active_upper ? L"v_%$(_idxs[j])" : "",
                     ylabel = cell_active_upper ? L"v_%$(_idxs[i])" : "",
                     xlabelvisible = cell_active_upper,
@@ -143,8 +136,7 @@ function _init_gridlayout!(
                 )
             end
             for j in 1:i-1
-                # transposed=true swaps x/y at compose time so this mirrored cell's
-                # x-axis is its column's variable; overlays get the same flag.
+                # Transpose geometry and overlays together for the lower cell.
                 lower_primitives = getproperty(inputs, primitive_symbol(lower_recipe, (i, j)))
                 lower_plotspecs = compose_plotspecs(
                     lower_primitives, lower_recipe(), triagonal_config; transposed = true
@@ -171,7 +163,6 @@ function _init_gridlayout!(
                     ygridvisible = cell_active_lower,
                     leftspinevisible = cell_active_lower, rightspinevisible = cell_active_lower,
                     topspinevisible = cell_active_lower, bottomspinevisible = cell_active_lower,
-                    # See the diagonal cell's comment above re: plain "" vs L"".
                     xlabel = cell_active_lower ? L"v_%$(_idxs[j])" : "",
                     ylabel = cell_active_lower ? L"v_%$(_idxs[i])" : "",
                     xlabelvisible = cell_active_lower,
@@ -180,10 +171,12 @@ function _init_gridlayout!(
             end
         end
 
-        # alignmode=Outside absorbs tick/label protrusions internally so the
-        # parent layout never resizes on vsel changes; must be a constructor
-        # kwarg -- an alignmode set post-hoc is reset to Inside() on rebuild.
-        return (S.GridLayout(matrix; rowsizes = cellsizes, colsizes = cellsizes, alignmode = Outside(44, 44, 16, 40)),)
+        # Set Outside at construction to absorb label protrusions without resizing the parent.
+        # Reconciliation resets an alignmode assigned afterward.
+        return (S.GridLayout(
+            matrix; rowsizes = cellsizes, colsizes = cellsizes,
+            alignmode = Outside(44, 44, 16, 40)
+        ),)
     end
 
     return graph[:gridlayout]
@@ -215,9 +208,8 @@ function _bind_interactive_grid!(fig::Figure, gridlayout; live_vis = nothing)
         tellheight = initial.tellheight, halign = initial.halign, valign = initial.valign)
     axes = [Axis(layout[position...]; spec.kwargs...) for (position, spec) in initial.content]
     plots = [Observable(PlotSpec[]) for _ in axes]
-    # Use the same scene-owned updater as Makie's grid reconciler. The public
-    # PlotList wrapper in 0.24.15 fails automatic bounds queries when empty.
-    # Keep this compatibility dependency here; do not patch Makie globally.
+    # Use Makie's scene updater: the 0.24.15 PlotList wrapper fails automatic bounds queries
+    # when empty.
     foreach((axis, specs) -> Makie.update_plotspecs!(axis.scene, specs), axes, plots)
     # Retain only the last generated axis attributes, not old plot generations.
     previous = Union{Nothing,Dict{Symbol,Any}}[nothing for _ in axes]
@@ -253,6 +245,7 @@ function _bind_interactive_grid!(fig::Figure, gridlayout; live_vis = nothing)
     return nothing
 end
 
+
 function _update_grid_axis!(axis::Axis, plots, spec::Makie.BlockSpec, previous)
     attributes = spec.kwargs
     # Generated v_i/p_i labels identify the ordered variables and diagonal role.
@@ -286,6 +279,7 @@ function _update_grid_axis!(axis::Axis, plots, spec::Makie.BlockSpec, previous)
     end
     return nothing
 end
+
 
 function _can_reuse_plot(a::PlotSpec, b::PlotSpec)
     return a.type === b.type && length(a.args) == length(b.args) &&

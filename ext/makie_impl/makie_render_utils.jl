@@ -1,14 +1,16 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 _rel_luminance(rgb::Colors.RGB) = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b
 
-# Shifts `bg` away from whichever extreme it is already closer to (darker if light, lighter if dark); used
-# twice to build the background -> panel -> widget ladder.
+# Contrast each panel/widget background with its parent, darkening light colors and lightening
+# dark ones.
 function _panel_bg_color(bg, amount::Real = 0.08)
     rgb = Colors.RGB(Makie.to_color(bg))
     delta = _rel_luminance(rgb) > 0.5 ? -amount : amount
     return Colors.RGB(clamp(rgb.r + delta, 0, 1), clamp(rgb.g + delta, 0, 1), clamp(rgb.b + delta, 0, 1))
 end
+
 
 # Warning/error status text color: deep red on light backgrounds, a lighter warm red on dark.
 function _status_text_color(bg)
@@ -16,8 +18,8 @@ function _status_text_color(bg)
     return _rel_luminance(rgb) > 0.5 ? Colors.RGB(0.72, 0.05, 0.05) : Colors.RGB(1.0, 0.45, 0.35)
 end
 
-# Fixed colors for all four Quantile* recipes' credible-region bands (widest region first, tightest last);
-# supports up to length(_QUANTILE_LEVEL_COLORS) levels.
+
+# Shared credible-region palette, ordered from widest to tightest region.
 const _QUANTILE_LEVEL_COLORS = [
     RGBAf(1.0, 0.0, 0.0, 1.0),
     RGBAf(1.0, 1.0, 0.0, 1.0),
@@ -34,15 +36,16 @@ function _quantile_level_color(i::Integer)
     return _QUANTILE_LEVEL_COLORS[i]
 end
 
-# Carrier for the vsel picker's construction inputs. apply_vsel! is a deliberately type-erased Function, not a
-# NamedTuple field: a NamedTuple would embed each call site's closure type (per-site MethodInstances); one
-# concrete type shares one compiled chain, at one dynamic dispatch per click.
+
+# Type-erase the picker callback to share compiled widget code across call sites, at the cost of
+# one dynamic dispatch per click.
 struct PickerInfo
     N::Int
     N_max::Int
     initial_vsel::Vector{Int}
     apply_vsel!::Function
 end
+
 
 # The precompile workload suppresses display without retaining any Figure here.
 const _SUPPRESS_DISPLAY = Ref(false)
@@ -111,6 +114,7 @@ function _maybe_display(fig; on_failure = nothing, on_render_failure = nothing)
     return nothing
 end
 
+
 _is_gl_backend(backend) = backend isa Module && nameof(backend) === :GLMakie
 
 function _check_gl_thread()
@@ -119,14 +123,15 @@ function _check_gl_thread()
     return nothing
 end
 
+
 # GLMakie.start_renderloop! yields before storing its task handle. Run only
 # that enrollment in a short, owned task, and join it even when our caller is
 # interrupted. In particular, do not move scene/display callbacks into it.
 function _enroll_gl_renderloop!(screen, backend)
-    # This scope contains only the upstream create/yield/store handoff.
     Base.disable_sigint(() -> backend.start_renderloop!(screen))
     return nothing
 end
+
 
 function _run_gl_startup(screen, backend)
     task = nothing
@@ -171,6 +176,7 @@ function _run_gl_startup(screen, backend)
     return nothing
 end
 
+
 function _start_gl_renderloop!(screen, backend)
     isopen(screen) || return nothing
     if backend.renderloop_running(screen)
@@ -185,6 +191,7 @@ function _start_gl_renderloop!(screen, backend)
     isnothing(task) || !istaskfailed(task) || fetch(task)
     return nothing
 end
+
 
 # GLMakie's stop routine catches an interrupted wait and clears rendertask.
 # Retain our own handle until terminal, including repeated cleanup interrupts.
@@ -230,6 +237,7 @@ function _close_gl_screen!(screen, backend)
     return nothing
 end
 
+
 # Explicit screens avoid taking over an unrelated singleton window. Keep a
 # local owner through partial scene attachment, before screen.scene is set.
 # A constructor that throws before returning a handle is a backend boundary.
@@ -263,6 +271,7 @@ function _with_gl_screen(f, fig, backend; temporary::Bool = false, on_failure = 
     end
 end
 
+
 function _display_gl_figure(fig, backend; on_failure = nothing, on_render_failure = nothing)
     inline = Makie.ALWAYS_INLINE_PLOTS[]
     show_inline = (inline === true || inline === Makie.automatic) &&
@@ -271,8 +280,7 @@ function _display_gl_figure(fig, backend; on_failure = nothing, on_render_failur
         @warn "No inline Makie display is available; opening a GLMakie window"
     end
     _with_gl_screen(fig, backend; on_failure = on_failure) do screen
-        # As in Makie's inline path, the selected display owns the figure update.
-        # Scene attachment and custom synchronous callbacks stay on this task.
+        # Keep scene attachment and synchronous display callbacks on the initiating task.
         predecessor = screen.rendertask
         if !isnothing(on_render_failure) && !isnothing(predecessor) && !istaskdone(predecessor)
             throw(ArgumentError("Live GL display requires a renderer started by BAT"))
@@ -292,6 +300,7 @@ function _display_gl_figure(fig, backend; on_failure = nothing, on_render_failur
     return nothing
 end
 
+
 function _render_warmup_figure(fig, backend)
     if _is_gl_backend(backend)
         _with_gl_screen(fig, backend; temporary = true) do screen
@@ -305,6 +314,7 @@ function _render_warmup_figure(fig, backend)
     end
     return nothing
 end
+
 
 # Successful warmup per renderer module, reset at runtime by __init__. This is
 # not a cache of individual screens/GL contexts or their shader resources.

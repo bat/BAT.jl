@@ -56,10 +56,8 @@ function __init__()
     return nothing
 end
 
-# See makie_impl/makie_precompile.jl for what this covers and why (in short:
-# every recipe's real compute/compose/SpecApi-reconciliation code path, so
-# switching to it interactively for the first time doesn't pay that
-# compilation cost then instead).
+
+# Compile the entry points, recipes and controls exercised in makie_precompile.jl.
 @setup_workload begin
     @compile_workload begin
         _makie_precompile_workload()

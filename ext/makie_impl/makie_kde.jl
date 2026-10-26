@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 _empty_kde1d_primitives() = (
     x = Vector{Float64}(),
     density = Vector{Float64}(),
@@ -25,8 +26,7 @@ _empty_quantilekde2d_primitives() = (
     color_grid = Matrix{RGBA{Float32}}(undef, 0, 0)
 )
 
-# KDE2D's NaN-mask cutoff, as a fraction of the PEAK density, not an absolute
-# value: density units are inverse data units, so any absolute cutoff is scale-dependent.
+# Mask relative to the peak density so visibility is independent of coordinate units.
 const _KDE2D_DENSITY_FLOOR_FRAC = 1e-3
 
 function compute_plotting_primitives(
@@ -39,6 +39,7 @@ function compute_plotting_primitives(
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_kde1d_primitives()
 end
+
 
 function compute_plotting_primitives(
     marg_coords::SubArray,
@@ -62,6 +63,7 @@ function compute_plotting_primitives(
     return (x = x, density, poly_points = poly_points)
 end
 
+
 function compose_plotspecs(
     primitives::NamedTuple,
     recipe::KDE1D,
@@ -77,6 +79,7 @@ function compose_plotspecs(
     lines = S.Lines(x, density)
     return [polys, lines]
 end
+
 
 function _kde_check_density_colors(density)
     fail() = throw(ArgumentError(
@@ -98,8 +101,9 @@ function _kde_check_density_colors(density)
     return nothing
 end
 
-# See makie_hist.jl's _diag_y_extent for Hist1D for what this is for.
-_diag_y_extent(primitives::NamedTuple, ::KDE1D) = isempty(primitives.density) ? 0.0 : maximum(primitives.density)
+
+_diag_y_extent(primitives::NamedTuple, ::KDE1D) =
+    isempty(primitives.density) ? 0.0 : maximum(primitives.density)
 
 
 function compute_plotting_primitives(
@@ -112,6 +116,7 @@ function compute_plotting_primitives(
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_kde2d_primitives()
 end
+
 
 function compute_plotting_primitives(
     marg_coords::SubArray,
@@ -126,13 +131,13 @@ function compute_plotting_primitives(
         view(marg_coords, 1, :), view(marg_coords, 2, :), weights, get(config, :support, nothing)
     )
     density = kde_result.density
-    # Relative-to-peak cutoff -- see _KDE2D_DENSITY_FLOOR_FRAC's comment.
     floor_val = _KDE2D_DENSITY_FLOOR_FRAC * maximum(density)
     nonzero_density = map(d -> d > floor_val ? d : NaN, density)
 
     return (x = collect(kde_result.x), y = collect(kde_result.y),
         xedges = kde_result.xedges, yedges = kde_result.yedges, density = nonzero_density)
 end
+
 
 function compose_plotspecs(
     primitives::NamedTuple,
@@ -171,6 +176,7 @@ function compute_plotting_primitives(
     return _empty_quantilekde1d_primitives()
 end
 
+
 function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
@@ -191,8 +197,7 @@ function compute_plotting_primitives(
     # RGBAf (concrete), matching _empty_quantilekde1d_primitives' field type.
     fill_colors = RGBAf[]
 
-    # enumerate(reverse(...)): i=1 is the largest level = loosest/widest region --
-    # the ascending-index convention all four _quantile_level_color callers share.
+    # Assign palette colors from the widest region to the tightest.
     for (i, level) in enumerate(reverse(active_levels))
         region = _kde_curve_region(x, density, level)
         for component in region.components
@@ -210,6 +215,7 @@ function compute_plotting_primitives(
     return (polys = polys, fill_colors = fill_colors, full_line = full_line)
 end
 
+
 function compose_plotspecs(
     primitives::NamedTuple,
     recipe::QuantileKDE1D,
@@ -222,16 +228,15 @@ function compose_plotspecs(
     end
 
     polyspec = S.Poly(polys; color = fill_colors)
-    # Hidden by default; set on this one PlotSpec, not the shared Lines theme --
-    # S.Lines is also used by KDE1D's main curve, Cov2D, PDF1D, and Trace2D.
+    # Set visibility on this outline only; other recipes share the Lines theme.
     lines = S.Lines(full_line; visible = false)
 
     return [polyspec, lines]
 end
 
+
 _diag_y_extent(primitives::NamedTuple, ::QuantileKDE1D) =
     isempty(primitives.full_line) ? 0.0 : maximum(p -> p[2], primitives.full_line)
-
 
 
 function compute_plotting_primitives(
@@ -245,6 +250,7 @@ function compute_plotting_primitives(
     return _empty_quantilekde2d_primitives()
 end
 
+
 function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
@@ -255,7 +261,9 @@ function compute_plotting_primitives(
 )
     (isempty(weights) || all(iszero, weights)) && return _empty_quantilekde2d_primitives()
     (; levels) = config
-    kde_result = _weighted_kde2d(marg_coords[1, :], marg_coords[2, :], weights, get(config, :support, nothing))
+    kde_result = _weighted_kde2d(
+        marg_coords[1, :], marg_coords[2, :], weights, get(config, :support, nothing)
+    )
 
     density = kde_result.density
     density_flat = vec(density)
@@ -267,12 +275,10 @@ function compute_plotting_primitives(
 
     valid_levels = sort(filter(p -> 0 < p < 1, levels))
 
-    # Explicit per-cell colors + Heatmap (like QuantileHist2D), not Contourf --
-    # Contourf interpolates band colors at threshold midpoints.
+    # Explicit cell colors avoid Contourf's interpolation between region thresholds.
     color_grid = fill(RGBA{Float32}(0, 0, 0, 0), size(density))
 
-    # j=1 is the loosest/widest region (see QuantileKDE1D's matching comment);
-    # writing widest-first lets narrower nested regions overwrite their interior.
+    # Write widest regions first so narrower regions overwrite their interiors.
     for (j, level) in enumerate(reverse(valid_levels))
         idx = searchsortedfirst(cum_p, level)
         safe_idx = clamp(idx, 1, length(density_sorted))
@@ -284,6 +290,7 @@ function compute_plotting_primitives(
     return (x = collect(kde_result.x), y = collect(kde_result.y),
         xedges = kde_result.xedges, yedges = kde_result.yedges, color_grid = color_grid)
 end
+
 
 function compose_plotspecs(
     primitives::NamedTuple,

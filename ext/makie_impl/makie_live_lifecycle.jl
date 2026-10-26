@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 const _LiveDiagnostic = NamedTuple{(:type, :message, :phase),Tuple{String,String,Symbol}}
 
 # Diagnostics must not retain graphs, tasks or arbitrary exception payloads.
@@ -17,6 +18,7 @@ function _live_diagnostic_prefix(message::String, limit::Int)
     return stop < ncodeunits(message) ? text * " [truncated]" : text
 end
 
+
 function _live_diagnostic_type(name::Symbol)
     # String(Symbol) copies the entire name. Symbols are immutable and their
     # NUL-terminated storage is owned by Julia; inspect/copy only a bounded
@@ -32,6 +34,7 @@ function _live_diagnostic_type(name::Symbol)
     return _live_diagnostic_prefix(prefix, 256)
 end
 
+
 function _live_error_summary(error, phase::Symbol)
     isnothing(error) && return nothing
     err = error isa CapturedException ? getfield(error, :ex) : error
@@ -42,6 +45,7 @@ function _live_error_summary(error, phase::Symbol)
         err isa InterruptException ? "Interrupted" : "Exception details are not retained"
     return (type = type, message = message, phase = phase)
 end
+
 
 # The transport lock owns these fields, except for the atomic fast-path flag
 # and the owner-thread-only contents of renderer_owner.
@@ -80,6 +84,7 @@ Base.@kwdef mutable struct _MakieLiveControl
     view::Union{Nothing,_LiveView} = nothing
 end
 
+
 # Caller holds buffer_lock and defers SIGINT. Only the trusted task/Timer
 # enrollment below belongs here: no user work, explicit waits or recursive
 # entry on this control. Preserve Base's existing constructor-internal locks.
@@ -101,6 +106,7 @@ function _with_live_task_rng(f::F, ctl::_MakieLiveControl) where {F}
     end
 end
 
+
 _live_elapsed(start::UInt64) = (time_ns() - start) / 1.0e9
 _live_can_publish_locked(vis) = vis.content.lifecycle.phase in (:running, :draining) &&
     vis.content.lifecycle.outcome === :running && !vis.content.lifecycle.disposal_requested
@@ -112,6 +118,7 @@ function _live_graph(vis)
     isnothing(graph) && error("Live observation history has been released")
     return graph
 end
+
 
 function _claim_live_visualizer!(vis, claimed::Base.RefValue{Bool} = Ref(false))
     isnothing(vis.content) && throw(ArgumentError("Create a fresh BATVisualizer for sampling"))
@@ -133,6 +140,7 @@ function _claim_live_visualizer!(vis, claimed::Base.RefValue{Bool} = Ref(false))
     return nothing
 end
 
+
 function _activate_live_visualizer!(vis)
     lock(vis.content.buffer_lock) do
         ctl = vis.content.lifecycle
@@ -144,6 +152,7 @@ function _activate_live_visualizer!(vis)
         return true
     end
 end
+
 
 function _stop_live_locked!(vis, reason::Symbol, exception = nothing; phase::Symbol = reason)
     # The caller owns buffer_lock; acquisition stays interruptible. Commit the
@@ -175,6 +184,7 @@ function _stop_live_locked!(vis, reason::Symbol, exception = nothing; phase::Sym
     return nothing
 end
 
+
 function BAT.request_visualizer_stop!(
     vis::BATVisualizer{BATMakieVisualization}; reason::Symbol = :disabled, exception = nothing
 )
@@ -184,6 +194,7 @@ function BAT.request_visualizer_stop!(
     end
     return nothing
 end
+
 
 function _live_renderer_failure_callback(vis)
     # BATVisualizer is immutable: weak-reference a stable, session-owned Ref
@@ -234,6 +245,7 @@ function _fail_visualizer!(vis, err, bt, phase::Symbol)
     return nothing
 end
 
+
 function _record_live_cleanup_error!(vis, err, bt)
     lock(vis.content.buffer_lock) do
         ctl = vis.content.lifecycle
@@ -241,6 +253,7 @@ function _record_live_cleanup_error!(vis, err, bt)
     end
     return nothing
 end
+
 
 function _live_control_tick!(vis)
     try
@@ -259,6 +272,7 @@ function _live_control_tick!(vis)
     return nothing
 end
 
+
 function _close_live_timer!(vis)
     timer = lock(() -> vis.content.lifecycle.timer, vis.content.buffer_lock)
     isnothing(timer) && return nothing
@@ -268,6 +282,7 @@ function _close_live_timer!(vis)
     end
     return nothing
 end
+
 
 function _release_live_transport!(vis)
     lock(vis.content.buffer_lock) do
@@ -280,6 +295,7 @@ function _release_live_transport!(vis)
     end
     return nothing
 end
+
 
 function _finalize_live_run!(vis)
     try
@@ -305,6 +321,7 @@ function _finalize_live_run!(vis)
     _live_release_event!(vis)
     return nothing
 end
+
 
 # The listener owns the normal ingestion/final-publication callables. Release
 # waits for this task to terminate, not merely for its finally block to start.
@@ -340,6 +357,7 @@ function _run_live_listener!(vis, tick!::F, finish!::G) where {F,G}
     return nothing
 end
 
+
 function _start_live_listener!(vis, tick!::F, finish!::G) where {F,G}
     ctl = vis.content.lifecycle
     period = max(0.001, min(vis.backend.poll_interval, vis.backend.observer_timeout / 4, 0.1))
@@ -366,6 +384,7 @@ function _start_live_listener!(vis, tick!::F, finish!::G) where {F,G}
     return nothing
 end
 
+
 # Retiring a failed release task must not certify a post-commit failure as
 # success. Keep the request pending so an explicit disposal can retry it.
 function _retire_live_disposal_locked!(vis)
@@ -382,6 +401,7 @@ function _retire_live_disposal_locked!(vis)
     end
     return ctl.release_complete
 end
+
 
 function _live_quiesced_locked!(vis)
     ctl = vis.content.lifecycle
@@ -400,6 +420,7 @@ function _live_quiesced_locked!(vis)
     end
     return quiesced
 end
+
 
 function BAT.visualizer_status(vis::BATVisualizer{BATMakieVisualization})
     isnothing(vis.content) && return invoke(BAT.visualizer_status, Tuple{BATVisualizer}, vis)
@@ -421,6 +442,7 @@ function BAT.visualizer_status(vis::BATVisualizer{BATMakieVisualization})
     end
 end
 
+
 function _await_live_run!(vis, start::UInt64)
     # This independent wait owns its timer; the observation timer may be closed.
     remaining = max(0.0, vis.backend.observer_timeout - _live_elapsed(start))
@@ -434,6 +456,7 @@ function _await_live_run!(vis, start::UInt64)
     timedwait(settled, remaining;
         pollint = max(0.001, min(0.01, vis.backend.observer_timeout / 10)))
 end
+
 
 function BAT.finish_visualizer!(vis::BATVisualizer{BATMakieVisualization}; success::Bool = true)
     isnothing(vis.content) && return nothing
@@ -489,6 +512,7 @@ function BAT.finish_visualizer!(vis::BATVisualizer{BATMakieVisualization}; succe
     return nothing
 end
 
+
 # Readiness events differ from repeated automatic disposal requests. Consume
 # the latch before an attempt; never erase a request received during cleanup.
 function _live_release_event!(vis)
@@ -504,6 +528,7 @@ function _live_release_event!(vis)
     _schedule_live_view_cleanup!(vis)
     return nothing
 end
+
 
 function _finish_live_initialization!(vis)
     changed = lock(vis.content.buffer_lock) do
@@ -521,6 +546,7 @@ function _finish_live_initialization!(vis)
     changed && _schedule_live_view_cleanup!(vis)
     return nothing
 end
+
 
 # Isolate graph-bearing task locals from the coordinator's sleeping/returning
 # frame. The listener may have failed before entering its own catch/finally.
@@ -542,6 +568,7 @@ function _join_live_listener_for_release!(vis)
     end
     return nothing
 end
+
 
 function _try_release_live_history!(vis)
     try
@@ -576,6 +603,7 @@ function _try_release_live_history!(vis)
     end
 end
 
+
 function _coordinate_live_disposal!(vis)
     while true
         lock(vis.content.buffer_lock) do
@@ -590,6 +618,7 @@ function _coordinate_live_disposal!(vis)
         # last readiness event while unwinding; a timer would retry-spin faults.
     end
 end
+
 
 function _schedule_live_view_cleanup!(vis; retry::Bool = false)
     ctl = vis.content.lifecycle
@@ -622,10 +651,12 @@ function _schedule_live_view_cleanup!(vis; retry::Bool = false)
     return nothing
 end
 
+
 function BAT.dispose_visualizer!(vis::BATVisualizer{BATMakieVisualization})
     isnothing(vis.content) && return nothing
     ctl = vis.content.lifecycle
-    ctl.owner_thread in (0, Threads.threadid()) || throw(ArgumentError("Dispose a live view on its owning thread"))
+    ctl.owner_thread in (0, Threads.threadid()) ||
+        throw(ArgumentError("Dispose a live view on its owning thread"))
     BAT.request_visualizer_stop!(vis; reason = :disposed)
     _request_view_disposal!(vis)
     _schedule_live_view_cleanup!(vis; retry = true)

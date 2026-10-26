@@ -1,6 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-_empty_cov2d_primitives() = (ellipse_points = Vector{Point{2,Float64}}(), axes_segments = Vector{Point{2,Float64}}())
+
+_empty_cov2d_primitives() = (
+    ellipse_points = Vector{Point{2,Float64}}(), axes_segments = Vector{Point{2,Float64}}()
+)
 _empty_std1d_primitives() = (positions = Vector{Float64}(),)
 _empty_std2d_primitives() = (x_lines = Vector{Float64}(), y_lines = Vector{Float64}())
 _empty_mean1d_primitives() = (x = Vector{Float64}(),)
@@ -21,6 +24,7 @@ const _MEAN1D_DASH = let pattern = Makie.line_pattern(:dash, :normal)
     pattern isa Makie.Linestyle ? pattern : Makie.Linestyle(pattern)
 end
 
+
 # Mean, standard-deviation and covariance specs set the theme-derived
 # config.stats_color explicitly: Makie cycling can override a theme default.
 
@@ -37,23 +41,28 @@ function _stats_inputs(marg_coords::SubArray, weights::SubArray, config::NamedTu
     return view(marg_coords, :, keep), ProbabilityWeights(w)
 end
 
+
 function _stats_mean(values, weights)
     μ = allequal(values) ? first(values) : mean(values, weights)
     isfinite(μ) || BAT._plot_weight_error("weighted mean is outside the working numerical range")
     return μ
 end
 
+
 function _stats_std(values, weights)
     allequal(values) && return zero(float(first(values)))
     σ = std(values, weights; mean = _stats_mean(values, weights), corrected = false)
-    isfinite(σ) && σ > 0 || BAT._plot_weight_error("nonconstant weighted spread is outside the working numerical range")
+    isfinite(σ) && σ > 0 ||
+        BAT._plot_weight_error("nonconstant weighted spread is outside the working numerical range")
     return σ
 end
+
 
 function _stats_validate_nsigma(nsigma)
     isfinite(nsigma) && nsigma >= 0 || throw(ArgumentError("nsigma must be finite and nonnegative"))
     return nothing
 end
+
 
 function _stats_extent(σ, nsigma)
     _stats_validate_nsigma(nsigma)
@@ -63,13 +72,16 @@ function _stats_extent(σ, nsigma)
     return BAT._plot_float64(extent, "statistical extent")
 end
 
+
 function _stats_limits(μ, σ, nsigma)
     extent = _stats_extent(σ, nsigma)
     lo = BAT._plot_float64(μ - extent, "statistical lower endpoint")
     hi = BAT._plot_float64(μ + extent, "statistical upper endpoint")
-    (iszero(extent) || lo < hi) || BAT._plot_weight_error("statistical endpoints are indistinguishable as Float64")
+    (iszero(extent) || lo < hi) ||
+        BAT._plot_weight_error("statistical endpoints are indistinguishable as Float64")
     return [lo, hi]
 end
+
 
 _stats_position(μ) = BAT._plot_float64(μ, "statistical position")
 
@@ -78,16 +90,18 @@ const _COV_ELLIPSE_CIRCLE = let θ = range(0, 2π, length = 200)
     [cos.(θ)'; sin.(θ)']
 end
 
-# Ellipse samples and principal-axis endpoints for one covariance, both at the
-# SAME nsigma radius: `direction` is a half-length applied in either direction,
-# so each segment spans its full axis and its endpoints land on the ellipse.
+
+# Ellipse and principal-axis endpoints share the same nsigma radius; direction is each axis's
+# half-length.
 function _cov_ellipse_primitives(μ::AbstractVector, Σ::AbstractMatrix, nsigma::Real)
     isfinite(nsigma) && nsigma >= 0 || throw(ArgumentError("nsigma must be finite and nonnegative"))
     vals, vecs = eigen(Σ)
     stds = sqrt.(clamp.(vals, 0, Inf))
 
     ellipse_mat = vecs * nsigma * Diagonal(stds) * _COV_ELLIPSE_CIRCLE .+ μ
-    ellipse_points = Point{2,Float64}.(_stats_position.(ellipse_mat[1, :]), _stats_position.(ellipse_mat[2, :]))
+    ellipse_points = Point{2,Float64}.(
+        _stats_position.(ellipse_mat[1, :]), _stats_position.(ellipse_mat[2, :])
+    )
 
     axes_segments = Point{2,Float64}[]
     for i in 1:2
@@ -101,13 +115,16 @@ function _cov_ellipse_primitives(μ::AbstractVector, Σ::AbstractMatrix, nsigma:
     return (ellipse_points = ellipse_points, axes_segments = axes_segments)
 end
 
+
 function determine_recipe_status(subject::Mean1D, live_recipe::R1) where {R1<:BATMakieRecipe}
     return LiveRecipe()
 end
 
+
 function determine_recipe_status(subject::Std1D, live_recipe::R1) where {R1<:BATMakieRecipe}
     return LiveRecipe()
 end
+
 
 function determine_recipe_status(
     subject::Mean2D, live_recipe_1::R1, live_recipe_2::R2
@@ -115,11 +132,13 @@ function determine_recipe_status(
     return LiveRecipe()
 end
 
+
 function determine_recipe_status(
     subject::Cov2D, live_recipe_1::R1, live_recipe_2::R2
 ) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
     return LiveRecipe()
 end
+
 
 function determine_recipe_status(
     subject::Std2D, live_recipe_1::R1, live_recipe_2::R2
@@ -155,8 +174,7 @@ function get_stats_plotspecs(
     vsel::Tuple{Integer,Integer},
     recipe::Makie2DStats,
     config::NamedTuple;
-    # Forwarded: the 2D stats overlay must follow the cell's main-recipe
-    # orientation (see _init_gridlayout!'s invariant comment).
+    # Transpose overlays with the main recipe.
     transposed::Bool = false
 )
     i, j = vsel
@@ -175,7 +193,6 @@ function get_stats_plotspecs(
 end
 
 
-
 function compute_plotting_primitives(
     ::SubArray,
     ::SubArray,
@@ -186,6 +203,7 @@ function compute_plotting_primitives(
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_cov2d_primitives()
 end
+
 
 # Unsupported covariance arithmetic raises instead of producing an empty result.
 function compute_plotting_primitives(
@@ -207,13 +225,15 @@ function compute_plotting_primitives(
         StatsBase.SimpleCovariance(corrected = false), Matrix(coords), w_prob;
         dims = 2, mean = reshape(μ, :, 1)
     )
-    all(isfinite, Σ) || BAT._plot_weight_error("weighted covariance is outside the working numerical range")
+    all(isfinite, Σ) ||
+        BAT._plot_weight_error("weighted covariance is outside the working numerical range")
     for i in axes(coords, 1)
         (Σ[i, i] > 0 || (iszero(Σ[i, i]) && allequal(view(coords, i, :)))) ||
             BAT._plot_weight_error("nonconstant covariance diagonal is outside the working numerical range")
     end
     return _cov_ellipse_primitives(μ, Σ, nsigma)
 end
+
 
 function compose_plotspecs(
     primitives::NamedTuple,
@@ -251,6 +271,7 @@ function compute_plotting_primitives(
     return _empty_std1d_primitives()
 end
 
+
 function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
@@ -269,6 +290,7 @@ function compute_plotting_primitives(
     σ = _stats_std(vals, w_prob)
     return (positions = _stats_limits(μ, σ, nsigma),)
 end
+
 
 function compose_plotspecs(
     primitives::NamedTuple,
@@ -297,6 +319,7 @@ function compute_plotting_primitives(
     return _empty_std2d_primitives()
 end
 
+
 function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
@@ -319,6 +342,7 @@ function compute_plotting_primitives(
     )
 end
 
+
 function compose_plotspecs(
     primitives::NamedTuple,
     recipe::Std2D,
@@ -339,7 +363,6 @@ function compose_plotspecs(
 end
 
 
-
 function compute_plotting_primitives(
     ::SubArray,
     ::SubArray,
@@ -350,6 +373,7 @@ function compute_plotting_primitives(
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_mean1d_primitives()
 end
+
 
 function compute_plotting_primitives(
     marg_coords::SubArray,
@@ -366,6 +390,7 @@ function compute_plotting_primitives(
     return (x = [_stats_position(μ)],)
 end
 
+
 function compose_plotspecs(
     primitives::NamedTuple,
     recipe::Mean1D,
@@ -377,8 +402,7 @@ function compose_plotspecs(
         return PlotSpec[]
     end
 
-    # _MEAN1D_DASH (see its comment above), set on this PlotSpec only --
-    # Std1D/Std2D/Mean2D share the VLines type and must stay solid.
+    # Set the dash on this plot only; other VLines overlays must remain solid.
     lines = S.VLines(x; linestyle = _MEAN1D_DASH, color = config.stats_color)
     return [lines]
 end
@@ -395,6 +419,7 @@ function compute_plotting_primitives(
     return _empty_mean2d_primitives()
 end
 
+
 function compute_plotting_primitives(
     marg_coords::SubArray,
     weights::SubArray,
@@ -410,6 +435,7 @@ function compute_plotting_primitives(
     μ_y = _stats_mean(view(coords, 2, :), w_prob)
     return (μ_x = [_stats_position(μ_x)], μ_y = [_stats_position(μ_y)])
 end
+
 
 function compose_plotspecs(
     primitives::NamedTuple,
@@ -441,6 +467,7 @@ function compute_plotting_primitives(
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_errorbars1d_primitives()
 end
+
 
 function compute_plotting_primitives(
     marg_coords::SubArray,
@@ -484,7 +511,6 @@ function compose_plotspecs(
 end
 
 
-
 function compute_plotting_primitives(
     ::SubArray,
     ::SubArray,
@@ -495,6 +521,7 @@ function compute_plotting_primitives(
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_errorbars2d_primitives()
 end
+
 
 function compute_plotting_primitives(
     marg_coords::SubArray,
@@ -563,6 +590,7 @@ function compute_plotting_primitives(
     return _empty_pdf1d_primitives()
 end
 
+
 # Overlays the Normal distribution fit (by weighted mean/std) to the 1D marginal.
 function compute_plotting_primitives(
     marg_coords::SubArray,
@@ -604,6 +632,7 @@ function compute_plotting_primitives(
     return (poly_points = poly_points, x = x, y = y)
 end
 
+
 function compose_plotspecs(
     primitives::NamedTuple,
     recipe::PDF1D,
@@ -623,5 +652,5 @@ function compose_plotspecs(
     return [poly, lines]
 end
 
-# See makie_hist.jl's _diag_y_extent for Hist1D for what this is for.
+
 _diag_y_extent(primitives::NamedTuple, ::PDF1D) = isempty(primitives.y) ? 0.0 : maximum(primitives.y)

@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 # The original measure owns the display shape; an initialization source may
 # instead be an empirical approximation with different shape metadata.
 _display_target_shape(::Any) = missing
@@ -14,14 +15,17 @@ function _live_display_shape(target, f_pretransform, state)
     return shape
 end
 
+
 # Shape-only transforms have zero Jacobian and already support BAT's sample
 # broadcast. Generic transform inference can erase their constant fields.
 function _inverse_display_samples(f_pretransform, samples, executor)
-    isempty(samples) && throw(ArgumentError("A display prototype requires a nonempty sample container"))
+    isempty(samples) &&
+        throw(ArgumentError("A display prototype requires a nonempty sample container"))
     backward = inverse(f_pretransform)
     return backward isa AbstractValueShape ? backward.(samples) :
         transform_samples(backward, samples, executor)
 end
+
 
 _display_has_shape(values) = values isa Union{ArrayOfSimilarArrays,ShapedAsNTArray,AbstractVector{<:Real}}
 # Value-derived shapes describe coordinates, not storage precision. In
@@ -47,6 +51,7 @@ function _canonical_display_samples(samples, shape::AbstractValueShape)
         throw(ArgumentError("Transformed samples do not match the original display shape"))
     return result
 end
+
 
 # Unlike a slice/similar of transformed storage, this constructor guarantees
 # appendable coordinates and mutable columns (including missing-Jacobian logd).
@@ -87,6 +92,7 @@ function _initial_display_outputs(states, outputs, f_pretransform, shape)
     return result, shape
 end
 
+
 function _transform_display_outputs(f_pretransform, outputs, templates, shape;
     executor = BAT.MultiThreadedExec())
     axes(outputs) == axes(templates) || throw(ArgumentError("Mismatched display chain topology"))
@@ -104,6 +110,7 @@ function _transform_display_outputs(f_pretransform, outputs, templates, shape;
     end
 end
 
+
 # For validated positive thresholds and finite factors >= 1. Saturate before
 # converting to Int, and prevent Float64 rounding from lowering the threshold.
 function _scaled_buffer_threshold(n::Int, factor::Float64)
@@ -111,6 +118,7 @@ function _scaled_buffer_threshold(n::Int, factor::Float64)
     value >= typemax(Int) && return typemax(Int)
     return max(n, ceil(Int, value))
 end
+
 
 # Counts completed walker-steps, independently of row merging or sample weights.
 _add_buffer_steps(n::Int, steps::Int) = n > typemax(Int) - steps ? typemax(Int) : n + steps
@@ -128,6 +136,7 @@ function _pending_walker_outputs(chain_state::MCMCChainState, nonzero_weights::B
     return pending
 end
 
+
 function BAT.register_state_for_vis!(
     vis::BATVisualizer{BATMakieVisualization},
     mcmc_state::MCMCState,
@@ -138,7 +147,9 @@ function BAT.register_state_for_vis!(
     graph = _live_graph(vis)
 
     empty_walker_outputs = _empty_display_samples.(samples)
-    samples_new, timing_new = _append_timed_walkers(empty_walker_outputs, samples, _empty_walker_spans(samples), timing)
+    samples_new, timing_new = _append_timed_walkers(
+        empty_walker_outputs, samples, _empty_walker_spans(samples), timing
+    )
 
     samples_graph = graph[:samples][]
     push!(samples_graph, samples_new)
@@ -149,7 +160,10 @@ function BAT.register_state_for_vis!(
 
     # Keep one batched update: each call starts a full invalidation/notification cycle.
     graph_timing = vis.content.step_mode[] ?
-        vcat(isnothing(graph[:sample_timing][]) ? ChainStepSpans[] : graph[:sample_timing][], [timing_new]) : nothing
+        vcat(
+            isnothing(graph[:sample_timing][]) ? ChainStepSpans[] : graph[:sample_timing][],
+            [timing_new]
+        ) : nothing
     update!(graph; samples = samples_graph, current_idxs = current_idxs_graph, sample_timing = graph_timing)
 
     push!(chain_ids, mcmc_state.chain_state.info.id)
@@ -160,8 +174,8 @@ function BAT.register_state_for_vis!(
     push!(vis.content.pending_timing, _empty_walker_spans(samples))
 end
 
-# Core of the vsel choke point, usable without a live BATVisualizer (static bat_makie_plot path); clamps
-# against n_dof/N_max and updates only on change.
+
+# Shared static/live selection update, clamped to the available coordinates and grid size.
 function _apply_vsel_to_graph!(
     graph::ComputeGraph, n_dof::Integer, N_max::Integer, requested_vsel::AbstractVector{<:Integer}
 )
@@ -172,14 +186,18 @@ function _apply_vsel_to_graph!(
     return clamped
 end
 
+
 # Live changes use the view owner; the transport lock never covers rendering.
-function _apply_vsel!(vis::BATVisualizer{BATMakieVisualization}, requested_vsel::AbstractVector{<:Integer})
+function _apply_vsel!(
+    vis::BATVisualizer{BATMakieVisualization}, requested_vsel::AbstractVector{<:Integer}
+)
     clamped = _clamp_vsel(requested_vsel, vis.content.n_dof[], vis.backend.N_max)
     # Do not discard an intent equal to the current graph value: another intent
     # may already be queued by a reentrant callback.
     _live_graph_update!(vis; idxs = clamped)
     return nothing
 end
+
 
 function BAT.init_visualizer!(
     vis::BATVisualizer{BATMakieVisualization}; rng::AbstractRNG,
@@ -234,6 +252,7 @@ function BAT.init_visualizer!(
     return nothing
 end
 
+
 function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, target)
     ctl = vis.content.lifecycle
     graph = _live_graph(vis)
@@ -243,7 +262,8 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
     built = nothing
     started = _with_live_view(vis) do
         warmup_makie_shaders()
-        isempty(mcmc_states) && throw(ArgumentError("Live visualization requires at least one chain"))
+        isempty(mcmc_states) &&
+            throw(ArgumentError("Live visualization requires at least one chain"))
         display_shape = _live_display_shape(target, f_pretransform, first(mcmc_states))
         domain_target = isnothing(target) ? mcmc_target(first(mcmc_states)) : target
         domain_transform = isnothing(target) ? inverse(f_pretransform) : identity
@@ -264,7 +284,9 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
             (Float64[], Float64[]) : _support_bounds(target, n_dof)
         update!(graph; domain_lo = domain_lo, domain_hi = domain_hi,
             support_lo = support_lo, support_hi = support_hi)
-        initial_timing = [_initial_step_spans(vis, state, outputs[i]) for (i, state) in enumerate(mcmc_states)]
+        initial_timing = [
+            _initial_step_spans(vis, state, outputs[i]) for (i, state) in enumerate(mcmc_states)
+        ]
         vis.content.step_mode[] = all(!isnothing, initial_timing)
         for (i, state) in enumerate(mcmc_states)
             register_state_for_vis!(vis, state, display_outputs[i],
@@ -290,7 +312,9 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
         on_render_failure = _live_renderer_failure_callback(vis))
     history = Ref((samples = graph[:samples][], timing = vis.content.step_mode[] ?
         graph[:sample_timing][] : [_empty_walker_spans(c) for c in graph[:samples][]]))
-    tick! = () -> _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_lo, domain_hi; display_shape)
+    tick! = () -> _flush_live_buffer!(
+        vis, mcmc_states, f_pretransform, history, domain_lo, domain_hi; display_shape
+    )
     finish! = function()
         _flush_live_buffer!(
             vis, mcmc_states, f_pretransform, history, domain_lo, domain_hi; force = true, display_shape
@@ -309,6 +333,7 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
     _start_live_listener!(vis, tick!, finish!)
     return nothing
 end
+
 
 function _detach_live_batch!(vis, mcmc_states; force::Bool = false)
     ready = lock(vis.content.buffer_lock) do
@@ -345,6 +370,7 @@ function _detach_live_batch!(vis, mcmc_states; force::Bool = false)
     end
 end
 
+
 function _publish_live_frame!(vis, payload::NamedTuple)
     published = _live_graph_update!(vis; publication = true, payload...)
     if published
@@ -354,6 +380,7 @@ function _publish_live_frame!(vis, payload::NamedTuple)
     end
     return published
 end
+
 
 function _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_lo, domain_hi;
     force::Bool = false, display_shape = missing)
@@ -387,6 +414,7 @@ function _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_l
     return nothing
 end
 
+
 function BAT.update_visualizer_impl!(vis::BATVisualizer{BATMakieVisualization};
     chain_state::MCMCChainState, nonzero_weights::Bool, is_sampling_step::Bool)
     isnothing(vis.content) && return nothing
@@ -398,7 +426,9 @@ function BAT.update_visualizer_impl!(vis::BATVisualizer{BATMakieVisualization};
         _ingest_live_observation!(vis, chain_state, nonzero_weights, is_sampling_step)
     catch err
         if err isa InterruptException
-            BAT.request_visualizer_stop!(vis; reason = :aborted, exception = CapturedException(err, catch_backtrace()))
+            BAT.request_visualizer_stop!(
+                vis; reason = :aborted, exception = CapturedException(err, catch_backtrace())
+            )
             rethrow()
         end
         _fail_visualizer!(vis, err, catch_backtrace(), :ingest)
@@ -406,13 +436,13 @@ function BAT.update_visualizer_impl!(vis::BATVisualizer{BATMakieVisualization};
     return nothing
 end
 
+
 function _ingest_live_observation!(vis, chain_state, nonzero_weights, is_sampling_step)
     (;
         buffer_lock, buffer_cond, output_buffer, pending_samples, chain_ids,
         n_buffer_steps, buffer_dirty, effective_batch_size, buffer_ratio
     ) = vis.content
     output_id = findfirst(==(chain_state.info.id), chain_ids)
-    # A clear error instead of the opaque "invalid index: nothing" below.
     isnothing(output_id) && throw(ArgumentError(
         "MCMC chain id $(chain_state.info.id) was never registered with the visualizer " *
         "(register_state_for_vis!) -- known chain ids: $(chain_ids)"))
@@ -456,8 +486,7 @@ function _ingest_live_observation!(vis, chain_state, nonzero_weights, is_samplin
         pending_samples[output_id] = pending
         n_buffer_steps[] = _add_buffer_steps(n_buffer_steps[], is_sampling_step ? length(pending) : 0)
         buffer_dirty[] = true
-        # Backpressure: block sampling once the buffer runs too far ahead; the threshold derives from
-        # effective_batch_size[] so it stays >= the flush trigger.
+        # Keep the backpressure threshold at or above the effective flush threshold.
         wait_started = time_ns()
         while vis.content.lifecycle.accepting[] &&
                 n_buffer_steps[] >= _scaled_buffer_threshold(effective_batch_size[], buffer_ratio)

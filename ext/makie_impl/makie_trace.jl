@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 # Trace2D uses the shared cycle-aware timing selection.
 _empty_trace2d_primitives() = (
     x = Float64[],
@@ -30,6 +31,7 @@ function _timed_trace_primitives(data, groups, vsel)
         group_ranges = ranges, all_chainids = data.chainids)
 end
 
+
 function compose_plotspecs(
     primitives::NamedTuple,
     recipe::Trace2D,
@@ -50,7 +52,7 @@ function compose_plotspecs(
     specs = PlotSpec[]
     for (chain_id, _, range) in group_ranges
         base_color = _CHAIN_COLOR_PALETTE[mod1(rank_of[chain_id], length(_CHAIN_COLOR_PALETTE))]
-        # 0.15 alpha floor: a fully transparent oldest point would be invisible instead of merely faint.
+        # Keep the oldest trace points visible.
         colors = [RGBA(base_color.r, base_color.g, base_color.b, 0.15 + 0.85 * recency[idx]) for idx in range]
         pts = Point{2,Float64}.(x[range], y[range])
         length(pts) > 1 && push!(specs, S.Lines(pts; color = colors))
@@ -60,11 +62,13 @@ function compose_plotspecs(
     return specs
 end
 
+
 function determine_recipe_status(
     subject::Trace2D, live_recipe_1::R1, live_recipe_2::R2
 ) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
     return LiveRecipe()
 end
+
 
 function get_trace_plotspecs(
     inputs::NamedTuple,

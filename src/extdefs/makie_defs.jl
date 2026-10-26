@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 """
     struct BATMakieVisualization <: BATVisBackend
 
@@ -78,18 +79,10 @@ and [Live Makie session lifetime](@ref) for figure ownership and cleanup.
 """
 struct BATMakieVisualization <: BATVisBackend
     recipes::NamedTuple
-    # Concrete field types: abstract Integer/Real fields would box every
-    # access and turn per-flush arithmetic into dynamic dispatch; `new` converts.
     vsel::Vector{Int}
     N_max::Int
     n_batch::Int
-    # Backpressure watermark: once this many walker-steps are buffered unflushed,
-    # sampling blocks until the listener catches up. With adaptive_batching it
-    # (like n_batch) is only the starting value; both grow together at runtime.
     max_buffered::Int
-    # When true (default), the effective flush threshold grows geometrically by
-    # batch_growth_rate after every flush, fixing an otherwise-quadratic total
-    # recompute cost; when false, thresholds stay fixed for maximum live resolution.
     adaptive_batching::Bool
     batch_growth_rate::Float64
     poll_interval::Float64
@@ -98,9 +91,10 @@ struct BATMakieVisualization <: BATVisBackend
     diagonal_config::NamedTuple
     observer_timeout::Float64
 
-    # N_max fixes the grid size for the visualizer's life; vsel is only the
-    # initial selection, applied once at listener startup and never re-read.
-    function BATMakieVisualization(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config, observer_timeout)
+    function BATMakieVisualization(
+        recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate,
+        poll_interval, dark, triagonal_config, diagonal_config, observer_timeout
+    )
         N_max = Int(N_max)
         N_max > 0 || throw(ArgumentError("N_max must be positive (got $N_max)"))
         n_batch = Int(n_batch)
@@ -122,16 +116,24 @@ struct BATMakieVisualization <: BATVisBackend
         if !(isfinite(batch_growth_rate) && batch_growth_rate > 1)
             throw(ArgumentError("batch_growth_rate must be finite and > 1 (got $batch_growth_rate); it multiplies the effective batch threshold after every flush"))
         end
-        new(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config, observer_timeout)
+        new(
+            recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching,
+            batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config,
+            observer_timeout
+        )
     end
 end
 export BATMakieVisualization
 
 # Preserve the original positional constructor, with a named timeout option.
-function BATMakieVisualization(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config; observer_timeout::Real = 60.0)
+function BATMakieVisualization(
+    recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate,
+    poll_interval, dark, triagonal_config, diagonal_config; observer_timeout::Real = 60.0
+)
     BATMakieVisualization(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching,
         batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config, observer_timeout)
 end
+
 
 # BATVisualizer(::BATMakieVisualization) needs the Makie extension to build its
 # live content; see BAT._vis_required_pkg.
@@ -141,66 +143,64 @@ _vis_required_pkg(::BATMakieVisualization) = :Makie
 # automatic color-cycling overrides theme-level colors.
 _stats_overlay_color(dark::Bool) = dark ? :white : :black
 
-# The one canonical definition of the default recipe configs -- every consumer
-# derives from these two functions via merge, so field sets can't silently drift.
-# Credible levels are cdf.(Chi(d), 0:3): the n-sigma mass equivalents in the
-# respective dimension, the standard corner-plot convention.
+# Shared recipe defaults. Credible levels use the n-sigma mass equivalents for each dimension.
 function _default_makie_triagonal_config(; trace_nsteps::Integer = 20, dark::Bool = false)
-    # Validated at this single choke point; <= 0 would silently render an empty Trace2D overlay.
     if trace_nsteps < 1
         throw(ArgumentError("trace_nsteps must be >= 1 (got $trace_nsteps); it is how many real MCMC steps back the Trace2D overlay shows"))
     end
     return (
-        weights=nothing,
-        nsigma=1.0,
-        nbins=(100, 100),
-        closed=:left,
-        normalization=:pdf,
-        levels=cdf.(Chi(2), 0:3),
-        filter=false,
-        colormap=:inferno,
-        alpha=1.0,
-        rev=false,
-        threshold=nothing,
-        markersize=2.0,
+        weights = nothing,
+        nsigma = 1.0,
+        nbins = (100, 100),
+        closed = :left,
+        normalization = :pdf,
+        levels = cdf.(Chi(2), 0:3),
+        filter = false,
+        colormap = :inferno,
+        alpha = 1.0,
+        rev = false,
+        threshold = nothing,
+        markersize = 2.0,
         # Trace2D's window in explicit cycle-aware walker-step spans;
         # repetition weights alone do not establish elapsed-step timing.
-        trace_nsteps=trace_nsteps,
-        # Stats-overlay line color, set per-PlotSpec (not via the theme) because
-        # the overlay plot types' automatic color-cycling overrides theme colors.
-        stats_color=_stats_overlay_color(dark),
+        trace_nsteps = trace_nsteps,
+        stats_color = _stats_overlay_color(dark),
     )
 end
+
 
 function _default_makie_diagonal_config(; dark::Bool = false)
     return (
-        weights=nothing,
-        nsigma=1.0,
-        nbins=100,
-        closed=:left,
-        normalization=:pdf,
-        levels=cdf.(Chi(1), 0:3),
-        filter=false,
-        colormap=:inferno,
-        alpha=1.0,
-        y_ebars=0.0,
-        filled_pdf=true,
-        npoints_pdf=300,
-        rev=false,
-        # See the triagonal config's stats_color comment above.
-        stats_color=_stats_overlay_color(dark),
+        weights = nothing,
+        nsigma = 1.0,
+        nbins = 100,
+        closed = :left,
+        normalization = :pdf,
+        levels = cdf.(Chi(1), 0:3),
+        filter = false,
+        colormap = :inferno,
+        alpha = 1.0,
+        y_ebars = 0.0,
+        filled_pdf = true,
+        npoints_pdf = 300,
+        rev = false,
+        stats_color = _stats_overlay_color(dark),
     )
 end
 
-function BATMakieVisualization(; dark::Bool = false, max_buffered::Integer = 4 * 50, adaptive_batching::Bool = true, batch_growth_rate::Real = 1.2, trace_nsteps::Integer = 20, observer_timeout::Real = 60.0)
-    recipes = (upper=QuantileHist2D, diagonal=Hist1D, lower=Hist2D)
-    vsel = [1, 2, 3] # Default vsel; clamped (with a warning) on its one-time initial application if the posterior has fewer free parameters.
-    N_max = 3 # Grid size; cells beyond the (possibly truncated) vsel are simply left dead/empty.
-    n_batch = 50 # Flush after this many completed walker-steps have accumulated.
-    poll_interval = 0.1 # Seconds between checks of whether a new batch is ready to flush.
 
-    triagonal_config = _default_makie_triagonal_config(trace_nsteps=trace_nsteps, dark=dark)
-    diagonal_config = _default_makie_diagonal_config(dark=dark)
+function BATMakieVisualization(;
+    dark::Bool = false, max_buffered::Integer = 4 * 50, adaptive_batching::Bool = true,
+    batch_growth_rate::Real = 1.2, trace_nsteps::Integer = 20, observer_timeout::Real = 60.0
+)
+    recipes = (upper = QuantileHist2D, diagonal = Hist1D, lower = Hist2D)
+    vsel = [1, 2, 3]
+    N_max = 3
+    n_batch = 50
+    poll_interval = 0.1
+
+    triagonal_config = _default_makie_triagonal_config(trace_nsteps = trace_nsteps, dark = dark)
+    diagonal_config = _default_makie_diagonal_config(dark = dark)
 
     vis_config = BATMakieVisualization(
         recipes,
@@ -218,7 +218,6 @@ function BATMakieVisualization(; dark::Bool = false, max_buffered::Integer = 4 *
     )
     return vis_config
 end
-
 
 
 """

@@ -1,5 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+
 # Rendering has its own guard. Never acquire it while holding buffer_lock:
 # producers and the control timer must be able to stop an unavailable view.
 mutable struct _LiveView
@@ -16,9 +17,14 @@ mutable struct _LiveView
     pending::Dict{Symbol,Any}
     seen_open::Threads.Atomic{Bool}
 end
-_LiveView() = _LiveView(ReentrantLock(), nothing, Any[],
+
+
+_LiveView() = _LiveView(
+    ReentrantLock(), nothing, Any[],
     Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false),
-    Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(true), 0, false, Dict{Symbol,Any}(), Threads.Atomic{Bool}(false))
+    Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(true), 0, false, Dict{Symbol,Any}(),
+    Threads.Atomic{Bool}(false)
+)
 
 function _live_view(vis)
     lock(vis.content.buffer_lock) do
@@ -28,6 +34,7 @@ function _live_view(vis)
         return life.view
     end
 end
+
 
 # A completed figure is borrowed, never detached from its session. This query
 # must not create a view or turn ordinary caller misuse into an observer failure.
@@ -70,6 +77,7 @@ function BAT.visualizer_figure(vis::BATVisualizer{BATMakieVisualization})
     end
 end
 
+
 function _live_view_admitted_locked(vis, view, publication)
     (view.disposed[] || view.cleanup_pending[] || !view.presentation_valid[]) && return false
     life = vis.content.lifecycle
@@ -78,6 +86,7 @@ function _live_view_admitted_locked(vis, view, publication)
     return publication ? _live_can_publish_locked(vis) :
         (_live_can_publish_locked(vis) || life.outcome === :complete)
 end
+
 
 # Bool reports admission and successful completion, not the callback's value.
 # Derived synchronous widget callbacks can reenter; graph updates below are
@@ -140,6 +149,7 @@ function _with_live_view(f, vis; publication::Bool = false)
     end
 end
 
+
 const _LIVE_MAX_PENDING_ATTRIBUTES = 32
 const _LIVE_MAX_DEFERRED_UPDATES = 32
 
@@ -178,6 +188,7 @@ function _live_graph_update!(vis; publication::Bool = false, kwargs...)
     end
 end
 
+
 function _track_live_subscription!(vis, handle)
     view = _live_view(vis)
     if handle isa AbstractVector
@@ -187,6 +198,7 @@ function _track_live_subscription!(vis, handle)
     end
     return handle
 end
+
 
 # Static callbacks belong to the figure, so empty!(fig) releases control
 # subscriptions and the sample graph captured by root input callbacks.
@@ -210,6 +222,7 @@ function _view_on(f, vis, observable; update::Bool = false, kwargs...)
     return handle
 end
 
+
 function _view_onany(f, vis, observables...; update::Bool = false, kwargs...)
     isnothing(vis) && return onany(f, observables...; update = update, kwargs...)
     guarded = function(args...)
@@ -222,6 +235,7 @@ function _view_onany(f, vis, observables...; update::Bool = false, kwargs...)
     update && guarded(map(to_value, observables)...)
     return handles
 end
+
 
 function _attach_live_view!(vis, fig)
     view = _live_view(vis)
@@ -244,6 +258,7 @@ function _attach_live_view!(vis, fig)
     return view
 end
 
+
 function _request_view_disposal!(vis)
     lock(vis.content.buffer_lock) do
         Base.disable_sigint() do
@@ -261,6 +276,7 @@ function _request_view_disposal!(vis)
     return nothing
 end
 
+
 # GLMakie exposes its currently displayed scene on the screen. A screen can be
 # reused to show another figure, so attachment in current_screens alone is not
 # proof of ownership. Other backends retain their own native-window policy.
@@ -274,6 +290,7 @@ function _close_owned_live_screens!(fig)
     end
     return nothing
 end
+
 
 # Admission is nonwaiting. Backend cleanup itself may yield/block, so callers
 # use the owned cleanup task, never a rendering callback or listener finalizer.
