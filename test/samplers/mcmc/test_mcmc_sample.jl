@@ -62,4 +62,14 @@ using Random123
         Normal(), BATContext(rng = Philox4x((564, 44))), max_retries = 0,
     )
     @test smplres_normal.verified
+
+    @testset "convergence tests" begin
+        rng = Philox4x((564, 45))
+        chains = [DensitySampleVector(v = nestedview(randn(rng, 2, 100)), logd = zeros(100)) for _ in 1:3]
+        for alg in (GelmanRubinConvergence(), BrooksGelmanConvergence())
+            vt = bat_convergence(chains, alg, BATContext()).result
+            @test vt isa ValueAndThreshold{:max_Rsqr}
+            @test convert(Bool, vt) == (vt.value <= vt.threshold)
+        end
+    end
 end

@@ -77,7 +77,7 @@ export GelmanRubinConvergence
 
 function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, algorithm::GelmanRubinConvergence, ::BATContext)
     max_Rsqr = maximum(gr_Rsqr(samples))
-    vt = ValueAndThreshold{max_Rsqr}(max_Rsqr, <=, algorithm.threshold)
+    vt = ValueAndThreshold{:max_Rsqr}(max_Rsqr, <=, algorithm.threshold)
     converged = convert(Bool, vt)
     @debug begin
         success_str = converged ? "have" : "have *not*"
@@ -167,7 +167,7 @@ export BrooksGelmanConvergence
 
 function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, algorithm::BrooksGelmanConvergence, ::BATContext)
     max_Rsqr = maximum(bg_R_2sqr(samples, corrected = algorithm.corrected))
-    vt = ValueAndThreshold{max_Rsqr}(max_Rsqr, <=, algorithm.threshold)
+    vt = ValueAndThreshold{:max_Rsqr}(max_Rsqr, <=, algorithm.threshold)
     converged = convert(Bool, vt)
     @debug begin
         success_str = converged ? "have" : "have *not*"
