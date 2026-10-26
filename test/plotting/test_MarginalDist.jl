@@ -6,7 +6,7 @@ using Test
 using Distributions, StatsBase, ValueShapes, LinearAlgebra, ArraysOfArrays
 using EmpiricalDistributions: UvBinnedDist, MvBinnedDist
 
-using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex, bat_marginalize
+using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex, bat_marginalize, calculate_levels
 
 @testset "MarginalDist" begin
     prior = NamedTupleDist(
@@ -91,6 +91,17 @@ using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex, bat_margi
         @test keys(varshape(marg_2d.dist)) == (Symbol("x.b.c"), :e)
         @test keys(varshape(MarginalDist(nested_samples, :([x.b.c, e]), bins = (20, 20)).dist)) == (Symbol("x.b.c"), :e)
         @test varshape(MarginalDist(nested_samples, :x, bins = 5).dist) == NamedTupleShape(x = varshape(nested_prior).x.shape)
+    end
+
+    @testset "contour levels" begin
+        # A single bin covers the probabilities 0.683 and 0.955:
+        @test calculate_levels(Histogram((0:3,), [50, 49, 1]), [0.683, 0.955, 0.997]) ≈ [1, 49, 49, 110]
+        hist = fit(Histogram, (randn(10^4), randn(10^4)), nbins = 20)
+        levels = calculate_levels(hist, [0.997, 0.683, 0.955])
+        @test issorted(levels) && length(levels) == 4
+        for (p, l) in zip([0.997, 0.955, 0.683], levels)
+            @test sum(filter(>=(l), hist.weights)) >= p * sum(hist.weights)
+        end
     end
 
     @testset "bin centers and marginal modes" begin
