@@ -109,9 +109,18 @@ function reweight_relative!(stats::MCMCBasicStats, reweighting_factor::Real)
     _reweight_relative!(stats, reweighting_factor)
 end
 
+# Log-density moments are auxiliary: subnormal values must not prevent geometric
+# adaptation. Keep overflow and complete underflow checks, and the stricter
+# checks on all parameter moments, weight sums and squared weights.
+function _check_reweighted_logdensity(old, new)
+    isfinite(old) && isfinite(new) && (iszero(old) || !iszero(new)) ||
+        throw(ArgumentError("reweighted log-density moment is not representable in accumulator precision"))
+    nothing
+end
+
 function _check_reweight(stats::MCMCBasicStats, factor)
     _check_reweight(stats.param_stats, factor)
-    _check_reweight(stats.logtf_stats, factor)
+    _check_reweight(stats.logtf_stats, factor, _check_reweighted_logdensity)
 end
 
 function _apply_reweight!(stats::MCMCBasicStats, factor)

@@ -133,6 +133,80 @@ reweight_storage(x) = map(n -> reweight_storage(getfield(x, n)), fieldnames(type
         @test stats.mode == [1,-1]
     end
 
+    @testset "zero-weight scores preserve moments and diagnostic metadata" begin
+        samples = DensitySampleVector([[1.0], [9.0], [8.0]], [-1.0, -Inf, 20.0]; weight = [2, 0, 0])
+        for accumulate! in ((s, xs) -> foreach(x -> push!(s, x), xs), append!)
+            stats = BAT.MCMCBasicStats{Float64,Float64}(1)
+            accumulate!(stats, samples)
+            @test stats.logtf_stats.mean[] == -1
+            @test stats.logtf_stats.var.n == 1
+            @test stats.logtf_stats.var.s == 0
+            @test (stats.logtf_stats.minimum, stats.logtf_stats.maximum) == (-Inf, 20)
+            @test stats.mode == [8.0]
+            @test stats.param_stats.mean[1] == 1
+            @test stats.param_stats.minimum == [1.0]
+            @test stats.param_stats.maximum == [9.0]
+            @test BAT.reweight_relative!(stats, 0.5) === stats
+            @test stats.logtf_stats.mean[] == -1
+            @test stats.logtf_stats.mean.sum_w == 1
+            @test (stats.logtf_stats.minimum, stats.logtf_stats.maximum) == (-Inf, 20)
+            @test stats.mode == [8.0]
+        end
+    end
+
+    @testset "subnormal MCMC score moments $T" for T in (Float32, Float64)
+        offset = -ldexp(one(T), T === Float32 ? -135 : -1040)
+        stats = BAT.MCMCBasicStats{T,T}(1)
+        for i in 1:10
+            push!(stats, DensitySample(T[i], offset, 1, nothing, nothing))
+        end
+        original = reweight_storage(stats)
+        # The exception is specific to MCMC's auxiliary moments. A standalone
+        # statistic retains its existing normal-range policy.
+        @test_throws ArgumentError BAT.reweight_relative!(stats.logtf_stats, 0.5)
+        @test isequal(reweight_storage(stats), original)
+        @test BAT.reweight_relative!(stats, 0.5) === stats
+        @test stats.logtf_stats.mean.sum_v == 5offset
+        @test stats.logtf_stats.mean[] == offset
+        @test stats.logtf_stats.mean.sum_w == stats.logtf_stats.var.sum_w == 5
+        @test stats.logtf_stats.var.sum_w2 == 2.5
+        @test stats.param_stats.mean[1] == T(5.5)
+
+        # Nonconstant auxiliary scores can also have representable subnormal
+        # scatter; parameter geometry is at an ordinary scale.
+        amplitude = ldexp(one(T), T === Float32 ? -67 : -520)
+        scatter_stats = BAT.MCMCBasicStats{T,T}(1)
+        for (i, score) in enumerate(T[-amplitude, amplitude, -amplitude, amplitude])
+            push!(scatter_stats, DensitySample(T[i], score, 1, nothing, nothing))
+        end
+        scatter = scatter_stats.logtf_stats.var.s
+        @test 0 < scatter < floatmin(T)
+        @test Rational{BigInt}(scatter * T(0.5)) == Rational{BigInt}(scatter) / 2
+        @test BAT.reweight_relative!(scatter_stats, 0.5) === scatter_stats
+        @test scatter_stats.logtf_stats.var.s == scatter * T(0.5)
+    end
+
+    @testset "MCMC score admission preserves weight and parameter guards" begin
+        for corrupt! in (
+            s -> (s.param_stats.mean.S[1] = floatmin(Float64)),
+            s -> (s.param_stats.cov.S[1, 1] = floatmin(Float64)),
+            s -> (s.logtf_stats.mean.sum_w = floatmin(Float64)),
+            s -> (s.logtf_stats.var.sum_w = floatmin(Float64)),
+            s -> (s.logtf_stats.var.sum_w2 = floatmin(Float64)),
+            s -> (s.logtf_stats.mean.sum_v = nextfloat(0.0)),
+            s -> (s.logtf_stats.var.s = nextfloat(0.0)),
+            s -> (s.logtf_stats.mean.sum_v = NaN),
+            s -> (s.logtf_stats.var.s = Inf),
+        )
+            stats = BAT.MCMCBasicStats{Float64,Float64}(1)
+            push!(stats, DensitySample([1.0], -1.0, 2, nothing, nothing))
+            corrupt!(stats)
+            before = deepcopy(reweight_storage(stats))
+            @test_throws ArgumentError BAT.reweight_relative!(stats, 0.5)
+            @test isequal(reweight_storage(stats), before)
+        end
+    end
+
     @testset "range boundaries and compensated moments" begin
         previous_mode = get_zero_subnormals()
         guarded = push!(BAT.OnlineUvMean(), 2.0)

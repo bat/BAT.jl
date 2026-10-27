@@ -78,6 +78,9 @@ end
 
 
 @inline function Base.push!(omn::OnlineUvMean{T}, data::Real, weight::Real = 1) where {T}
+    # A zero-weight observation contributes no moment, even when data is infinite.
+    iszero(weight) && return omn
+
     # Workaround for lack of promotion between, e.g., Float32 and DoubleFloat{Float64}
     weight_conv = T(weight)
 
@@ -101,15 +104,21 @@ scaling throws before any component is changed. Nonzero scaled moments,
 weight sums and scatter must remain in the normal range; compensated low parts may
 round away provided the represented first moment does not vanish. Callers must
 have exclusive ownership of `stats`.
+
+Auxiliary log-density moments in MCMC statistics may remain subnormal, but must
+stay finite and must not vanish when nonzero. Their weight sums and squared
+weights retain the normal-range requirement.
 """
 function reweight_relative!(target::OnlineUvMean{T}, reweighting_factor::Real) where T
     _reweight_relative!(target, reweighting_factor)
 end
 
-function _check_reweight(target::OnlineUvMean{T}, factor) where T
+function _check_reweight(
+    target::OnlineUvMean{T}, factor, check_moment::F = _check_reweighted_value
+) where {T,F}
     f = _reweight_factor(T, factor)
     _check_reweighted_value(target.sum_w, target.sum_w * f)
-    _check_reweighted_value(target.sum_v, target.sum_v * f)
+    check_moment(target.sum_v, target.sum_v * f)
 end
 
 function _apply_reweight!(target::OnlineUvMean{T}, factor) where T
@@ -255,13 +264,15 @@ function reweight_relative!(target::OnlineUvVar{T,W}, reweighting_factor::Real) 
     _reweight_relative!(target, reweighting_factor)
 end
 
-function _check_reweight(target::OnlineUvVar{T}, factor) where T
+function _check_reweight(
+    target::OnlineUvVar{T}, factor, check_moment::F = _check_reweighted_value
+) where {T,F}
     f = _reweight_factor(T, factor)
     _check_reweighted_value(target.sum_w, target.sum_w * f)
     scaled_w2 = target.sum_w2 * f
     _check_reweighted_value(target.sum_w2, scaled_w2)
     _check_reweighted_value(scaled_w2, scaled_w2 * f)
-    _check_reweighted_value(target.s, target.s * f)
+    check_moment(target.s, target.s * f)
 end
 
 function _apply_reweight!(target::OnlineUvVar{T}, factor) where T
@@ -338,9 +349,11 @@ function reweight_relative!(stats::BasicUvStatistics{T,W}, reweighting_factor::R
     _reweight_relative!(stats, reweighting_factor)
 end
 
-function _check_reweight(stats::BasicUvStatistics, factor)
-    _check_reweight(stats.mean, factor)
-    _check_reweight(stats.var, factor)
+function _check_reweight(
+    stats::BasicUvStatistics, factor, check_moment::F = _check_reweighted_value
+) where F
+    _check_reweight(stats.mean, factor, check_moment)
+    _check_reweight(stats.var, factor, check_moment)
 end
 
 function _apply_reweight!(stats::BasicUvStatistics, factor)

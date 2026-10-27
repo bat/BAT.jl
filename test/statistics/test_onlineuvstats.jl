@@ -39,6 +39,14 @@ using StatsBase
 
         @test merge!(means...)[] ≈ mdata
 
+        for T in (Float32, Float64), value in (-Inf, Inf, NaN), weight in (0, -0.0)
+            stats = push!(BAT.OnlineUvMean{T}(), T(2), T(3))
+            before = (stats.sum_v, stats.sum_w)
+            @test push!(stats, T(value), weight) === stats
+            @test (stats.sum_v, stats.sum_w) == before
+            @test stats[] == 2
+        end
+
     end
 
     @testset "BAT.OnlineUvVar" begin

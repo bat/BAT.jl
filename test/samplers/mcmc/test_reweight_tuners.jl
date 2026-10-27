@@ -1,8 +1,9 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
-# Real hooks consume supplied sample states; these are not sampler trajectories.
+# Supplied-state tuner checks and public sampling regressions.
 module TestReweightTuners
 
 using BAT, Test, LinearAlgebra, Statistics, StatsBase, Distributions, Random123
+using DensityInterface, Logging
 
 function exact_frequency(rows, weights)
     x = [Rational{BigInt}.(row) for row in rows]
@@ -241,6 +242,48 @@ end
         @test tuner.iteration == 1 && tuner.scale == 1
         @test chain.f_transform === f
         @test prefix == original
+    end
+end
+
+function affine_sample(target; nonzero_weights = true, proposal_scale = 1.0)
+    algorithm = TransformedMCMC(
+        proposal = RandomWalk(proposaldist = Normal(0, proposal_scale)),
+        transform_tuning = AdaptiveAffineTuning(), pretransform = DoNotTransform(),
+        nchains = 1, nwalkers = 1, nsteps = 16, nonzero_weights = nonzero_weights,
+        init = MCMCRetryInit(nsteps_init = 40),
+        burnin = MCMCMultiCycleBurnin(nsteps_per_cycle = 20, max_ncycles = 1, nsteps_final = 0),
+        convergence = AssumeConvergence(), strict = false
+    )
+    with_logger(NullLogger()) do
+        bat_sample(target, algorithm, BATContext(rng = Philox4x((0x123, 0x456)))).result
+    end
+end
+
+@testset "AdaptiveAffine recording zero-weight rejections preserves sampling" begin
+    target = product_distribution([Uniform(0, 1)])
+    filtered = affine_sample(target)
+    retained = affine_sample(target; nonzero_weights = false)
+    expanded(samples) = [only(samples.v[i]) for i in eachindex(samples) for _ in 1:samples.weight[i]]
+    @test expanded(filtered) == expanded(retained)
+    @test sum(filtered.weight) == sum(retained.weight) == 16
+    @test all(>(0), filtered.weight)
+    @test any(iszero, retained.weight)
+    @test any(==(-Inf), retained.logd)
+    @test all(i -> isfinite(retained.logd[i]) || iszero(retained.weight[i]), eachindex(retained))
+end
+
+@testset "AdaptiveAffine is invariant to representable constant score offsets" begin
+    offset = -2.0^-1040
+    @test Rational{BigInt}(10offset * 0.5) == 5Rational{BigInt}(offset)
+    results = map((0.0, -1.0, offset)) do value
+        target = PosteriorMeasure(logfuncdensity(x -> value), product_distribution([Uniform(0, 1)]))
+        affine_sample(target; proposal_scale = 0.1)
+    end
+    for result in results
+        @test result.v == first(results).v
+        @test result.weight == first(results).weight
+        @test result.info == first(results).info
+        @test sum(result.weight) == 16
     end
 end
 
