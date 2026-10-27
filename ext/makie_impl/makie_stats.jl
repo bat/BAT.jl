@@ -116,34 +116,18 @@ function _cov_ellipse_primitives(μ::AbstractVector, Σ::AbstractMatrix, nsigma:
 end
 
 
-function determine_recipe_status(subject::Mean1D, live_recipe::R1) where {R1<:BATMakieRecipe}
-    return LiveRecipe()
-end
-
-
-function determine_recipe_status(subject::Std1D, live_recipe::R1) where {R1<:BATMakieRecipe}
-    return LiveRecipe()
+function determine_recipe_status(
+    subject::Union{Mean1D,Std1D}, live_recipe::BATMakieRecipe, show_stats::Bool
+)
+    return show_stats ? LiveRecipe() : determine_recipe_status(subject, live_recipe)
 end
 
 
 function determine_recipe_status(
-    subject::Mean2D, live_recipe_1::R1, live_recipe_2::R2
-) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
-    return LiveRecipe()
-end
-
-
-function determine_recipe_status(
-    subject::Cov2D, live_recipe_1::R1, live_recipe_2::R2
-) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
-    return LiveRecipe()
-end
-
-
-function determine_recipe_status(
-    subject::Std2D, live_recipe_1::R1, live_recipe_2::R2
-) where {R1<:BATMakieRecipe,R2<:BATMakieRecipe}
-    return LiveRecipe()
+    subject::Union{Cov2D,Std2D}, live_recipe_1::BATMakieRecipe,
+    live_recipe_2::BATMakieRecipe, show_stats::Bool
+)
+    return show_stats ? LiveRecipe() : determine_recipe_status(subject, live_recipe_1, live_recipe_2)
 end
 
 
@@ -179,9 +163,6 @@ function get_stats_plotspecs(
 )
     i, j = vsel
     plotspecs = PlotSpec[]
-
-    # Mean2D is deliberately not drawn in the 2D stats overlay; its recipe
-    # machinery still computes for live cells.
 
     cov_primitives = getproperty(inputs, primitive_symbol(Cov2D(), (i, j)))
     append!(plotspecs, compose_plotspecs(cov_primitives, Cov2D(), config; transposed = transposed))

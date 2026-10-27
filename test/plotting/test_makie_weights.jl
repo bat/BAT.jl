@@ -237,6 +237,7 @@ end
         source = samples(x, w)
         before = deepcopy(source)
         graph = first(EXT._setup_static_graph(source, RECIPES, [1, 2], 2, PAIR, DIAG))
+        Makie.update!(graph; show_stats_diag=true)
         @test graph[:flat_weights][] == w
         for window in (nothing, (2, 3), (3, 3), nothing)
             Makie.update!(graph; window_steps=window)

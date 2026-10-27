@@ -451,7 +451,7 @@ function _init_compute_graph(
             recipe = BAT_MAKIE_RECIPES_1D[k]
             register_computation!(graph,
                 [
-                    marg_sym, :flat_weights, :diagonal_recipe, :live_map,
+                    marg_sym, :flat_weights, :diagonal_recipe, :show_stats_diag, :live_map,
                     :diagonal_config, :vsel_map, :domain_lo, :domain_hi,
                     :support_lo, :support_hi
                 ],
@@ -463,7 +463,9 @@ function _init_compute_graph(
                 config = inputs.diagonal_config
                 (; live_map, vsel_map, domain_lo, domain_hi, support_lo, support_hi) = inputs
                 cell_status = live_map[i, i] ? LiveCell() : DeadCell()
-                recipe_status = determine_recipe_status(recipe, inputs.diagonal_recipe())
+                recipe_status = determine_recipe_status(
+                    recipe, inputs.diagonal_recipe(), inputs.show_stats_diag
+                )
                 v = vsel_map[i, i][1]
                 cfg = (v == 0 || isempty(domain_lo)) ? config :
                     (; config..., domain = (domain_lo[v], domain_hi[v]))
@@ -493,6 +495,7 @@ function _init_compute_graph(
                 register_computation!(graph,
                     [
                         marg_sym_2D, :flat_weights, :upper_recipe, :lower_recipe,
+                        :show_stats_upper, :show_stats_lower,
                         :live_map, :triagonal_config, :vsel_map, :domain_lo, :domain_hi,
                         :support_lo, :support_hi
                     ],
@@ -507,7 +510,10 @@ function _init_compute_graph(
                         domain_lo, domain_hi, support_lo, support_hi
                     ) = inputs
                     cell_status = live_map[j, i] ? LiveCell() : DeadCell()
-                    recipe_status = determine_recipe_status(recipe, upper_recipe(), lower_recipe())
+                    recipe_status = determine_recipe_status(
+                        recipe, upper_recipe(), lower_recipe(),
+                        inputs.show_stats_upper || inputs.show_stats_lower
+                    )
                     # Domain and support follow the coordinate view's row order: x, then y.
                     vsel = vsel_map[j, i]
                     cfg = (vsel[1] == 0 || isempty(domain_lo)) ? config :

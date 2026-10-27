@@ -87,12 +87,17 @@ end
             # override a production method to manufacture an exception.
             graph = EXT._live_graph(vis)
             @test !isempty(graph[:flat_weights][])
+            @test isempty(graph[EXT.primitive_symbol(Std1D(), (1, 1))][].positions)
+            config = merge(vis.backend.diagonal_config, (nsigma=floatmax(Float64),))
+            @test EXT._live_graph_update!(vis; diagonal_config=config)
+            @test vis.content.lifecycle.accepting[]
+            @test EXT._live_graph_update!(vis;
+                diagonal_config=vis.backend.diagonal_config, show_stats_diag=true)
             spread = graph[EXT.primitive_symbol(Std1D(), (1, 1))][].positions
             @test (last(spread) - first(spread)) / 2 > 1
             listener[] = lock(() -> vis.content.lifecycle.task, vis.content.buffer_lock)
             callback_steps[] = [state.chain_state.stepno for state in states]
             injected[] = true
-            config = merge(vis.backend.diagonal_config, (nsigma=floatmax(Float64),))
             @test_throws ArgumentError EXT._stats_extent(
                 (last(spread) - first(spread)) / 2, config.nsigma)
             @test !EXT._live_graph_update!(vis; diagonal_config=config)

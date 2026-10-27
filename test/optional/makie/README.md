@@ -100,7 +100,11 @@ relative scatter weights, and actual PDF/covariance rendering at extreme scales.
 The `weights` case checks operation-specific histogram and population-moment
 arithmetic against independent wider-precision oracles, absolute count errors,
 renderer conversion limits, real graphs and both public static entry paths.
-`weight_failure` triggers a real numerical overlay error during public sampling,
+`stats_visibility` checks that hidden statistics cannot reject a representable
+histogram, while direct selections and visible overlays retain numerical checks.
+It covers both triangle toggles, windows, variable selection, and inactive cells.
+`weight_failure` checks that unsupported hidden statistics leave observation
+healthy, then triggers a numerical error in a visible overlay during sampling,
 checks exact fixed-work samples, callback snapshots, chain state and RNG parity,
 and verifies observation failure and autonomous history release.
 

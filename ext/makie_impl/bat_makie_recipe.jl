@@ -52,6 +52,21 @@ function determine_recipe_status(
 end
 
 
+function determine_recipe_status(
+    subject::BATMakieRecipe, live_recipe::BATMakieRecipe, show_stats::Bool
+)
+    return determine_recipe_status(subject, live_recipe)
+end
+
+
+function determine_recipe_status(
+    subject::BATMakieRecipe, live_recipe_1::BATMakieRecipe,
+    live_recipe_2::BATMakieRecipe, show_stats::Bool
+)
+    return determine_recipe_status(subject, live_recipe_1, live_recipe_2)
+end
+
+
 """
     compute_plotting_primitives(marg_coords, weights, recipe, recipe_status, cell_status, config)
     compute_plotting_primitives(marg_coords, weights, chainids, recipe::ChainScatter2D,
