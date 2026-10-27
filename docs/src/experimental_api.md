@@ -113,6 +113,11 @@ returned value by a REPL, notebook, or IDE. The semicolons above suppress that
 extra output. For automatic inline output, use a final expression such as
 `bat_makie_plot(samples; display=false)` without a semicolon.
 
+The variable picker in static and live figures shows the first ten coordinates.
+Use **Clear selection** to remove all selected variables, including higher
+coordinates supplied through `vsel`, then choose replacements in the picker.
+Open the controls with **☰** to access the picker and its clear button.
+
 The return changed from `nothing` to `Makie.Figure`. Existing explicit display is
 preserved, but return-value checks, automatic frontend output, and collections
 of results can change behavior or retain figures. This is an experimental API

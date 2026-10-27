@@ -95,6 +95,10 @@ sizes, heterogeneous sample metadata, exact timed-weight conversion, and static
 control subscription cleanup. `lifecycle_interactive_interrupt` injects an
 interrupt through a real control callback and checks observation status,
 disposal, and continued sampler/RNG equality.
+The `picker` case clears selections above the ten-variable matrix through the
+actual static and live controls, then selects replacements. It checks mixed and
+empty selections, capacity limits, collapsed/expanded layout, continued live
+publication, and subscription cleanup after figure disposal.
 The `numerics` case checks Float64 geometry, zero-mass KDE behavior, stable
 relative scatter weights, and actual PDF/covariance rendering at extreme scales.
 The `weights` case checks operation-specific histogram and population-moment

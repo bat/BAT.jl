@@ -487,7 +487,8 @@ function _build_vsel_picker!(
 
     initial_vsel_set = Set(_clamp_vsel(initial_vsel, N, N_max))
     checkboxes = Dict{Tuple{Int,Int},Checkbox}()
-    all_blocks = Union{Checkbox,Label,Box}[status_label, lbl_marginals]
+    clear_button = Button(ui_layout[5, picker_col], label = "Clear selection")
+    all_blocks = Union{Checkbox,Label,Box,Button}[status_label, lbl_marginals, clear_button]
     updating_programmatically = Ref(false)
 
     for j in 1:N_shown
@@ -540,6 +541,29 @@ function _build_vsel_picker!(
 
     active_vars = Ref(initial_vsel_set)
 
+    function apply_selection!(new_vars)
+        status_label.text[] = ""
+        active_vars[] = new_vars
+        apply_vsel!(sort(collect(new_vars)))
+
+        # Resync all checkboxes: deselecting a pair also deselects its diagonal variables.
+        updating_programmatically[] = true
+        try
+            for ((i, j), cb) in checkboxes
+                cb.checked[] = _checkbox_should_be_checked(new_vars, i, j)
+            end
+        finally
+            updating_programmatically[] = false
+        end
+        return nothing
+    end
+
+    # Selected coordinates outside the capped picker must also be removable.
+    _view_on(subscription_owner, clear_button.clicks) do _
+        updating_programmatically[] && return
+        apply_selection!(Set{Int}())
+    end
+
     for (i, j) in keys(checkboxes)
         cb = checkboxes[(i, j)]
         _view_on(subscription_owner, cb.checked) do is_on
@@ -555,16 +579,7 @@ function _build_vsel_picker!(
                 return
             end
 
-            status_label.text[] = ""
-            active_vars[] = new_vars
-            apply_vsel!(sort(collect(new_vars)))
-
-            # Resync all checkboxes: deselecting a pair also deselects its diagonal variables.
-            updating_programmatically[] = true
-            for ((i2, j2), cb2) in checkboxes
-                cb2.checked[] = _checkbox_should_be_checked(new_vars, i2, j2)
-            end
-            updating_programmatically[] = false
+            apply_selection!(new_vars)
         end
     end
 
