@@ -128,7 +128,8 @@ end
     @test reversed.nsamples_1 == t.nsamples_2 && reversed.nsamples_2 == t.nsamples_1
     @test reversed.ks_p_values == t.ks_p_values
     @test isequal((a,b),before)
-    for counts in ((7,11),(4_000_000_000,4_000_000_000),(typemax(Int),typemax(Int)))
+    large_count = Sys.WORD_SIZE == 64 ? 4_000_000_000 : 2_000_000_000
+    for counts in ((7,11),(large_count,large_count),(typemax(Int),typemax(Int)))
         for delta in (0.0,1e-6,0.1,1.0)
             @test BAT._ks_comparison_pvalue(delta,counts...) ≈ exact_tail(delta,counts...) atol=2e-15 rtol=2e-13
         end
@@ -147,15 +148,23 @@ end
     @test all(high.ks_p_values .< low.ks_p_values)
     @test high.ks_p_values ≈ fill(exact_tail(.5,20,20),2)
 
-    for (weights,count) in (([.25,.75],1),([2.0^52,.5,.5],2^52+1),
-                            ([1//3,2//3],1),(Float32[.5,1.5],2),(BigFloat[.5,.5],1),(BigFloat[big(2)^53+1,.5,.5],2^53+2))
+    count_cases = (([.25,.75],1),([1//3,2//3],1),(Float32[.5,1.5],2),(BigFloat[.5,.5],1))
+    if Sys.WORD_SIZE == 64
+        count_cases = (count_cases..., ([2.0^52,.5,.5],2^52+1),
+            (BigFloat[big(2)^53+1,.5,.5],2^53+2))
+    end
+    for (weights,count) in count_cases
         s = samples(collect(eachindex(weights)),weights)
         result = bat_compare(s,s;nsamples=:weights).result
         @test result.nsamples_1 == fill(count,2)
         @test result.ks_p_values == ones(2)
     end
-    for weights in ([1.0,eps()/4],[2.0^52,.5],[.25,.5],fill(1e308,2),
-                    [typemax(Int),1],BigFloat[big"0.1",big"0.9"])
+    for weights in ([1.0,eps()/4],[2.0^52,.5],[.25,.5],fill(1e308,2),BigFloat[big"0.1",big"0.9"])
+        s = samples(collect(eachindex(weights)),weights)
+        @test_throws ArgumentError bat_compare(s,s;nsamples=:weights)
+    end
+    # Reject both an individual count and a total beyond the native Int range.
+    for weights in ([big(typemax(Int))+1],[typemax(Int),1])
         s = samples(collect(eachindex(weights)),weights)
         @test_throws ArgumentError bat_compare(s,s;nsamples=:weights)
     end
