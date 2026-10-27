@@ -103,12 +103,8 @@ function mcmc_burnin!(
 
         next_cycle!.(mcmc_states)
 
-        # mcmc_iterate!! only streams to the visualizer when given a non-nothing
-        # output, so use a scratch buffer here when store_burnin is false.
-        final_outputs = isnothing(outputs) ? _empty_chain_outputs.(mcmc_states) : outputs
-
         mcmc_states = mcmc_iterate!!(
-            final_outputs, mcmc_states;
+            outputs, mcmc_states;
             max_nsteps=burnin.nsteps_final,
             nonzero_weights=nonzero_weights,
             update_visualizer=true

@@ -148,6 +148,7 @@ end
                             # explicit spans identify the corresponding main
                             # cycle even when rows merged across its boundary.
                             cycle=observed.chains[i].info.cycle
+                            @test sum(s.last-s.first+1 for s in timing[i][j] if s.cycle==cycle-1) == 2
                             for span in timing[i][j]
                                 (case.retained || span.cycle==cycle) || continue
                                 info=w.info[span.row]

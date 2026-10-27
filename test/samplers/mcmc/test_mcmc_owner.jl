@@ -153,7 +153,7 @@ owner_stop_interrupt(exception) = throw(exception)
         end
     end
 
-    @testset "Distinct blocked sessions release before join despite hook faults" begin
+    @testset "Distinct blocked sessions release before join: retained=$retained" for retained in (false, true)
         gates = [Gate(), Gate()]
         calls = [Threads.Atomic{Int}(0), Threads.Atomic{Int}(0)]
         primary = InterruptException()
@@ -173,7 +173,7 @@ owner_stop_interrupt(exception) = throw(exception)
                 throw(failure)
             end; vis=sessions[1])]
         owner = @async with_logger(BrokenDiagnosticLogger()) do
-            catch_result(() -> BAT.mcmc_iterate!!(outputs(states), states;
+            catch_result(() -> BAT.mcmc_iterate!!(retained ? outputs(states) : nothing, states;
                 max_nsteps=8, update_visualizer=true))
         end
         try
@@ -402,12 +402,12 @@ function BAT.request_visualizer_stop!(vis::BATVisualizer{PhaseBackend}; kwargs..
     nothing
 end
 
-function sample_phase(c::PhaseRecord)
+function sample_phase(c::PhaseRecord; store_burnin=true)
     init = c.phase in (:pool_first, :pool_second) ?
         MCMCChainPoolInit(nsteps_init=30, init_tries_per_chain=BAT.ClosedInterval(1, 1)) :
         MCMCRetryInit(nsteps_init=30)
     callback = (args...) -> lock(() -> push!(c.events, :callback), c.lock)
-    alg = TransformedMCMC(nchains=2, nsteps=8, strict=false, store_burnin=true,
+    alg = TransformedMCMC(nchains=2, nsteps=8, strict=false, store_burnin=store_burnin,
         proposal=RandomWalk(proposaldist=Normal(0, 0.2)),
         adaptive_transform=BAT.NoAdaptiveTransform(), transform_tuning=NoMCMCTransformTuning(),
         init=init, convergence=AssumeConvergence(), callback=callback,
@@ -417,11 +417,12 @@ function sample_phase(c::PhaseRecord)
 end
 
 @testset "Public MCMC phase cleanup follows producer termination" begin
-    for phase in (:pool_first, :pool_second, :retry, :burnin, :stabilization, :main)
-        @testset "$phase" begin
+    for phase in (:pool_first, :pool_second, :retry, :burnin, :stabilization, :main),
+        retained in (phase === :stabilization ? (false, true) : (true,))
+        @testset "$phase retained=$retained" begin
             c = PhaseRecord(phase)
             owner = @async with_logger(NullLogger()) do
-                catch_result(() -> sample_phase(c))
+                catch_result(() -> sample_phase(c; store_burnin=retained))
             end
             observing = phase in (:burnin, :stabilization, :main)
             try
@@ -454,7 +455,7 @@ end
                 @test isempty(after.segments)
                 @test :complete ∉ after.events
                 @test last(after.events) === :incomplete
-                @test count(==(:callback), after.events) == (phase in (:stabilization, :main) ? 1 : 0)
+                @test count(==(:callback), after.events) == (retained && phase in (:stabilization, :main) ? 1 : 0)
                 observing && @test after.stop_calls >= 2
                 yield()
                 @test snapshot(c).events == after.events

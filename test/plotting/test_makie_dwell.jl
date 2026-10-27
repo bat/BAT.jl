@@ -145,14 +145,14 @@ end
     end
 
     @testset "Real iterator preserves rejected samples and every RNG stream" begin
-        for nonzero in (true, false)
+        for nonzero in (true, false), retained in (true, false)
             vis, target, states, outputs = fixture(; batch = 4, limit = 8)
             plain_vis, _, plain_states, plain_outputs = fixture()
             try
                 initialize(vis, states, outputs, target)
                 plain_states = BAT.mcmc_iterate!!(plain_outputs, plain_states;
                     max_nsteps = 12, nonzero_weights = nonzero)
-                producer = @async BAT.mcmc_iterate!!(outputs, states;
+                producer = @async BAT.mcmc_iterate!!(retained ? outputs : nothing, states;
                     max_nsteps = 12, nonzero_weights = nonzero, update_visualizer = true)
                 @test timedwait(() -> istaskdone(producer), 120.0) == :ok
                 states = fetch(producer)
@@ -175,8 +175,8 @@ end
                     @test all(BAT.get_rng(a) == BAT.get_rng(b) for
                         (a, b) in zip(live.walker_genctxs, plain.walker_genctxs))
                     for walker in 1:2
-                        @test outputs[chain][walker] == plain_outputs[chain][walker]
-                        @test EXT._live_graph(vis)[:samples][][chain][walker] == outputs[chain][walker]
+                        @test retained ? outputs[chain][walker] == plain_outputs[chain][walker] : isempty(outputs[chain][walker])
+                        @test EXT._live_graph(vis)[:samples][][chain][walker] == plain_outputs[chain][walker]
                     end
                 end
             finally

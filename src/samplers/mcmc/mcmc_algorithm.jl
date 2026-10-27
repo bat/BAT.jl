@@ -642,13 +642,12 @@ function mcmc_iterate!!(
         perform_step = nsteps(mcmc_state) - start_nsteps < max_nsteps
         mcmc_state = perform_step ? mcmc_step!!(mcmc_state) : flush_samples!!(mcmc_state)
 
-        store_output = !isnothing(output)
-        if store_output
+        if !isnothing(output)
             get_samples!(output, mcmc_state, nonzero_weights)
-
-            chain_state = mcmc_state.chain_state
-            update_visualizer && update_visualizer!(chain_state.context.visualizer; chain_state=chain_state, nonzero_weights=nonzero_weights, is_sampling_step=perform_step)
         end
+
+        chain_state = mcmc_state.chain_state
+        update_visualizer && update_visualizer!(chain_state.context.visualizer; chain_state=chain_state, nonzero_weights=nonzero_weights, is_sampling_step=perform_step)
 
         should_log, log_time, elapsed_time = should_log_progress_now(start_time, log_time)
         if should_log
@@ -787,7 +786,7 @@ function mcmc_iterate!!(
     # Gather once, only for groups that can actually emit observations. Chains
     # supplied by callers need not share a visualizer. Identity avoids invoking
     # backend equality and ensures each participating session is signalled once.
-    visualizers = if update_visualizer && !isnothing(outputs)
+    visualizers = if update_visualizer
         distinct = BATVisualizer[]
         for state in mcmc_states
             vis = state.chain_state.context.visualizer

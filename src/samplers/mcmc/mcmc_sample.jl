@@ -148,8 +148,7 @@ function evalmeasure_impl(em::EvaluatedMeasure, samplingalg::TransformedMCMC, co
             chain_outputs = _empty_chain_outputs.(mcmc_states)
         end
 
-        # Start before burn-in, including its observation-only scratch outputs
-        # when those samples are not retained in the returned result.
+        # Start before burn-in, even when its samples are not retained in the result.
         # Domain/support belong to the original measure because displayed samples
         # are mapped back through inverse(f_pretransform).
         init_visualizer!(context.visualizer; rng=get_rng(context), mcmc_states=mcmc_states, outputs=chain_outputs, f_pretransform=f_pretransform, target=em)

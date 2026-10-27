@@ -232,11 +232,10 @@ end
         @test firstvis.content.stop_calls == secondvis.content.stop_calls == 1
     end
 
-    @testset "Non-observing groups do not stop sessions" begin
+    @testset "Observer cancellation is independent of output storage" begin
         for output_enabled in (false, true), observer_enabled in (false, true)
-            output_enabled && observer_enabled && continue
             vis = BATVisualizer(BlockingBackend(), BlockingRecord())
-            failure = ErrorException("non-observing step failure")
+            failure = ErrorException("numerical step failure")
             states = [state(vis, 1, ()->throw(failure))]
             outputs = output_enabled ? [DensitySampleVector[]] : nothing
             caught = try
@@ -246,7 +245,7 @@ end
                 err
             end
             @test contains_exception(caught, failure)
-            @test vis.content.stop_calls == 0
+            @test vis.content.stop_calls == Int(observer_enabled)
         end
     end
 end
