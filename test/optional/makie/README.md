@@ -115,8 +115,8 @@ healthy, then triggers a numerical error in a visible overlay during sampling,
 checks exact fixed-work samples, callback snapshots, chain state and RNG parity,
 and verifies observation failure and autonomous history release.
 
-`scatter_admission` checks relative marker areas with finite BigFloat, BigInt
-and logarithmic weights before renderer conversion, plus rejection of missing
+`scatter_admission` checks relative marker areas with finite BigFloat, BigInt,
+rational and logarithmic weights before renderer conversion, plus rejection of missing
 chain metadata. It also checks zero-mass populations through both public plotting
 paths and Apply/All controls, preserving positive-weight sizes and source samples.
 `failure_ownership` checks partial static construction and

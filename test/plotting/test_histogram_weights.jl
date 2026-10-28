@@ -244,6 +244,65 @@ end
         @test BAT._plot_low_weight_mask([t, 2t, ones(8)...], t) ==
             [false, true, trues(8)...]
     end
+
+    @testset "Rational plotting weights widen before division" begin
+        weights = [Int64(4000000001)//4000000007, Int64(4000000003)//4000000009]
+        exact = Rational{BigInt}.(weights)
+        @test minimum(exact) / maximum(exact) > 1//100
+        source = samples(reshape([0.0, 1.0], 1, :), weights)
+        before = deepcopy(source)
+        @test BAT.drop_low_weight_samples(source) === source
+        @test source == before
+
+        for I in (Int32, Int64, Int128, UInt64)
+            q = typemax(I)
+            w = [(q - I(1))//q, (q - I(2))//(q - I(1)), zero(I)//one(I)]
+            wide = Rational{BigInt}.(w)
+            expected = Float64.(wide ./ maximum(wide))
+            @test BAT._plot_relative_weights(w) ≈ expected rtol=2e-15
+            @test BAT._plot_relative_weights(view(w, :); unit_sum=true) ≈
+                Float64.(wide ./ sum(wide)) rtol=2e-15
+            @test BAT._plot_relative_weights(w; scale=one(w[1])) ≈ Float64.(wide) rtol=2e-15
+            @test BAT._plot_relative_weights(w; scale=big(2)) ≈ BigFloat.(wide ./ 2) rtol=2e-15
+            @test_throws ArgumentError BAT._plot_relative_weights(w; scale=one(w[1])/2)
+            check_distribution(samples(reshape([0.5, 1.5, 2.5], 1, :), w),
+                1, (0.0:1.0:3.0,))
+        end
+
+        # Equal working values must not erase ordering or ties in stored weights.
+        @test weights[1] < weights[2]
+        @test Float64(weights[1]) == Float64(weights[2])
+        tied = samples(reshape(collect(1.0:4.0), 1, :),
+            [weights[2], weights[1], weights[2], 0//1])
+        before_tied = deepcopy(tied)
+        filtered = BAT.drop_low_weight_samples(tied, 1)
+        @test first.(filtered.v) == [1.0, 3.0]
+        @test filtered.weight == tied.weight[[1, 3]]
+        @test tied == before_tied
+
+        setprecision(BigFloat, 2) do
+            @test BAT._plot_relative_weights([1//3, 1//1]) == [1/3, 1.0]
+            @test BAT._plot_relative_weights([1//3, 1//1]; unit_sum=true) == [0.25, 0.75]
+            @test BAT.drop_low_weight_samples(source) === source
+            @test BAT.drop_low_weight_samples(tied, 1).weight == tied.weight[[1, 3]]
+        end
+
+        for w in (Rational{Int64}[], [0//1, 0//1])
+            @test BAT._plot_relative_weights(w) == zeros(length(w))
+            @test BAT.drop_low_weight_samples(samples(zeros(1, length(w)), w)).weight == w
+        end
+        for w in ([-1//2, 1//1], [1//0, 1//1])
+            @test_throws ArgumentError BAT._plot_relative_weights(w)
+            @test_throws ArgumentError BAT.drop_low_weight_samples(samples(zeros(1, 2), w))
+        end
+        for scale in (0//1, -1//1, 1//0)
+            @test_throws ArgumentError BAT._plot_relative_weights(weights; scale)
+        end
+        for scale in (big(10)^400, big(1)//big(10)^400)
+            wide = Rational{BigInt}[1//3, 1//1] .* scale
+            @test BAT._plot_relative_weights(wide) ≈ BigFloat[1//3, 1] rtol=2e-15
+        end
+    end
 end
 
 end # module

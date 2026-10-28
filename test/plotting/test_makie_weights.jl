@@ -115,7 +115,9 @@ end
     end
 
     @testset "Population moments and covariance geometry use relative mass" begin
-        for w in ([1.0, 2.0, 3.0], 5e307 .* [1.0, 2.0, 3.0],
+        for w in ([1.0, 2.0, 3.0],
+                [Int64(4000000001)//4000000007, Int64(4000000003)//4000000009, 1//2],
+                5e307 .* [1.0, 2.0, 3.0],
                 1e-308 .* [1.0, 2.0, 3.0], nextfloat(0.0) .* [1.0, 2.0, 3.0],
                 Float16[10_000, 20_000, 30_000], Float32[1e38, 2e38, 3e38],
                 big"1e400" .* BigFloat[1, 2, 3], big"1e-400" .* BigFloat[1, 2, 3],

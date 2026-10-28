@@ -22,7 +22,12 @@ function _plot_relative_weights(w::AbstractVector{<:Real}; unit_sum::Bool=false,
         _plot_weight_error("relative scale must be finite and at least the largest weight")
     # In particular, widen Float16/32 before division; logarithmic weights must
     # instead normalize before conversion, as in the existing BAT helper.
-    u = _normalize_rel_weights(w, divisor, T)
+    u = if eltype(w) <: Rational
+        # Fixed-width rational products can overflow before conversion.
+        T.(w) ./ T(divisor)
+    else
+        _normalize_rel_weights(w, divisor, T)
+    end
     all(i -> isfinite(u[i]) && (iszero(w[i]) || u[i] > 0), eachindex(w, u)) ||
         _plot_weight_error("positive relative mass is outside the working numerical range")
     if unit_sum

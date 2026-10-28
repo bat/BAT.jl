@@ -20,7 +20,9 @@ function expected_sizes(weights)
 end
 
 @testset "Scatter relative weight admission" begin
-    families = ([1., 2., 3.], big"1e400" .* [1, 2, 3],
+    families = ([1., 2., 3.],
+        [Int64(4000000001)//4000000007, Int64(4000000003)//4000000009, 1//2],
+        big"1e400" .* [1, 2, 3],
         big"1e-400" .* [1, 2, 3], big(10)^400 .* [1, 2, 3],
         exp.(BAT.ULogarithmic, 1000 .+ log.([1., 2., 3.])))
     for weights in families, recipe in (Scatter2D(), ChainScatter2D())
