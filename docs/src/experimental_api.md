@@ -224,6 +224,8 @@ or units, or use QuantileHist2D when a limit is reached. ARP weights can reach
 these limits even with ordinary coordinate ranges. Statistical overlays
 reject nonfinite or collapsed positive spread and interval geometry. Constant
 data and singular covariance remain supported where the recipe defines them.
+Covariance decompositions must reproduce the covariance in each coordinate's
+scale before an ellipse is drawn; inaccurate decompositions raise an error.
 
 `Hist1D` bar widths come from the original bin edges, including single-bin
 histograms. A `BarPlot.width` theme cannot override those widths. Native gap,

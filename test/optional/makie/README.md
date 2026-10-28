@@ -104,6 +104,8 @@ empty selections, capacity limits, collapsed/expanded layout, continued live
 publication, and subscription cleanup after figure disposal.
 The `numerics` case checks Float64 geometry, zero-mass KDE behavior, stable
 relative scatter weights, and actual PDF/covariance rendering at extreme scales.
+`covariance_admission` checks decomposition accuracy in each coordinate's scale,
+singular and constant populations, and public rejection of inaccurate overlays.
 The `weights` case checks operation-specific histogram and population-moment
 arithmetic against independent wider-precision oracles, absolute count errors,
 renderer conversion limits, real graphs and both public static entry paths.

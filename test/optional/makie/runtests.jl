@@ -13,7 +13,7 @@ const CASES = [
     "static_result", "precompile_workload", "precompile_failure", "warmup",
     "domain", "domain_publication", "view_state", "layer_order", "stats_visibility", "api_boundaries", "numerics", "bounded_kde", "bounded_bandwidth", "bounded_coordinates", "kde_integration", "unbounded_kde", "unbounded_kde_integration", "unbounded_bandwidth",
     "history_release", "history_diagnostics", "release_lifecycle", "weights", "weight_failure", "hexbin", "hexbin_lifecycle", "histogram_regions", "histogram_colors", "histogram_viewport", "histogram_bars", "preinit_dispose",
-    "task_rng", "hmc_rng", "renderer_failure", "scatter_admission", "failure_ownership", "display_schema", "display_live", "display_failures", "transformed_prior", "picker",
+    "task_rng", "hmc_rng", "renderer_failure", "scatter_admission", "covariance_admission", "failure_ownership", "display_schema", "display_live", "display_failures", "transformed_prior", "picker",
 ]
 const ROOT = normpath(joinpath(@__DIR__, "../../.."))
 

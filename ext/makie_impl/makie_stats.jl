@@ -98,6 +98,16 @@ function _cov_ellipse_primitives(μ::AbstractVector, Σ::AbstractMatrix, nsigma:
     vals, vecs = eigen(Σ)
     stds = sqrt.(clamp.(vals, 0, Inf))
 
+    # A global residual can hide lost variance in a small coordinate. Check
+    # the reconstructed covariance in units of each marginal spread instead.
+    scales = map(v -> iszero(v) ? one(v) : sqrt(v), diag(Σ))
+    scaled_axes = (vecs * Diagonal(stds)) ./ scales
+    reconstructed = scaled_axes * scaled_axes'
+    expected = Σ ./ scales ./ scales'
+    tolerance = 64 * eps(one(eltype(stds)))
+    all(i -> isapprox(reconstructed[i], expected[i]; rtol = tolerance, atol = tolerance), eachindex(Σ)) ||
+        BAT._plot_weight_error("covariance eigendecomposition is inaccurate at the coordinate scales")
+
     ellipse_mat = vecs * nsigma * Diagonal(stds) * _COV_ELLIPSE_CIRCLE .+ μ
     ellipse_points = Point{2,Float64}.(
         _stats_position.(ellipse_mat[1, :]), _stats_position.(ellipse_mat[2, :])
