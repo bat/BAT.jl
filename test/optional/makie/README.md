@@ -58,6 +58,9 @@ check explicit timing/mass oracles, pending replacement, public fixed-work
 sample/callback/RNG parity, real variable selections, and owned cleanup after
 startup or later conversion failures. Core sampling and transformation behavior
 is compared with no-observer controls; these tests do not change it.
+`transformed_prior` checks initialization of pushforward posteriors for live
+display domains, displayed-coordinate quantiles, private RNG isolation, public
+sampling parity, and cleanup.
 `gl_display_schema.jl` renders the third Dirichlet component in native GL windows
 with both retained and empty startup, checks live selection round trips and
 sample/RNG parity, and disposes each session. Run it separately with the same

@@ -93,12 +93,16 @@ function _estimate_prior_domain(rng::AbstractRNG, target, n_dof::Integer;
     n_prior_samples::Integer = 2000, tail_prob::Real = 0.0015,
     display_shape = missing, f_display = identity)
     initsrc = BAT.get_initsrc_from_target(target)
+    # A pushforward posterior initializes from its origin's prior, then transforms.
+    context = initsrc isa BAT.BATPushFwdMeasure && !BAT.supports_rand(initsrc) ?
+        BAT.BATContext(rng = rng) : nothing
     # A raw empirical NamedTuple source need not carry container shape metadata
     # when the caller already supplied the original target's shape.
     shape = ismissing(display_shape) || f_display !== identity ? varshape(initsrc) : display_shape
     output_shape = ismissing(display_shape) ? shape : display_shape
     draws = map(1:n_prior_samples) do _
-        value = rand(rng, initsrc)
+        value = isnothing(context) ? rand(rng, initsrc) :
+            BAT.bat_initval_impl(initsrc, BAT.InitFromTarget(), context).result
         displayed = f_display === identity ? value : f_display(unshaped(value, shape))
         unshaped(displayed, output_shape)
     end
