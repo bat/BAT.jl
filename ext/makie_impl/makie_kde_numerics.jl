@@ -24,7 +24,8 @@ function _kde_support_bounds(support)
     ((isfinite(rawlo) && !isfinite(lo)) || (isfinite(rawhi) && !isfinite(hi))) &&
         throw(ArgumentError("KDE support bounds must be representable as Float64"))
     lo < hi || throw(ArgumentError("KDE support has no positive Float64 width"))
-    return (lo, hi)
+    # Membership uses original coordinates and bounds, before either is rounded.
+    return (rawlo, rawhi)
 end
 
 
@@ -300,6 +301,7 @@ function _kde_axis_plan(
     values, weights, bounds, points_per_bandwidth, minimum_points, maximum_points
 )
     h = _kde_bounded_bandwidth(values, weights)
+    bounds = Float64.(bounds)
     origin = Float64(first(values))
     z = (Float64.(values) .- origin) ./ h
     all(isfinite, z) || _kde_numerical_error("data span cannot be represented in bandwidth units")

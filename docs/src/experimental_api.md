@@ -344,8 +344,10 @@ observed extrema do not declare hard support.
 
 Bounds must be strictly ordered, without NaN, incorrectly directed infinities,
 or finite endpoints outside Float64's representable range. Positive-weight
-observations must be finite and lie inside support; they are never silently
-clamped. Weights must be finite and nonnegative. Zero-weight observations are
+observations must be finite and lie inside the original support bounds before
+coordinates and bounds are converted to Float64 for the numerical grid; they
+are never silently clamped. Bounds must retain positive width after conversion.
+Weights must be finite and nonnegative. Zero-weight observations are
 excluded before bandwidth and extent selection, so a zero-weight outlier cannot
 widen an estimate. Empty or all-zero populations have no density to display.
 If Float16/Float32 division would discard a positive relative weight that is

@@ -157,6 +157,11 @@ sampling. Samples, callbacks, chain/walker/context/default RNGs and autonomous
 owner cleanup are compared with an unobserved run. The seeded accepted-bandwidth
 oracle permits 2^-19 relative error; it is not a universal total-2^-20 proof.
 
+`support_precision` checks original-coordinate membership before Float64 grid
+conversion, including BigFloat boundary observations and outside points that
+round to the same endpoints. It covers explicit and inferred support, mixed
+bound types, both public paths, all four KDE recipes and graph updates.
+
 `unbounded_kde` checks admitted legacy parity, independent bandwidth/mass and
 Gaussian-mixture oracles, source-precision weight loss, translated/scaled grids,
 and explicit numerical rejection. `unbounded_kde_integration` checks all four

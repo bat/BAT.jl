@@ -116,7 +116,7 @@ end
 
 
 # Prior support in unshaped display coordinates for KDE reflection. Infinite bounds disable
-# correction.
+# correction. Retain original bound types until sample membership is checked.
 function _support_bounds(target, n_dof::Integer)
     d = _support_root_dist(target)
     isnothing(d) && return (fill(-Inf, n_dof), fill(Inf, n_dof))
@@ -138,13 +138,13 @@ _support_root_dist(@nospecialize(m)) = nothing
 # Component support follows the unshaped coordinate order, as in truncate_dist_hard.
 function _component_support(d::UnivariateDistribution)
     lo, hi = _kde_support_bounds((minimum(d), maximum(d)))
-    return (Float64[lo], Float64[hi])
+    return ([lo], [hi])
 end
 
 
 function _component_support(d::Distributions.Product)
     bounds = [_kde_support_bounds((minimum(c), maximum(c))) for c in d.v]
-    return (Float64[first(s) for s in bounds], Float64[last(s) for s in bounds])
+    return (Real[first(s) for s in bounds], Real[last(s) for s in bounds])
 end
 
 
@@ -155,8 +155,8 @@ _component_support(d::Distribution) = (fill(-Inf, length(d)), fill(Inf, length(d
 
 function _component_support(d::NamedTupleDist)
     n = totalndof(varshape(d))
-    lo = fill(-Inf, n)
-    hi = fill(Inf, n)
+    lo = Real[-Inf for _ in 1:n]
+    hi = Real[Inf for _ in 1:n]
     dists = values(d)
     accessors = values(varshape(d))
     for (dd, acc) in zip(dists, accessors)
@@ -183,8 +183,8 @@ function _support_vectors(support::AbstractVector, n_dof::Integer)
     any(isnothing, support) && throw(ArgumentError(
         "`support` entries must be (lo, hi) pairs; use (-Inf, Inf) for an unconstrained dimension"))
     bounds = map(_kde_support_bounds, support)
-    lo = Float64[first(s) for s in bounds]
-    hi = Float64[last(s) for s in bounds]
+    lo = Real[first(s) for s in bounds]
+    hi = Real[last(s) for s in bounds]
     return lo, hi
 end
 
