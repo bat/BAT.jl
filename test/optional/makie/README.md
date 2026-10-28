@@ -117,7 +117,9 @@ and verifies observation failure and autonomous history release.
 
 `scatter_admission` checks relative marker areas with finite BigFloat, BigInt
 and logarithmic weights before renderer conversion, plus rejection of missing
-chain metadata. `failure_ownership` checks partial static construction and
+chain metadata. It also checks zero-mass populations through both public plotting
+paths and Apply/All controls, preserving positive-weight sizes and source samples.
+`failure_ownership` checks partial static construction and
 display rollback, unrelated-figure survival, and grid/bin dispatch with several
 integer widths. The dispatch checks do not replace a native 32-bit platform run.
 

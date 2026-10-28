@@ -12,9 +12,10 @@ end
 
 
 # Normalize relative marker areas without overflowing the weight sum.
-# Uniform and non-positive-total cases retain their existing marker convention.
 function _scatter_markersizes(weights::AbstractVector, markersize)
-    if isempty(weights) || all(w -> w ≈ weights[1], weights)
+    isempty(weights) && return markersize
+    all(iszero, weights) && return zero(markersize)
+    if all(w -> w ≈ weights[1], weights)
         return markersize
     end
     scale = maximum(abs, weights)

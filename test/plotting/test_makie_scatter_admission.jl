@@ -56,7 +56,7 @@ end
             specs = EXT.compose_plotspecs(primitive(weights, recipe), recipe, CONFIG)
             sizes = reduce(vcat, [s.kwargs[:markersize] isa Number ?
                 fill(s.kwargs[:markersize], length(s.args[1])) : s.kwargs[:markersize] for s in specs])
-            expected = all(iszero, weights) ? fill(CONFIG.markersize, 3) : expected_sizes(weights)
+            expected = all(iszero, weights) ? zeros(3) : expected_sizes(weights)
             @test sizes ≈ expected rtol=1e-12
         end
     end
@@ -79,6 +79,50 @@ end
     Makie.update!(graph; idxs=[1,2])
     layout[]
     @test graph[EXT.primitive_symbol(Scatter2D(), (2,1))][] == initial
+end
+
+function check_scatter_sizes(fig, weights)
+    axes = filter(x -> x isa Axis && any(p -> p isa Makie.Scatter, x.scene.plots), fig.content)
+    @test length(axes) == 2
+    expected = all(iszero, weights) ? zeros(length(weights)) : expected_sizes(weights)
+    for axis in axes
+        plots = filter(p -> p isa Makie.Scatter, axis.scene.plots)
+        @test sum(p -> length(p[1][]), plots) == length(weights)
+        sizes = reduce(vcat, [p.markersize[] isa Makie.Vec2f ?
+            fill(first(p.markersize[]), length(p[1][])) : first.(p.markersize[]) for p in plots])
+        @test sizes ≈ expected rtol=2e-6
+    end
+end
+
+@testset "Zero-mass scatter populations stay invisible" begin
+    coords = [collect(v) for v in eachcol(hcat(XY, XY .+ 1))]
+    info = [BAT.MCMCSampleID(Int32(chain), Int32(1), Int32(1), Int64(step), Int32(1), true)
+        for chain in 1:2 for step in 1:3]
+    for recipe in (Scatter2D, ChainScatter2D), ordinary in (false, true),
+            weights in (zeros(6), repeat([1.0, 0.0, 0.0], 2), ones(6))
+        samples = DensitySampleVector(v=coords, logd=zeros(6), weight=copy(weights), info=info)
+        before = deepcopy(samples)
+        recipes = (diagonal=Hist1D, upper=recipe, lower=recipe)
+        fig = ordinary ? Figure() : bat_makie_plot(samples, recipes, [1, 2], 2; display=false)
+        try
+            ordinary && Makie.plot(fig[1, 1], samples; recipes, vsel=[1, 2], N_max=2)
+            check_scatter_sizes(fig, weights)
+            if !ordinary
+                slider = only(filter(x -> x isa IntervalSlider, fig.content))
+                apply = only(filter(x -> x isa Button && x.label[] == "Apply", fig.content))
+                all_button = only(filter(x -> x isa Button && x.label[] == "All", fig.content))
+                slider.interval[] = (2, 3)
+                check_scatter_sizes(fig, weights)
+                notify(apply.clicks)
+                check_scatter_sizes(fig, weights[[2, 3, 5, 6]])
+                notify(all_button.clicks)
+                check_scatter_sizes(fig, weights)
+            end
+            @test samples == before
+        finally
+            empty!(fig)
+        end
+    end
 end
 
 @testset "Chain scatter requires chain identity" begin

@@ -77,7 +77,8 @@ cell(fig,i,j)=only(filter(x->x isa Axis,contents(fig[1,1][i,j])))
         @test EXT._scatter_markersizes([-3.,-2.,1.],PAIR.markersize)==PAIR.markersize
         @test EXT._scatter_markersizes([-1.,0.,1.],PAIR.markersize)==PAIR.markersize
         @test_throws DomainError EXT._scatter_markersizes([-1.,2.,3.],PAIR.markersize)
-        for w in (Float64[],zeros(3),ones(3))
+        @test iszero(EXT._scatter_markersizes(zeros(3),PAIR.markersize))
+        for w in (Float64[],ones(3))
             @test EXT._scatter_markersizes(w,PAIR.markersize)==PAIR.markersize
         end
     end
