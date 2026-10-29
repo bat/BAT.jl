@@ -33,9 +33,7 @@ end
 
 
 function compose_plotspecs(
-    primitives::NamedTuple,
-    recipe::Trace2D,
-    config::NamedTuple;
+    primitives::NamedTuple, recipe::Trace2D, config::NamedTuple;
     transposed::Bool = false
 )
     (; x, y, recency, group_ranges, all_chainids) = primitives

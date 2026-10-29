@@ -3,9 +3,8 @@
 
 const _LiveDiagnostic = NamedTuple{(:type, :message, :phase),Tuple{String,String,Symbol}}
 
-# Diagnostics must not retain graphs, tasks or arbitrary exception payloads.
-# Inspect only trusted concrete strings: even ErrorException.msg can be a
-# user-defined AbstractString. No user formatting belongs in stop/status paths.
+# Retain bounded concrete strings only: exceptions may own graphs or tasks,
+# and even ErrorException.msg can invoke user-defined AbstractString methods.
 function _live_diagnostic_prefix(message::String, limit::Int)
     i, stop = 1, 0
     while i <= ncodeunits(message)
@@ -20,9 +19,8 @@ end
 
 
 function _live_diagnostic_type(name::Symbol)
-    # String(Symbol) copies the entire name. Symbols are immutable and their
-    # NUL-terminated storage is owned by Julia; inspect/copy only a bounded
-    # prefix. Four lookahead bytes let the string helper preserve UTF-8 bounds.
+    # Read a bounded prefix from Julia-owned, NUL-terminated symbol storage.
+    # Four lookahead bytes preserve UTF-8 bounds without copying the full name.
     prefix = GC.@preserve name begin
         ptr = Base.unsafe_convert(Ptr{UInt8}, name)
         n = 0
@@ -47,9 +45,8 @@ function _live_error_summary(error, phase::Symbol)
 end
 
 
-# The transport lock owns these fields, except for the atomic fast-path flag
-# and the owner-thread-only contents of renderer_owner.
-# Renderer state has a separate owner; no stop/wakeup operation enters Makie.
+# buffer_lock owns these fields except the atomic flag and renderer_owner.
+# Renderer state stays on its owner thread; stop/wakeup paths do not enter Makie.
 Base.@kwdef mutable struct _MakieLiveControl
     phase::Symbol = :fresh
     outcome::Symbol = :inactive
@@ -63,7 +60,7 @@ Base.@kwdef mutable struct _MakieLiveControl
     # Owner-thread-only mutable anchor; the render invocation holds it weakly.
     renderer_owner::Base.RefValue{Any} = Ref{Any}(nothing)
     # Private task-construction state, retained through cleanup and retries.
-    # Fresh visualizers deliberately repeat this origin; it is not a unique seed.
+    # Fresh visualizers share this origin; it is not a unique seed.
     task_rng::Random.Xoshiro = Random.Xoshiro(0x4241547669733031)
     disposal_requested::Bool = false
     disposal_retry::Bool = false
@@ -638,8 +635,7 @@ function _schedule_live_view_cleanup!(vis; retry::Bool = false)
                     _with_live_task_rng(ctl) do
                         task = @task _coordinate_live_disposal!(vis)
                         ctl.disposal_task = task
-                        # A scheduling exception cannot justify dropping a task
-                        # which may already be queued but not yet started.
+                        # A failed schedule may still have queued the task; retain ownership.
                         schedule(task)
                     end
                 end

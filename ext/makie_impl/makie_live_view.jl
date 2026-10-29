@@ -88,9 +88,8 @@ function _live_view_admitted_locked(vis, view, publication)
 end
 
 
-# Bool reports admission and successful completion, not the callback's value.
-# Derived synchronous widget callbacks can reenter; graph updates below are
-# separately coalesced so they cannot recursively publish a new generation.
+# Return whether the callback was admitted and completed. Widget callbacks may
+# reenter; coalesce graph updates separately to prevent recursive publication.
 function _with_live_view(f, vis; publication::Bool = false)
     view = _live_view(vis)
     isnothing(view) && return false
@@ -139,10 +138,9 @@ function _with_live_view(f, vis; publication::Bool = false)
         # Backend cleanup may wait for its render loop. Schedule it outside
         # this callback; never join a rendering task from a BAT view callback.
         if view.cleanup_pending[]
-            # A pre-admission holder can block cleanup while waiting for the
-            # control guard, then reject. Its exit is readiness only if a real
-            # cleanup attempt was blocked; other rejected callbacks cannot
-            # manufacture retries, including callbacks emitted by cleanup.
+            # A rejected holder may have blocked cleanup while waiting for control.
+            # Signal readiness only for that attempt; other rejected callbacks,
+            # including those emitted by cleanup, must not trigger retries.
             blocked = outermost_guard && Threads.atomic_xchg!(view.cleanup_blocked, false)
             (exited || blocked) ? _live_release_event!(vis) : _schedule_live_view_cleanup!(vis)
         end
@@ -242,8 +240,7 @@ function _attach_live_view!(vis, fig)
     view.figure = fig
     window_open = events(fig.scene).window_open
     view.seen_open[] = window_open[]
-    # This control-only callback intentionally bypasses the rendering guard:
-    # close must release producers even while another task is rendering.
+    # Closing must release producers without waiting for the rendering guard.
     handle = on(window_open) do opened
         if opened
             view.seen_open[] = true
@@ -277,9 +274,8 @@ function _request_view_disposal!(vis)
 end
 
 
-# GLMakie exposes its currently displayed scene on the screen. A screen can be
-# reused to show another figure, so attachment in current_screens alone is not
-# proof of ownership. Other backends retain their own native-window policy.
+# A GLMakie screen may be reused by another figure; check its displayed scene.
+# Other backends retain their native window policy.
 function _close_owned_live_screens!(fig)
     for screen in copy(fig.scene.current_screens)
         if nameof(parentmodule(typeof(screen))) === :GLMakie &&

@@ -241,7 +241,7 @@ range controls. Requires Makie. The BAT light or dark theme is scoped to figure
 construction; unrelated figures and the global theme are unchanged.
 
 By default, explicitly display the same figure before returning it. Set
-`display=false` to defer that display and optional shader warmup; the figure and
+`display = false` to defer that display and optional shader warmup; the figure and
 controls are still constructed. Displaying or saving requires a loaded rendering
 backend. This keyword does not suppress automatic frontend display of the return
 value; use a trailing semicolon for that. For examples and failure behavior, see
@@ -261,9 +261,9 @@ zero-weight handling, approximation and numerical limits; use a histogram when
 a population cannot be represented by the supported KDE calculation.
 
 Calling `empty!(fig)` releases the static figure's content and BAT control
-subscriptions. Failed construction or explicit display attempts owned-resource
-cleanup before rethrowing the original error. Ordinary caller-owned composition
-is documented under [Ordinary Makie composition](@ref).
+subscriptions. If construction or explicit display fails, BAT attempts to release
+its resources before rethrowing the original error. Ordinary caller-owned
+composition is documented under [Ordinary Makie composition](@ref).
 """
 function bat_makie_plot end
 export bat_makie_plot

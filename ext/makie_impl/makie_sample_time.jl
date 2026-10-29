@@ -29,8 +29,7 @@ function _push_step_span!(spans, span::SampleStepSpan)
 end
 
 
-# Use BAT's merge rule, recording where each input row went. Never change the
-# sampler's merging or infer time identity from coordinate equality.
+# Track input rows through BAT's merge rule; equal coordinates do not imply equal times.
 function _append_timed_walkers(old, fresh, old_time, fresh_time)
     axes(old) == axes(fresh) == axes(old_time) == axes(fresh_time) ||
         throw(ArgumentError("Mismatched display walker/timing topology"))
@@ -62,8 +61,7 @@ function _append_timed_chains(old, fresh, old_time, fresh_time)
 end
 
 
-# Static callers explicitly declare repetition intervals, rather than asking us
-# to guess a weighting scheme or recover cycle boundaries from sample IDs.
+# Static callers declare repetition intervals; sample IDs do not establish timing.
 function _static_step_spans(samples, intervals)
     isnothing(intervals) && return nothing
     length(intervals) == length(samples) ||
@@ -99,6 +97,7 @@ function _static_step_spans(samples, intervals)
     return result
 end
 
+
 struct StepIndexGroup
     chain::Int32
     walker::Int32
@@ -107,6 +106,8 @@ struct StepIndexGroup
     starts::Vector{Int64}
     ends::Vector{Int64}
 end
+
+
 struct SampleWindowData{S}
     samples::S
     walker_ranges::Vector{UnitRange{Int}}
@@ -162,6 +163,7 @@ function _sample_window_data(samples, current_idxs, timing)
     flat = vcat(walkers...)
     return SampleWindowData(flat, ranges, groups, limit, !isnothing(timing), sort!(unique(chainids)))
 end
+
 
 struct WindowStepGroup
     chain::Int32
@@ -274,6 +276,8 @@ function BAT.prepare_visualizer_init!(vis::BATVisualizer{BATMakieVisualization},
     end
     return nothing
 end
+
+
 BAT.capture_visualizer_init(vis::BATVisualizer{BATMakieVisualization}) =
     !isnothing(vis.content) && vis.content.capture_init[]
 function BAT.clear_visualizer_init!(vis::BATVisualizer{BATMakieVisualization})

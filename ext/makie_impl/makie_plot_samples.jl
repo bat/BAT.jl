@@ -1,19 +1,11 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-# Shared setup of the static (all-samples-already-exist) entry points:
-# builds the compute graph, registers the samples, and applies the initial
-# variable selection. Deliberately does NOT call warmup_makie_shaders() --
-# the precompile workload must stay backend-free, so the entry points call it.
+# Shared static graph setup. Keep renderer warmup in the public entry points
+# so precompilation does not require a backend.
 function _setup_static_graph(
-    samples::DensitySampleVector,
-    recipes::NamedTuple,
-    vsel::AbstractVector{<:Integer},
-    N_max::Integer,
-    triagonal_config::NamedTuple,
-    diagonal_config::NamedTuple;
-    # Hard prior-support bounds for KDE boundary reflection: a measure/prior/
-    # Distribution or per-dim (lo, hi) pairs (see _support_vectors); default: none.
+    samples::DensitySampleVector, recipes::NamedTuple, vsel::AbstractVector{<:Integer},
+    N_max::Integer, triagonal_config::NamedTuple, diagonal_config::NamedTuple;
     support = nothing,
     step_intervals = nothing,
 )
@@ -86,8 +78,7 @@ function _setup_static_graph(
 end
 
 
-# Select layout conversion explicitly to avoid the Scatter fallback and overlapping Makie
-# conversion methods.
+# Select layout conversion to avoid Makie's Scatter fallback and overlapping methods.
 Makie.plottype(::DensitySampleVector) = Makie.Plot{Makie.plot}
 
 # Makie only forwards conversion keywords declared by used_attributes.
@@ -130,7 +121,6 @@ function BAT.bat_makie_plot(
     dark::Bool = false,
     display::Bool = true,
     trace_nsteps::Integer = 20,
-    # Hard prior-support bounds for KDE boundary reflection -- see _support_vectors.
     support = nothing,
     step_intervals = nothing,
 )
@@ -196,7 +186,7 @@ function _bat_base_theme()
             yticksvisible = true,
             xlabelpadding = 3,
             ylabelpadding = 3,
-            # Small, tight ticks: corner-grid cells are only ~100-150px square.
+            # Keep ticks small for corner-plot cells.
             xticklabelsize = 10,
             yticklabelsize = 10,
             xticklabelpad = 1,
@@ -222,7 +212,7 @@ function _bat_base_theme()
             alpha = 1.0,
             gap = 0.0
         ),
-        # `visible` is variant-specific -- see the merge overrides in the two themes.
+        # The light and dark themes set visibility separately.
         Stairs = Theme(
             step = :post,
             color = :darkblue,
@@ -308,8 +298,6 @@ end
 
 
 function BAT.bat_theme_dark()
-    # Nice dark purple:
-    #color_inactive = RGBf(0.18, 0.039, 0.353)
 
     color_active = RGB(0.451, 0.102, 0.431)
     color_hover = RGB(0.714, 0.216, 0.322)
@@ -372,4 +360,3 @@ function BAT.bat_theme_dark()
         ),
     ))
 end
-

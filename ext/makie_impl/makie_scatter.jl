@@ -27,26 +27,17 @@ end
 
 
 function compute_plotting_primitives(
-    ::SubArray,
-    ::SubArray,
-    ::Scatter2D,
-    ::RS,
-    ::CS,
-    ::NamedTuple
+    ::SubArray, ::SubArray, ::Scatter2D, ::RS, ::CS, ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_scatter2d_primitives()
 end
 
 
 function compute_plotting_primitives(
-    marg_coords::SubArray,
-    weights::SubArray,
-    recipe::Scatter2D,
-    ::LiveRecipe,
-    ::LiveCell,
+    marg_coords::SubArray, weights::SubArray, recipe::Scatter2D, ::LiveRecipe, ::LiveCell,
     config::NamedTuple
 )
-    # Zero-sample live cell: the placeholder view is 0x0, so row indexing would throw.
+    # Empty live views have no coordinate rows.
     isempty(weights) && return _empty_scatter2d_primitives()
     x = marg_coords[1, :]
     y = marg_coords[2, :]
@@ -57,9 +48,7 @@ end
 
 
 function compose_plotspecs(
-    primitives::NamedTuple,
-    recipe::Scatter2D,
-    config::NamedTuple;
+    primitives::NamedTuple, recipe::Scatter2D, config::NamedTuple;
     transposed::Bool = false
 )
     (; x, y, weights) = primitives
@@ -77,8 +66,7 @@ function compose_plotspecs(
 end
 
 
-# Whether `samples` carries chain identity (true for MCMC SampleID types);
-# gates whether ChainScatter2D is offered in the recipe dropdown.
+# Offer ChainScatter2D only when samples carry chain identity.
 _samples_have_chain_ids(samples) =
     isconcretetype(eltype(samples.info)) && hasfield(eltype(samples.info), :chainid)
 
@@ -86,31 +74,19 @@ _empty_chainscatter2d_primitives() = (
     x = Float64[], y = Float64[], weights = Float64[], chainids = Int32[]
 )
 
-# Qualitative wrap-around palette for distinguishing chains -- deliberately a
-# small fixed set rather than a continuous colormap.
+# Cycle through a fixed qualitative palette to distinguish chains.
 const _CHAIN_COLOR_PALETTE = Makie.wong_colors()
 
 function compute_plotting_primitives(
-    ::SubArray,
-    ::SubArray,
-    ::AbstractVector,
-    ::ChainScatter2D,
-    ::RS,
-    ::CS,
-    ::NamedTuple
+    ::SubArray, ::SubArray, ::AbstractVector, ::ChainScatter2D, ::RS, ::CS, ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_chainscatter2d_primitives()
 end
 
 
 function compute_plotting_primitives(
-    marg_coords::SubArray,
-    weights::SubArray,
-    chainids::AbstractVector,
-    recipe::ChainScatter2D,
-    ::LiveRecipe,
-    ::LiveCell,
-    config::NamedTuple
+    marg_coords::SubArray, weights::SubArray, chainids::AbstractVector, recipe::ChainScatter2D,
+    ::LiveRecipe, ::LiveCell, config::NamedTuple
 )
     isempty(weights) && return _empty_chainscatter2d_primitives()
     length(chainids) == length(weights) ||
@@ -123,9 +99,7 @@ end
 
 
 function compose_plotspecs(
-    primitives::NamedTuple,
-    recipe::ChainScatter2D,
-    config::NamedTuple;
+    primitives::NamedTuple, recipe::ChainScatter2D, config::NamedTuple;
     transposed::Bool = false
 )
     (; x, y, weights, chainids) = primitives

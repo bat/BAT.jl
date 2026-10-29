@@ -1,10 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-function _init_gridlayout!(
-    graph::ComputeGraph,
-    n::Integer
-)
+function _init_gridlayout!(graph::ComputeGraph, n::Integer)
     n = Int(n)
     # Declare each primitive input once. Read registered inputs inside the computation;
     # reentrant graph lookups corrupt edge resolution.
@@ -17,7 +14,7 @@ function _init_gridlayout!(
             push!(primitive_inputs, primitive_symbol(recipe, (i, i)))
         end
     end
-    # (j, i) with j > i: the (bigger, smaller) key convention of _init_compute_graph.
+    # Pair keys use (larger slot, smaller slot), as in _init_compute_graph.
     for i in 1:n, j in i+1:n
         for recipe in pair_recipes
             push!(primitive_inputs, primitive_symbol(recipe, (j, i)))
@@ -27,7 +24,7 @@ function _init_gridlayout!(
 
     control_inputs = [
         :current_idx,
-        :idxs, # re-render on vsel changes too, not just new sample batches
+        :idxs, # Selection changes also invalidate the layout.
         :upper_recipe,
         :diagonal_recipe,
         :lower_recipe,
@@ -77,12 +74,10 @@ function _init_gridlayout!(
             append!(diagonal_plotspecs, stats_specs_1D)
 
             xlims = getproperty(inputs, Symbol("axis_limits_$i"))
-            # Per-cell y-limit, not shared across diagonals: densities have
-            # per-variable units, so different scales aren't comparable on one axis.
+            # Diagonal densities have different units and need separate y-limits.
             diag_y_ext = _diag_y_extent(diagonal_primitives, diagonal_recipe())
             diag_ylims = (isfinite(diag_y_ext) && diag_y_ext > 0) ? (0.0, 1.1 * diag_y_ext) : nothing
-            # Decorations are protrusion content drawn outside the cell area --
-            # they don't vanish with Fixed(0), so hide them explicitly when inactive.
+            # Fixed(0) does not hide decorations outside the cell.
             cell_active = i <= n_active
             matrix[i, i] = S.Axis(
                 plots = diagonal_plotspecs,
@@ -95,8 +90,7 @@ function _init_gridlayout!(
                 ygridvisible = cell_active,
                 leftspinevisible = cell_active, rightspinevisible = cell_active,
                 topspinevisible = cell_active, bottomspinevisible = cell_active,
-                # Plain "" (not L"") when inactive: an empty LaTeXString crashes
-                # Makie's glyph-collection even with the label invisible.
+                # Empty LaTeXString labels fail glyph collection even when hidden.
                 xlabel = cell_active ? L"v_%$(_idxs[i])" : "",
                 ylabel = cell_active ? L"p_%$(_idxs[i])" : "",
                 xlabelvisible = cell_active,
@@ -255,10 +249,9 @@ function _update_grid_axis!(axis::Axis, plots, spec::Makie.BlockSpec, previous)
         any(key -> !isequal(attributes[key], previous[key]), semantic_keys) ||
         !isequal(attributes[:limits], previous[:limits]) ||
         any(isnothing, attributes[:limits])
-    # Makie's matcher can reuse plots across missing/present keyword attributes,
-    # even when the converted input type changes (e.g. scalar/vector markersize).
-    # It can also append a changed polygon after reused overlays. Rebuild the
-    # owned cell's plots when a fill changes, keeping the axis and its view state.
+    # Rebuild plots for incompatible attributes, input types or changed fills: Makie's matcher
+    # may otherwise reuse incompatible plots or put a fill above its overlays.
+    # Keep the axis and its view state.
     old_plots = plots[]
     compatible = length(old_plots) == length(spec.plots) &&
         all(_can_reuse_plot(a, b) for (a, b) in zip(old_plots, spec.plots))

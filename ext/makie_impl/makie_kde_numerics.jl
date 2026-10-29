@@ -31,8 +31,8 @@ end
 
 _support_is_binding(lo::Real, hi::Real) = isfinite(lo) || isfinite(hi)
 
-# Keep legacy arithmetic, but do not lose a positive row solely because division
-# took place in Float16/Float32 before the Float64 convolution population filter.
+# Reject positive weights lost in Float16/Float32 division before the Float64
+# convolution filter. Keep the original division arithmetic.
 function _rescale_kde_weights(weights::AbstractVector)
     isempty(weights) && return weights
     largest = maximum(weights)
@@ -126,16 +126,16 @@ function _kde_iqr_bounds(values, weights, centered, weighted, coordinate_bounds)
         values[order[j-1]] == values[order[j]] && return a
         isnothing(coordinate_bounds) && !(alo < bhi) && return upper ? Inf : -Inf
         round = upper ? up : down
-        gap = max(0.0, upper ? up(bhi-alo) : down(blo-ahi))
-        return clamp(round(a + max(0.0, round(fraction*gap))), alo, bhi)
+        gap = max(0.0, upper ? up(bhi - alo) : down(blo - ahi))
+        return clamp(round(a + max(0.0, round(fraction * gap))), alo, bhi)
     end
     if !weighted
-        offset, remainder = divrem(n-1, 4)
-        positions = ((1+offset, remainder/4),
-            (n-offset-(remainder>0), remainder == 0 ? 0.0 : 1-remainder/4))
+        offset, remainder = divrem(n - 1, 4)
+        positions = ((1 + offset, remainder / 4),
+            (n - offset - (remainder > 0), remainder == 0 ? 0.0 : 1 - remainder / 4))
         quartiles = map(positions) do (i, fraction)
             fraction == 0 && return (coordinate(order[i], false), coordinate(order[i], true), i, i)
-            return (interpolate(i+1, fraction, false), interpolate(i+1, fraction, true), i, i+1)
+            return (interpolate(i + 1, fraction, false), interpolate(i + 1, fraction, true), i, i + 1)
         end
     else
         lower = Float64.(weights)
@@ -151,9 +151,9 @@ function _kde_iqr_bounds(values, weights, centered, weighted, coordinate_bounds)
         end
         isfinite(total_hi) || return (-Inf, Inf)
         quartiles = map((0.25, 0.75)) do p
-            target_lo = max(0.0, down(max(0.0, down(p*total_lo)) +
-                max(0.0, down((1-p)*lower[first(order)]))))
-            target_hi = up(up(p*total_hi) + up((1-p)*upper[first(order)]))
+            target_lo = max(0.0, down(max(0.0, down(p * total_lo)) +
+                max(0.0, down((1 - p) * lower[first(order)]))))
+            target_hi = up(up(p * total_hi) + up((1 - p) * upper[first(order)]))
             prefix_lo = prefix_hi = 0.0
             qlo, qhi = coordinate(first(order), false), coordinate(last(order), true)
             left, right = 1, n
@@ -163,14 +163,14 @@ function _kde_iqr_bounds(values, weights, centered, weighted, coordinate_bounds)
                 next_lo = max(0.0, down(prefix_lo + lower[i]))
                 next_hi = up(prefix_hi + upper[i])
                 if !found_lo && next_hi > target_lo
-                    fraction = clamp(down(down(target_lo-prefix_hi)/upper[i]), 0.0, 1.0)
+                    fraction = clamp(down(down(target_lo - prefix_hi) / upper[i]), 0.0, 1.0)
                     qlo = interpolate(j, fraction, false)
-                    left = max(1, j-1)
+                    left = max(1, j - 1)
                     found_lo = true
                 end
                 if !found_hi && next_lo > target_hi
                     fraction = iszero(lower[i]) ? 1.0 :
-                        clamp(up(up(target_hi-prefix_lo)/lower[i]), 0.0, 1.0)
+                        clamp(up(up(target_hi - prefix_lo) / lower[i]), 0.0, 1.0)
                     qhi = interpolate(j, fraction, true)
                     right = j
                     found_hi = true
@@ -189,7 +189,7 @@ function _kde_iqr_bounds(values, weights, centered, weighted, coordinate_bounds)
     if q25[1] == q25[2] == q75[1] == q75[2]
         return values[order[q25[3]]] == values[order[q75[4]]] ? (0.0, 0.0) : (-Inf, Inf)
     end
-    return (max(0.0, down(q75[1]-q25[2])), up(q75[2]-q25[1]))
+    return (max(0.0, down(q75[1] - q25[2])), up(q75[2] - q25[1]))
 end
 
 
@@ -230,7 +230,7 @@ function _kde_bounded_bandwidth(values, weights)
             widths = (sd, sd)
         else
             0 < iqr_lo <= iqr_hi < Inf || fail("cannot resolve its interquartile width")
-            widths = (min(sd, iqr_lo/1.34), min(sd, iqr_hi/1.34))
+            widths = (min(sd, iqr_lo / 1.34), min(sd, iqr_hi / 1.34))
         end
     end
     for width in widths
@@ -247,22 +247,22 @@ function _kde_bounded_bandwidth(values, weights)
             narrowed = Float64(values[i])
             lo = narrowed > values[i] ? prevfloat(narrowed) : narrowed
             hi = narrowed < values[i] ? nextfloat(narrowed) : narrowed
-            lower[i] = prevfloat(prevfloat(lo-origin) / span)
-            upper[i] = nextfloat(nextfloat(hi-origin) / span)
+            lower[i] = prevfloat(prevfloat(lo - origin) / span)
+            upper[i] = nextfloat(nextfloat(hi - origin) / span)
             coordinate_error = max(coordinate_error,
-                nextfloat(centered[i]-lower[i]), nextfloat(upper[i]-centered[i]))
+                nextfloat(centered[i] - lower[i]), nextfloat(upper[i] - centered[i]))
         end
         # For fixed weights, SD changes by at most E (population) or sqrt(2)E
         # (corrected) under a maximum coordinate error E. Use an outward 2E.
         sd_error = nextfloat(2 * coordinate_error)
-        sd_lo = max(0.0, prevfloat(sd-sd_error))
-        sd_hi = nextfloat(sd+sd_error)
+        sd_lo = max(0.0, prevfloat(sd - sd_error))
+        sd_hi = nextfloat(sd + sd_error)
         iqr_lo, iqr_hi = _kde_iqr_bounds(values, relative_weights, centered, weighted, (lower, upper))
         if iszero(iqr_lo) && iszero(iqr_hi)
             widths = (sd_lo, sd_hi)
         else
             0 < iqr_lo <= iqr_hi < Inf || fail("cannot resolve its interquartile width")
-            widths = (min(sd_lo, iqr_lo/1.34), min(sd_hi, iqr_hi/1.34))
+            widths = (min(sd_lo, iqr_lo / 1.34), min(sd_hi, iqr_hi / 1.34))
         end
         for width in widths
             reference = 0.9 * width * count^(-0.2)
@@ -340,9 +340,9 @@ end
 # Endpoint clamping here only accounts for mapping a grid endpoint to physical
 # Float64 and back; admission never clamps observations to support.
 function _kde_lerp(grid, values, z)
-    j = clamp(searchsortedlast(grid, z), 1, length(grid)-1)
+    j = clamp(searchsortedlast(grid, z), 1, length(grid) - 1)
     t = clamp((z - grid[j]) / (grid[j+1] - grid[j]), 0.0, 1.0)
-    return (1-t) * values[j] + t * values[j+1]
+    return (1 - t) * values[j] + t * values[j+1]
 end
 
 
@@ -391,7 +391,7 @@ end
 function _kde_normalize_curve(x, density)
     relative, _ = _kde_relative_density(density)
     widths, scale = _kde_relative_widths(x)
-    mass = sum(widths[i] * (relative[i]/2 + relative[i+1]/2) for i in eachindex(widths))
+    mass = sum(widths[i] * (relative[i] / 2 + relative[i+1] / 2) for i in eachindex(widths))
     return _kde_normalized_density(relative, mass, scale)
 end
 
@@ -464,14 +464,14 @@ function _kde_check_unbounded_bandwidth(values, weights, h, weighted)
         narrowed = Float64(values[i])
         lo = narrowed > values[i] ? prevfloat(narrowed) : narrowed
         hi = narrowed < values[i] ? nextfloat(narrowed) : narrowed
-        lower[i] = prevfloat(prevfloat(lo-origin) / span)
-        upper[i] = nextfloat(nextfloat(hi-origin) / span)
+        lower[i] = prevfloat(prevfloat(lo - origin) / span)
+        upper[i] = nextfloat(nextfloat(hi - origin) / span)
         scaled = centered[i] / span
         !iszero(centered[i]) && iszero(scaled) &&
             _kde_unbounded_error("loses a centered deviation in reference scaling")
         centered[i] = scaled
         coordinate_error = max(coordinate_error,
-            nextfloat(scaled-lower[i]), nextfloat(upper[i]-scaled))
+            nextfloat(scaled - lower[i]), nextfloat(upper[i] - scaled))
     end
     reference_sd = weighted ? std(centered, Weights(reference_weights)) : std(centered)
     _kde_positive_normal(reference_sd * reference_sd) ||
@@ -479,14 +479,14 @@ function _kde_check_unbounded_bandwidth(values, weights, h, weighted)
     # SD changes by at most E in the weighted population norm, or sqrt(2)E
     # for corrected SD. Use 2E to cover coordinate conversion/conditioning.
     sd_error = nextfloat(2 * coordinate_error)
-    sd_lo = max(0.0, prevfloat(reference_sd-sd_error))
-    sd_hi = nextfloat(reference_sd+sd_error)
+    sd_lo = max(0.0, prevfloat(reference_sd - sd_error))
+    sd_hi = nextfloat(reference_sd + sd_error)
     iqr_lo, iqr_hi = _kde_iqr_bounds(values, relative_weights, centered, weighted, (lower, upper))
     if iszero(iqr_lo) && iszero(iqr_hi)
         widths = (sd_lo, sd_hi)
     else
         0 < iqr_lo <= iqr_hi < Inf || _kde_unbounded_error("cannot resolve its interquartile width")
-        widths = (min(sd_lo, iqr_lo/1.34), min(sd_hi, iqr_hi/1.34))
+        widths = (min(sd_lo, iqr_lo / 1.34), min(sd_hi, iqr_hi / 1.34))
     end
     for width in widths
         reference = 0.9 * width * count^(-0.2)
@@ -504,21 +504,21 @@ function _kde_check_unbounded_axis(values, grid, h)
     s = step(grid)
     length(physical) >= 2 && all(isfinite, physical) && _kde_positive_normal(s) ||
         _kde_unbounded_error("has an invalid physical grid")
-    all(d -> isfinite(d) && d > 0 && abs(d/s - 1) <= _KDE_UNBOUNDED_RTOL, diff(physical)) ||
+    all(d -> isfinite(d) && d > 0 && abs(d / s - 1) <= _KDE_UNBOUNDED_RTOL, diff(physical)) ||
         _kde_unbounded_error("cannot represent uniform physical grid spacing")
 
     # KernelDensity uses Normal(0.0,h), whose CF separately squares sigma and t.
     sigma = promote(0.0, h)[2]
     frequency = -2pi / (s * length(grid))
     last_frequency = (length(grid) ÷ 2) * frequency
-    all(_kde_positive_normal, (sigma*sigma/2, frequency*frequency, last_frequency*last_frequency)) ||
+    all(_kde_positive_normal, (sigma * sigma / 2, frequency * frequency, last_frequency * last_frequency)) ||
         _kde_unbounded_error("exceeds Gaussian convolution arithmetic range")
     for value in values
         k = searchsortedfirst(grid, value)
         j = k - 1
         1 <= j < length(grid) ||
             _kde_unbounded_error("cannot locate a positive-weight observation on its grid")
-        left, right = (grid[k]-value)/s, (value-grid[j])/s
+        left, right = (grid[k] - value) / s, (value - grid[j]) / s
         isfinite(left) && isfinite(right) && left >= 0 && right >= 0 &&
             abs(left + right - 1) <= _KDE_UNBOUNDED_RTOL ||
             _kde_unbounded_error("cannot resolve its observation bins")
@@ -565,7 +565,7 @@ end
 function _kde_check_unbounded_edges(edges, s)
     physical = collect(Float64, edges)
     all(isfinite, physical) && all(d -> isfinite(d) && d > 0 &&
-        abs(d/s - 1) <= 2 * _KDE_UNBOUNDED_RTOL, diff(physical)) ||
+        abs(d / s - 1) <= 2 * _KDE_UNBOUNDED_RTOL, diff(physical)) ||
         _kde_unbounded_error("cannot represent its physical cell edges")
     return nothing
 end
@@ -605,7 +605,7 @@ end
 function _kde_output_cells(p)
     n = max(1, ceil(Int, (p.right - p.left) / step(p.grid)))
     n <= length(p.grid) || _kde_numerical_error("output cells exceed the FFT grid budget")
-    edges = _kde_physical_grid(p, range(p.left, p.right; length = n+1))
+    edges = _kde_physical_grid(p, range(p.left, p.right; length = n + 1))
     # Evaluate conceptual centers in local units even if a physical midpoint of
     # adjacent floats rounds to an endpoint. Explicit edges still render a cell.
     zedges = (edges .- p.origin) ./ p.h
@@ -616,9 +616,9 @@ end
 
 
 function _kde_center_edges(x)
-    edges = vcat(first(x) - (x[2]-x[1])/2,
+    edges = vcat(first(x) - (x[2] - x[1]) / 2,
         [x[i] + (x[i+1]-x[i])/2 for i in 1:length(x)-1],
-        last(x) + (x[end]-x[end-1])/2)
+        last(x) + (x[end] - x[end-1]) / 2)
     _kde_relative_widths(edges)
     return edges
 end
@@ -688,11 +688,11 @@ function _kde_superlevel_mass(widths, y, threshold)
     for i in eachindex(widths)
         a, b = y[i], y[i+1]
         if min(a, b) >= threshold
-            total += widths[i] * (a/2 + b/2)
+            total += widths[i] * (a / 2 + b / 2)
         elseif max(a, b) > threshold
             high, low = max(a, b), min(a, b)
-            fraction = (high-threshold)/(high-low)
-            total += (widths[i]*fraction) * (high/2 + threshold/2)
+            fraction = (high - threshold) / (high - low)
+            total += (widths[i] * fraction) * (high / 2 + threshold / 2)
         end
     end
     return total
@@ -712,7 +712,7 @@ function _kde_curve_region(x, density, p)
     if _kde_superlevel_mass(widths, y, threshold) < target
         lo, hi = 0.0, 1.0
         for _ in 1:64
-            mid = lo/2 + hi/2
+            mid = lo / 2 + hi / 2
             (mid == lo || mid == hi) && break
             if _kde_superlevel_mass(widths, y, mid) >= target
                 lo = mid
@@ -722,26 +722,26 @@ function _kde_curve_region(x, density, p)
         end
         threshold = lo
     end
-    components = NamedTuple{(:x,:y),Tuple{Vector{Float64},Vector{Float64}}}[]
-    for i in 1:length(x)-1
+    components = NamedTuple{(:x, :y),Tuple{Vector{Float64},Vector{Float64}}}[]
+    for i in 1:length(x) - 1
         a, b = y[i], y[i+1]
         max(a, b) < threshold && continue
         left, right = Float64(x[i]), Float64(x[i+1])
         yl, yr = Float64(density[i]), Float64(density[i+1])
         if min(a, b) < threshold
-            fraction = (threshold-a)/(b-a)
-            crossing = muladd(fraction, right-left, left)
+            fraction = (threshold - a) / (b - a)
+            crossing = muladd(fraction, right - left, left)
             # Round crossings outward. Returned geometry contains the requested
             # continuous region; achieved mass below uses the actual vertices.
-            represented = (crossing-left)/(right-left)
+            represented = (crossing - left) / (right - left)
             if a < threshold
                 represented > fraction && (crossing = max(left, prevfloat(crossing)))
-                f = (crossing-left)/(right-left)
-                left, yl = crossing, (1-f)*density[i] + f*density[i+1]
+                f = (crossing - left) / (right - left)
+                left, yl = crossing, (1 - f) * density[i] + f * density[i+1]
             else
                 represented < fraction && (crossing = min(right, nextfloat(crossing)))
-                f = (crossing-left)/(right-left)
-                right, yr = crossing, (1-f)*density[i] + f*density[i+1]
+                f = (crossing - left) / (right - left)
+                right, yr = crossing, (1 - f) * density[i] + f * density[i+1]
             end
         end
         left < right || continue
@@ -752,7 +752,7 @@ function _kde_curve_region(x, density, p)
             push!(components, (x = [left, right], y = [yl, yr]))
         end
     end
-    area = sum(sum((c.x[i+1]-c.x[i])/scale * (c.y[i]/peak/2 + c.y[i+1]/peak/2)
-        for i in 1:length(c.x)-1) for c in components; init = 0.0)
-    return (threshold = threshold*peak, achieved = area/total, components = components)
+    area = sum(sum((c.x[i+1] - c.x[i]) / scale * (c.y[i] / peak / 2 + c.y[i+1] / peak / 2)
+        for i in 1:length(c.x) - 1) for c in components; init = 0.0)
+    return (threshold = threshold * peak, achieved = area / total, components = components)
 end

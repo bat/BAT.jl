@@ -68,7 +68,7 @@ end
             end
             source = samples(columns, vec(weights))
             original = deepcopy(source)
-            ranges = map(e -> range(first(e), last(e); length=Int64(length(e))), edges)
+            ranges = map(e -> range(first(e), last(e); length = Int64(length(e))), edges)
             selection = length(edges) == 1 ? 1 : Tuple(1:length(edges))
             bins = length(edges) == 1 ? only(ranges) : ranges
             moment_error(() -> BAT.MarginalDist(source, selection; bins, closed))
@@ -180,11 +180,11 @@ end
             @test mean(dist) == mean(reference)
             @test cov(dist) == cov(reference)
         end
-        # Indexed edge arithmetic makes this representable public range work,
-        # even though broadcasting on the range itself used to produce NaN.
+        # Indexing preserves these finite edges; range broadcasting can produce NaN.
         for closed in (:left, :right)
             source = samples(([2.0^1022],), [1.])
-            dist = BAT.MarginalDist(source, 1; bins=range(0., 2.0^1023; length=2), closed).dist
+            dist = BAT.MarginalDist(source, 1;
+                bins = range(0., 2.0^1023; length = 2), closed).dist
             @test mean(dist) == 2.0^1022
             @test mode(dist) == 2.0^1022
             @test var(dist) == 0.0
@@ -192,7 +192,8 @@ end
         offset = Int64(2)^62
         hist = Histogram(([offset, offset + 2^20],), [1.], :left, false)
         @test mean(BAT._plot_binned_dist(hist, true)) == Float64(offset + 2^19)
-        moment_error(() -> BAT._plot_binned_dist(Histogram(([offset, offset + 1],), [1.], :left, false), true))
+        moment_error(() -> BAT._plot_binned_dist(
+            Histogram(([offset, offset + 1],), [1.], :left, false), true))
     end
 
     @testset "Range, zero and actual-result admission" begin

@@ -64,4 +64,4 @@ end
     end
 end
 
-end
+end # module BATMakieExt

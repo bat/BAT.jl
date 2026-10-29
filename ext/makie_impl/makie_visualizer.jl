@@ -138,9 +138,7 @@ end
 
 
 function BAT.register_state_for_vis!(
-    vis::BATVisualizer{BATMakieVisualization},
-    mcmc_state::MCMCState,
-    samples,
+    vis::BATVisualizer{BATMakieVisualization}, mcmc_state::MCMCState, samples,
     timing = _empty_walker_spans(samples)
 )
     (; chain_ids, output_buffer, pending_samples) = vis.content
@@ -302,11 +300,9 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
         end
     end
     started || return nothing
-    # Native renderer startup can yield to callbacks which acquire the view
-    # guard. Do not join it while holding that guard. The initialization barrier
-    # still owns the figure/graph and postpones disposal until this call settles.
-    # The construction theme has also been restored: renderer callbacks must
-    # not be joined while this task holds Makie's global theme lock.
+    # Renderer startup may join callbacks that need the view or theme lock.
+    # Release both first; the initialization barrier retains the figure and graph
+    # and postpones disposal until startup settles.
     _maybe_display(built.fig;
         on_failure = (err, bt) -> _fail_visualizer!(vis, err, bt, :startup),
         on_render_failure = _live_renderer_failure_callback(vis))
@@ -386,8 +382,7 @@ function _flush_live_buffer!(vis, mcmc_states, f_pretransform, history, domain_l
     force::Bool = false, display_shape = missing)
     batch = _detach_live_batch!(vis, mcmc_states; force = force)
     isnothing(batch) && return nothing
-    # The listener retains batch until it either commits or records failure.
-    # There is deliberately no replay after a partial/uncertain publication.
+    # Retain the batch until commit or failure; never replay a partial publication.
     committed = history[]
     fresh = _transform_display_outputs(f_pretransform, batch.output, committed.samples, display_shape)
     pending = _transform_display_outputs(f_pretransform, batch.pending, committed.samples, display_shape)

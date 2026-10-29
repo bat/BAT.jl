@@ -199,34 +199,33 @@ end
     end
 
     @testset "Compensating scales and admitted numerical boundaries" begin
-        compensated = hist1d([1e308, 1e-308]; edges=[0.0, 1e-308, 1e308], density=true)
-        regions, contents = check_hdr(compensated, [0.4]; exact_masks=true)
+        compensated = hist1d([1e308, 1e-308]; edges = [0.0, 1e-308, 1e308], density = true)
+        regions, contents = check_hdr(compensated, [0.4]; exact_masks = true)
         @test only(regions).weights == [1e308, 0.0]
         @test only(contents) ≈ 0.5
-        enormous = hist1d([1e308]; edges=[0.0, 1e308], density=true)
-        check_hdr(enormous, [0, 0.5, 1]; exact_masks=true)
+        enormous = hist1d([1e308]; edges = [0.0, 1e308], density = true)
+        check_hdr(enormous, [0, 0.5, 1]; exact_masks = true)
         hist3d = Histogram(([0.0, 1e200], [0.0, 1e200], [0.0, 1e-200]),
             fill(1.0, 1, 1, 1), :left, false)
-        check_hdr(hist3d, [0.5, 1]; exact_masks=true)
+        check_hdr(hist3d, [0.5, 1]; exact_masks = true)
 
         # Float32 subtraction overflows; promoted endpoint subtraction does not.
-        check_hdr(hist1d(Float32[1]; edges=Float32[-3e38, 3e38]), [0.5]; exact_masks=true)
+        check_hdr(hist1d(Float32[1]; edges = Float32[-3e38, 3e38]), [0.5]; exact_masks = true)
         tiny = nextfloat(0.0)
         parent = hist1d([tiny, 1.0])
         subset = hist1d([tiny, 0.0])
         @test only(BAT.get_probability_content(parent, StatsBase.Histogram[subset])) == tiny
         offset = Int64(2)^53
         for hist in (hist1d([tiny, 2.0]), hist1d([1e308, 1e-308]),
-                hist1d([1.0]; edges=[-1e308, 1e308]),
-                hist1d([1, 1]; edges=Int64[offset + 1, offset + 3, offset + 5]))
+                hist1d([1.0]; edges = [-1e308, 1e308]),
+                hist1d([1, 1]; edges = Int64[offset + 1, offset + 3, offset + 5]))
             @test_throws ArgumentError BAT.get_smallest_intervals(hist, [0.5])
         end
         setrounding(BigFloat, RoundUp) do
             @test_throws ArgumentError BAT.get_smallest_intervals(hist1d(BigFloat[3, 2, 1]), [0.5])
         end
-        # Test the real machine mode, including BigFloat working arithmetic
-        # whose original Float64 heights still undergo hardware comparisons.
-        subnormal_parents = (hist1d([tiny]), hist1d([tiny]; edges=BigFloat[0, 1]))
+        # Float64 heights still use hardware comparisons with BigFloat edges.
+        subnormal_parents = (hist1d([tiny]), hist1d([tiny]; edges = BigFloat[0, 1]))
         previous_mode = get_zero_subnormals()
         try
             if set_zero_subnormals(true)
@@ -247,7 +246,7 @@ end
         floor = floatmin(BigFloat)
         @test_throws ArgumentError BAT.get_smallest_intervals(hist1d([floor]), [0.5])
         @test_throws ArgumentError BAT.get_smallest_intervals(
-            hist1d(BigFloat[1]; edges=[zero(floor), floor]), [0.5])
+            hist1d(BigFloat[1]; edges = [zero(floor), floor]), [0.5])
         @test_throws ArgumentError BAT.get_smallest_intervals(hist1d(BigFloat[1]), [floor])
     end
 

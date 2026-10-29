@@ -3,8 +3,7 @@
 
 _rel_luminance(rgb::Colors.RGB) = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b
 
-# Contrast each panel/widget background with its parent, darkening light colors and lightening
-# dark ones.
+# Contrast panel and widget backgrounds with their parents.
 function _panel_bg_color(bg, amount::Real = 0.08)
     rgb = Colors.RGB(Makie.to_color(bg))
     delta = _rel_luminance(rgb) > 0.5 ? -amount : amount
@@ -12,7 +11,6 @@ function _panel_bg_color(bg, amount::Real = 0.08)
 end
 
 
-# Warning/error status text color: deep red on light backgrounds, a lighter warm red on dark.
 function _status_text_color(bg)
     rgb = Colors.RGB(Makie.to_color(bg))
     return _rel_luminance(rgb) > 0.5 ? Colors.RGB(0.72, 0.05, 0.05) : Colors.RGB(1.0, 0.45, 0.35)
@@ -37,8 +35,7 @@ function _quantile_level_color(i::Integer)
 end
 
 
-# Type-erase the picker callback to share compiled widget code across call sites, at the cost of
-# one dynamic dispatch per click.
+# Share compiled widget code through one dynamic callback dispatch per click.
 struct PickerInfo
     N::Int
     N_max::Int
@@ -94,9 +91,8 @@ function _start_observed_gl_renderloop!(fig, screen, backend, on_failure)
                 error("Live GL display requires an active observed renderer")
         end
     finally
-        # The upstream startup contract guarantees invocation entry before
-        # returning. The running frame owns the wrapper; config never does
-        # beyond enrollment, including closed-screen or startup-error paths.
+        # Startup guarantees invocation entry before returning. The running frame
+        # then owns the wrapper; restore config even on closed-screen/error paths.
         config.renderloop === guarded && (config.renderloop = original)
     end
     return nothing
@@ -142,8 +138,7 @@ function _run_gl_startup(screen, backend)
             rng = Random.default_rng()
             saved = copy(rng)
             try
-                # Each one-shot startup has an explicit private origin. This
-                # is not a unique seed or a stream for numerical sampling.
+                # Private task origin, shared across startups and separate from sampling.
                 copy!(rng, Random.Xoshiro(0x424154676c303031))
                 task = @task begin
                     try

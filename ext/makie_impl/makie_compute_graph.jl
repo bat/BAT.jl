@@ -87,8 +87,8 @@ function marg_symbol(vsel::Tuple{Integer,Integer})
 end
 
 
-# Estimate the display domain from the original target's prior quantiles. The transformed MCMC
-# target has different coordinates; these are not hard support bounds.
+# Estimate display limits from prior quantiles in the original coordinates.
+# These limits do not define hard support.
 function _estimate_prior_domain(rng::AbstractRNG, target, n_dof::Integer;
     n_prior_samples::Integer = 2000, tail_prob::Real = 0.0015,
     display_shape = missing, f_display = identity)
@@ -115,8 +115,8 @@ function _estimate_prior_domain(rng::AbstractRNG, target, n_dof::Integer;
 end
 
 
-# Prior support in unshaped display coordinates for KDE reflection. Infinite bounds disable
-# correction. Retain original bound types until sample membership is checked.
+# Retain original prior-support bounds until sample membership is checked.
+# Infinite endpoints disable KDE reflection at that boundary.
 function _support_bounds(target, n_dof::Integer)
     d = _support_root_dist(target)
     isnothing(d) && return (fill(-Inf, n_dof), fill(Inf, n_dof))
@@ -160,11 +160,11 @@ function _component_support(d::NamedTupleDist)
     dists = values(d)
     accessors = values(varshape(d))
     for (dd, acc) in zip(dists, accessors)
-        # view_idxs returns a bare Int for scalar accessors -- normalize to a range.
+        # Scalar accessors return an Int; use a range for assignment below.
         raw_idxs = ValueShapes.view_idxs(1:n, acc)
         idxs = raw_idxs isa Integer ? (raw_idxs:raw_idxs) : raw_idxs
         clo, chi = _component_support(dd)
-        # A mismatched component walk keeps its dims at the +-Inf default.
+        # Leave unmatched components unbounded.
         length(clo) == length(idxs) || continue
         lo[idxs] .= clo
         hi[idxs] .= chi
@@ -173,8 +173,7 @@ function _component_support(d::NamedTupleDist)
 end
 
 
-# Normalize support to per-coordinate bounds; validate explicit pairs and infer measure bounds
-# when available.
+# Validate explicit support pairs or infer per-coordinate bounds from a measure.
 _support_vectors(::Nothing, n_dof::Integer) = (Float64[], Float64[])
 
 function _support_vectors(support::AbstractVector, n_dof::Integer)
@@ -278,13 +277,9 @@ function BAT.BATVisualizer(vis::BATMakieVisualization)
 end
 
 
-# Registered closures share the enclosing scope; use distinct local names to avoid
-# reassigning captured variables.
+# Registered closures share this scope; keep captured variable names distinct.
 function _init_compute_graph(
-    recipes::NamedTuple,
-    triagonal_config::NamedTuple,
-    diagonal_config::NamedTuple,
-    n::Integer,
+    recipes::NamedTuple, triagonal_config::NamedTuple, diagonal_config::NamedTuple, n::Integer
 )
     n = Int(n)
     n > 0 || throw(ArgumentError("N_max must be positive (got $n)"))
@@ -322,15 +317,13 @@ function _init_compute_graph(
         :current_idx
     )
     map!(
-        # View of the real weight vector, not a hardcoded-eltype placeholder.
         (smpls, idx) -> view(smpls.weight, 1:idx),
         graph,
         [:flat_samples, :current_idx],
         :flat_weights
     )
     map!(
-        # Per-sample chain id for ChainScatter2D; Int32[] when info has no chain
-        # identity, so the graph can resolve before availability is checked.
+        # Empty chain IDs let the graph resolve before recipe availability is checked.
         (smpls, idx) -> _samples_have_chain_ids(smpls) ?
             Int32[s.chainid for s in view(smpls.info, 1:idx)] : Int32[],
         graph,
@@ -435,8 +428,7 @@ function _init_compute_graph(
         marg_sym = marg_symbol((i, i))
 
         map!(
-            # Dead branch: empty view over the real smpls.v.data, not a hardcoded
-            # placeholder -- live/dead views of this node must share a type.
+            # Empty views must retain the live node's storage type.
             (smpls, vsel_map, current_idx, live_map) ->
                 (current_idx > 0 && live_map[i, i]) ?
                     view(smpls.v.data, [vsel_map[i, i][1]], 1:current_idx) :
@@ -450,7 +442,6 @@ function _init_compute_graph(
 
         primitive_symbols_1D = [primitive_symbol(recipe, (i, i)) for recipe in BAT_MAKIE_RECIPES_1D]
 
-        # Full recompute per invocation -- deliberately no per-cell accumulator state.
         for k in eachindex(primitive_symbols_1D)
             recipe = BAT_MAKIE_RECIPES_1D[k]
             register_computation!(graph,

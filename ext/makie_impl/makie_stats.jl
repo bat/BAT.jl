@@ -91,8 +91,7 @@ const _COV_ELLIPSE_CIRCLE = let θ = range(0, 2π, length = 200)
 end
 
 
-# Ellipse and principal-axis endpoints share the same nsigma radius; direction is each axis's
-# half-length.
+# Ellipse radii and principal-axis half-lengths use the same nsigma scale.
 function _cov_ellipse_primitives(μ::AbstractVector, Σ::AbstractMatrix, nsigma::Real)
     isfinite(nsigma) && nsigma >= 0 || throw(ArgumentError("nsigma must be finite and nonnegative"))
     vals, vecs = eigen(Σ)
@@ -144,10 +143,7 @@ end
 struct Makie1DStats <: BATMakieRecipe end
 
 function get_stats_plotspecs(
-    inputs::NamedTuple,
-    vsel::Tuple{Integer,Integer},
-    recipe::Makie1DStats,
-    config::NamedTuple
+    inputs::NamedTuple, vsel::Tuple{Integer,Integer}, recipe::Makie1DStats, config::NamedTuple
 )
     i = vsel[1]
     plotspecs = PlotSpec[]
@@ -161,14 +157,11 @@ function get_stats_plotspecs(
     return plotspecs
 end
 
+
 struct Makie2DStats <: BATMakieRecipe end
 
 function get_stats_plotspecs(
-    inputs::NamedTuple,
-    vsel::Tuple{Integer,Integer},
-    recipe::Makie2DStats,
-    config::NamedTuple;
-    # Transpose overlays with the main recipe.
+    inputs::NamedTuple, vsel::Tuple{Integer,Integer}, recipe::Makie2DStats, config::NamedTuple;
     transposed::Bool = false
 )
     i, j = vsel
@@ -185,12 +178,7 @@ end
 
 
 function compute_plotting_primitives(
-    ::SubArray,
-    ::SubArray,
-    ::Cov2D,
-    ::RS,
-    ::CS,
-    ::NamedTuple
+    ::SubArray, ::SubArray, ::Cov2D, ::RS, ::CS, ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_cov2d_primitives()
 end
@@ -198,11 +186,7 @@ end
 
 # Unsupported covariance arithmetic raises instead of producing an empty result.
 function compute_plotting_primitives(
-    marg_coords::SubArray,
-    weights::SubArray,
-    recipe::Cov2D,
-    ::LiveRecipe,
-    ::LiveCell,
+    marg_coords::SubArray, weights::SubArray, recipe::Cov2D, ::LiveRecipe, ::LiveCell,
     config::NamedTuple
 )
     _stats_validate_nsigma(config.nsigma)
@@ -227,9 +211,7 @@ end
 
 
 function compose_plotspecs(
-    primitives::NamedTuple,
-    recipe::Cov2D,
-    config::NamedTuple;
+    primitives::NamedTuple, recipe::Cov2D, config::NamedTuple;
     transposed::Bool = false
 )
     (; ellipse_points, axes_segments) = primitives
@@ -252,23 +234,14 @@ end
 
 
 function compute_plotting_primitives(
-    ::SubArray,
-    ::SubArray,
-    ::Std1D,
-    ::RS,
-    ::CS,
-    ::NamedTuple
+    ::SubArray, ::SubArray, ::Std1D, ::RS, ::CS, ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_std1d_primitives()
 end
 
 
 function compute_plotting_primitives(
-    marg_coords::SubArray,
-    weights::SubArray,
-    recipe::Std1D,
-    ::LiveRecipe,
-    ::LiveCell,
+    marg_coords::SubArray, weights::SubArray, recipe::Std1D, ::LiveRecipe, ::LiveCell,
     config::NamedTuple
 )
     _stats_validate_nsigma(config.nsigma)
@@ -283,11 +256,7 @@ function compute_plotting_primitives(
 end
 
 
-function compose_plotspecs(
-    primitives::NamedTuple,
-    recipe::Std1D,
-    config::NamedTuple
-)
+function compose_plotspecs(primitives::NamedTuple, recipe::Std1D, config::NamedTuple)
     (; positions) = primitives
 
     if isempty(positions)
@@ -300,23 +269,14 @@ end
 
 
 function compute_plotting_primitives(
-    ::SubArray,
-    ::SubArray,
-    ::Std2D,
-    ::RS,
-    ::CS,
-    ::NamedTuple
+    ::SubArray, ::SubArray, ::Std2D, ::RS, ::CS, ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_std2d_primitives()
 end
 
 
 function compute_plotting_primitives(
-    marg_coords::SubArray,
-    weights::SubArray,
-    recipe::Std2D,
-    ::LiveRecipe,
-    ::LiveCell,
+    marg_coords::SubArray, weights::SubArray, recipe::Std2D, ::LiveRecipe, ::LiveCell,
     config::NamedTuple
 )
     _stats_validate_nsigma(config.nsigma)
@@ -335,9 +295,7 @@ end
 
 
 function compose_plotspecs(
-    primitives::NamedTuple,
-    recipe::Std2D,
-    config::NamedTuple;
+    primitives::NamedTuple, recipe::Std2D, config::NamedTuple;
     transposed::Bool = false
 )
     (; x_lines, y_lines) = primitives
@@ -355,23 +313,14 @@ end
 
 
 function compute_plotting_primitives(
-    ::SubArray,
-    ::SubArray,
-    ::Mean1D,
-    ::RS,
-    ::CS,
-    ::NamedTuple
+    ::SubArray, ::SubArray, ::Mean1D, ::RS, ::CS, ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_mean1d_primitives()
 end
 
 
 function compute_plotting_primitives(
-    marg_coords::SubArray,
-    weights::SubArray,
-    recipe::Mean1D,
-    ::LiveRecipe,
-    ::LiveCell,
+    marg_coords::SubArray, weights::SubArray, recipe::Mean1D, ::LiveRecipe, ::LiveCell,
     config::NamedTuple
 )
     si = _stats_inputs(marg_coords, weights, config)
@@ -382,11 +331,7 @@ function compute_plotting_primitives(
 end
 
 
-function compose_plotspecs(
-    primitives::NamedTuple,
-    recipe::Mean1D,
-    config::NamedTuple
-)
+function compose_plotspecs(primitives::NamedTuple, recipe::Mean1D, config::NamedTuple)
     (; x) = primitives
 
     if isempty(x)
@@ -400,23 +345,14 @@ end
 
 
 function compute_plotting_primitives(
-    ::SubArray,
-    ::SubArray,
-    ::Mean2D,
-    ::RS,
-    ::CS,
-    ::NamedTuple
+    ::SubArray, ::SubArray, ::Mean2D, ::RS, ::CS, ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_mean2d_primitives()
 end
 
 
 function compute_plotting_primitives(
-    marg_coords::SubArray,
-    weights::SubArray,
-    recipe::Mean2D,
-    ::LiveRecipe,
-    ::LiveCell,
+    marg_coords::SubArray, weights::SubArray, recipe::Mean2D, ::LiveRecipe, ::LiveCell,
     config::NamedTuple
 )
     si = _stats_inputs(marg_coords, weights, config)
@@ -429,9 +365,7 @@ end
 
 
 function compose_plotspecs(
-    primitives::NamedTuple,
-    recipe::Mean2D,
-    config::NamedTuple;
+    primitives::NamedTuple, recipe::Mean2D, config::NamedTuple;
     transposed::Bool = false
 )
     (; μ_x, μ_y) = primitives
@@ -449,23 +383,14 @@ end
 
 
 function compute_plotting_primitives(
-    ::SubArray,
-    ::SubArray,
-    ::Errorbars1D,
-    ::RS,
-    ::CS,
-    ::NamedTuple
+    ::SubArray, ::SubArray, ::Errorbars1D, ::RS, ::CS, ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_errorbars1d_primitives()
 end
 
 
 function compute_plotting_primitives(
-    marg_coords::SubArray,
-    weights::SubArray,
-    recipe::Errorbars1D,
-    ::LiveRecipe,
-    ::LiveCell,
+    marg_coords::SubArray, weights::SubArray, recipe::Errorbars1D, ::LiveRecipe, ::LiveCell,
     config::NamedTuple
 )
     _stats_validate_nsigma(config.nsigma)
@@ -481,11 +406,7 @@ function compute_plotting_primitives(
 end
 
 
-function compose_plotspecs(
-    primitives::NamedTuple,
-    recipe::Errorbars1D,
-    config::NamedTuple
-)
+function compose_plotspecs(primitives::NamedTuple, recipe::Errorbars1D, config::NamedTuple)
     (; μ, err) = primitives
 
     if isempty(μ)
@@ -503,23 +424,14 @@ end
 
 
 function compute_plotting_primitives(
-    ::SubArray,
-    ::SubArray,
-    ::Errorbars2D,
-    ::RS,
-    ::CS,
-    ::NamedTuple
+    ::SubArray, ::SubArray, ::Errorbars2D, ::RS, ::CS, ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_errorbars2d_primitives()
 end
 
 
 function compute_plotting_primitives(
-    marg_coords::SubArray,
-    weights::SubArray,
-    recipe::Errorbars2D,
-    ::LiveRecipe,
-    ::LiveCell,
+    marg_coords::SubArray, weights::SubArray, recipe::Errorbars2D, ::LiveRecipe, ::LiveCell,
     config::NamedTuple
 )
     _stats_validate_nsigma(config.nsigma)
@@ -540,9 +452,7 @@ end
 
 
 function compose_plotspecs(
-    primitives::NamedTuple,
-    recipe::Errorbars2D,
-    config::NamedTuple;
+    primitives::NamedTuple, recipe::Errorbars2D, config::NamedTuple;
     transposed::Bool = false
 )
     (; μ_x, μ_y, err_x, err_y) = primitives
@@ -571,24 +481,14 @@ end
 
 
 function compute_plotting_primitives(
-    ::SubArray,
-    ::SubArray,
-    ::PDF1D,
-    ::RS,
-    ::CS,
-    ::NamedTuple
+    ::SubArray, ::SubArray, ::PDF1D, ::RS, ::CS, ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_pdf1d_primitives()
 end
 
 
-# Overlays the Normal distribution fit (by weighted mean/std) to the 1D marginal.
 function compute_plotting_primitives(
-    marg_coords::SubArray,
-    weights::SubArray,
-    recipe::PDF1D,
-    ::LiveRecipe,
-    ::LiveCell,
+    marg_coords::SubArray, weights::SubArray, recipe::PDF1D, ::LiveRecipe, ::LiveCell,
     config::NamedTuple
 )
     config.npoints_pdf isa Integer && config.npoints_pdf >= 2 ||
@@ -624,11 +524,7 @@ function compute_plotting_primitives(
 end
 
 
-function compose_plotspecs(
-    primitives::NamedTuple,
-    recipe::PDF1D,
-    config::NamedTuple
-)
+function compose_plotspecs(primitives::NamedTuple, recipe::PDF1D, config::NamedTuple)
     (; poly_points, x, y) = primitives
 
     if isempty(x)

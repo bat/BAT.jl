@@ -14,13 +14,12 @@ const _PICKER_MAX_N = 10
 _picker_cell_size(N::Integer) = clamp(176.0 / (N + 1), 14.0, 24.0)
 _picker_gap(N::Integer) = N <= 5 ? 5.0 : 3.0
 _picker_fontsize(N::Integer) = clamp(0.55 * _picker_cell_size(N), 7.0, 12.0)
-# Matrix width incl. the index-label column and the N inter-column gaps.
+# Matrix width includes the index column and gaps.
 _picker_matrix_width(N::Integer) = (N + 1) * _picker_cell_size(N) + N * _picker_gap(N)
-# GridLayoutBase's default inter-column/row gaps, applied between ui_layout's tracks.
+# Default GridLayoutBase gaps between control tracks.
 const _UI_LAYOUT_COL_GAP = 16.0
 const _UI_LAYOUT_ROW_GAP = 16.0
-# Natural height of a menu/toggle control row (measured; re-measure if the
-# theme fontsize or Menu styling changes).
+# Measured control-row height; update when font size or menu styling changes.
 const _UI_CONTROL_ROW_HEIGHT = 36.0
 
 # Compute panel width explicitly: a GridLayout with deferred width prevents bottom-up sizing.
@@ -67,9 +66,7 @@ end
 
 
 function _build_fig(
-    graph::ComputeGraph,
-    gridlayout::Any,
-    picker_info::Union{PickerInfo,Nothing} = nothing;
+    graph::ComputeGraph, gridlayout::Any, picker_info::Union{PickerInfo,Nothing} = nothing;
     has_chain_info::Bool = false,
     has_trace_info::Bool = false,
     live_vis = nothing,
@@ -79,7 +76,6 @@ function _build_fig(
     grid_growth = 170 * max(n_grid - 3, 0)
     ui_box_pad = to_value(Makie.theme(:fontsize)) / 3
     panel_width = _controls_panel_width(picker_info, ui_box_pad; has_trace_col = has_trace_info)
-    # Leave enough figure width for the panel and its margin.
     fig_w = max(min(665 + grid_growth, 1600), ceil(Int, panel_width) + 24)
     fig = Figure(size = (fig_w, min(850 + grid_growth, 1785)))
     try
@@ -105,7 +101,6 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     # Auto assigns the plot grid the space left by the two control rows.
     rowsize!(fig.layout, 1, Auto())
 
-    # Reserve fixed padding around the central content cell.
     toggle_row = fig[2, 1] = GridLayout(3, 3)
     rowgap!(toggle_row, 0)
     colgap!(toggle_row, 0)
@@ -158,7 +153,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
         ("Hist", Hist1D),
         ("KDE", KDE1D),
         ("QuantileKDE", QuantileKDE1D),
-        # "Normal fit", not "PDF": it overlays a fitted Gaussian, not the density.
+        # Label the fitted Gaussian separately from the posterior density.
         ("Normal fit", PDF1D),
         ("Errorbars", Errorbars1D),
     ]
@@ -358,7 +353,6 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
         append!(ui_blocks, picker_blocks)
     end
 
-    # Apply the initial collapsed state when registering the callback.
     controls_visible = Observable(false)
     _view_on(subscription_owner, controls_visible; update = true) do vis
         rowsize!(fig.layout, 3, vis ? Auto() : Fixed(0))
@@ -373,8 +367,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     end
 
     if !isnothing(live_vis)
-        # Keep the observed-population label visible independently of the controls and selected
-        # window.
+        # The population label stays visible when controls collapse or the window changes.
         Label(fig[4, 1], "Observed sampling history\nMay include initialization and burn-in";
             tellwidth = false)
     end
@@ -385,12 +378,13 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
 end
 
 
-# Native IntervalSlider scans its range to locate values and uses floating-point
-# index arithmetic while dragging. Bound that work independently of elapsed
-# steps; exact integer endpoints remain editable in the accompanying textbox.
+# Bound IntervalSlider's range scans and floating-point index arithmetic.
+# The textbox still accepts exact integer endpoints.
 struct SampleRangeGrid <: AbstractVector{Int64}
     limit::Int64
 end
+
+
 Base.size(grid::SampleRangeGrid) = (Int(min(grid.limit, 10_001)),)
 Base.IndexStyle(::Type{SampleRangeGrid}) = IndexLinear()
 function Base.getindex(grid::SampleRangeGrid, i::Int)
@@ -435,6 +429,8 @@ function _set_block_visible!(b, v::Bool)
     b.height[] = v ? h : 0 # final, notifying write
     return nothing
 end
+
+
 _set_block_visible!(b::Union{Label,Box}, v::Bool) = (b.visible[] = v)
 
 # Checkbox hit testing uses size independently of its bounding box. Capture the widget weakly
@@ -458,14 +454,8 @@ end
 # Build the capped variable picker with fixed square cells. Only the lower triangle is
 # interactive because mirrored cells select the same marginal.
 function _build_vsel_picker!(
-    fig::Figure,
-    ui_layout::GridLayout,
-    graph::ComputeGraph,
-    N::Integer,
-    N_max::Integer,
-    initial_vsel::AbstractVector{<:Integer},
-    apply_vsel!::Function,
-    picker_col::Integer;
+    fig::Figure, ui_layout::GridLayout, graph::ComputeGraph, N::Integer, N_max::Integer,
+    initial_vsel::AbstractVector{<:Integer}, apply_vsel!::Function, picker_col::Integer;
     live_vis = nothing,
 )
     subscription_owner = isnothing(live_vis) ? fig.scene : live_vis
@@ -482,7 +472,6 @@ function _build_vsel_picker!(
 
     picker_layout = ui_layout[2:4, picker_col] = GridLayout()
 
-    # Choose a status color legible against the current background.
     status_label = Label(fig, "", fontsize = 12, color = _status_text_color(fig.scene.backgroundcolor[]))
 
     initial_vsel_set = Set(_clamp_vsel(initial_vsel, N, N_max))
@@ -521,8 +510,7 @@ function _build_vsel_picker!(
     end
     picker_layout[N_shown+2, 1:(N_shown+1)] = status_label
 
-    # Set fixed track sizes after content has created the tracks; later layout growth must not
-    # stretch the square cells.
+    # Set track sizes after insertion so layout growth cannot stretch picker cells.
     rowgap!(picker_layout, gap)
     colgap!(picker_layout, gap)
     for k in 1:N_shown+1
@@ -530,8 +518,7 @@ function _build_vsel_picker!(
         rowsize!(picker_layout, k, Fixed(cell))
     end
 
-    # Auto tracks ignore spanning content. Enlarge all three rows equally when the picker
-    # exceeds their natural height.
+    # Auto tracks ignore spanning content; enlarge rows equally to fit the picker.
     status_h = 16.0
     matrix_h = (N_shown + 1) * cell + (N_shown + 1) * gap + status_h
     row_h = max(_UI_CONTROL_ROW_HEIGHT, (matrix_h - 2 * _UI_LAYOUT_ROW_GAP) / 3)

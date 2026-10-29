@@ -1,8 +1,8 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-# Exercise static Matrix-backed and live ElasticMatrix-backed samples through the public entry
-# points. Native GL compilation requires GLMakie and is not covered here.
+# Compile public entry points with static Matrix and live ElasticMatrix samples.
+# Native GL compilation requires GLMakie and is not covered here.
 
 function _drive_figure_widgets!(fig)
     for m in filter(x -> x isa Menu, fig.content)
@@ -60,23 +60,20 @@ function _makie_precompile_workload()
         objective = NamedTupleDist(a = Uniform(-2, 2),
             b = product_distribution([Uniform(-2, 2), Uniform(-2, 2)]), c = Uniform(-2, 2))
 
-        # Use two chains for Gelman-Rubin and a large buffer to avoid backpressure during
-        # compilation.
+        # Two chains support Gelman-Rubin; a large buffer avoids compilation backpressure.
         vis = BATVisualizer(BATMakieVisualization(max_buffered = 10^6))
         res = bat_sample(objective, TransformedMCMC(nsteps = 200, nchains = 2), BATContext(visualizer = vis))
         samples = res.result
         live_fig = BAT.visualizer_figure(vis)
         isnothing(live_fig) && error("Makie precompile workload: completed live Figure is unavailable")
-        # Support must survive the EvaluatedMeasure wrapper, including initialization and
-        # burn-in.
+        # Preserve support through EvaluatedMeasure, initialization and burn-in.
         graph = _live_graph(vis)
         graph[:support_lo][] == fill(-2.0, 4) && graph[:support_hi][] == fill(2.0, 4) ||
             error("Makie precompile workload: original target support was not forwarded")
 
         _drive_figure_widgets!(live_fig)
 
-        # The bounded observations admit reflection without clamping samples to artificial
-        # support.
+        # The prior bounds admit reflection without clamping observations.
         for recipe_1d in (KDE1D, QuantileKDE1D)
             _live_graph_update!(vis; diagonal_recipe = recipe_1d)
         end
@@ -92,11 +89,9 @@ function _makie_precompile_workload()
         static_fig = bat_makie_plot(samples; display = false)
         _drive_figure_widgets!(static_fig)
 
-        # Exercise the dark theme and explicit KDE support.
         dark_fig = bat_makie_plot(samples; display = false, dark = true,
             support = [(-2.0, 2.0), (-2.0, 2.0), (-2.0, 2.0), (-2.0, 2.0)])
-        # The undisplayed figure has no resolved layout. Select menus by their options to cover
-        # both ordinary and transposed KDE composition.
+        # The undisplayed layout is unresolved; select menus by their options.
         for m in filter(x -> x isa Menu, dark_fig.content)
             for r in (KDE1D, QuantileKDE1D, KDE2D, QuantileKDE2D)
                 k = findfirst(o -> o[2] == r, m.options[])
@@ -104,12 +99,10 @@ function _makie_precompile_workload()
             end
         end
 
-        # The ordinary Makie path returns a GridLayoutSpec.
         Makie.convert_arguments(Makie.Plot{Makie.plot}, samples)
     finally
         try
-            # Clean up each owned figure independently, preserving the original workload
-            # exception.
+            # Release each figure independently, preserving the workload exception.
             for fig in (static_fig, dark_fig)
                 isnothing(fig) && continue
                 try

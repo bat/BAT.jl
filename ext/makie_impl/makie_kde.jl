@@ -30,23 +30,14 @@ _empty_quantilekde2d_primitives() = (
 const _KDE2D_DENSITY_FLOOR_FRAC = 1e-3
 
 function compute_plotting_primitives(
-    ::SubArray,
-    ::SubArray,
-    ::KDE1D,
-    ::RS,
-    ::CS,
-    ::NamedTuple
+    ::SubArray, ::SubArray, ::KDE1D, ::RS, ::CS, ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_kde1d_primitives()
 end
 
 
 function compute_plotting_primitives(
-    marg_coords::SubArray,
-    weights::SubArray,
-    recipe::KDE1D,
-    ::LiveRecipe,
-    ::LiveCell,
+    marg_coords::SubArray, weights::SubArray, recipe::KDE1D, ::LiveRecipe, ::LiveCell,
     config::NamedTuple
 )
     # A selected window can be empty or contain only zero-mass samples.
@@ -64,11 +55,7 @@ function compute_plotting_primitives(
 end
 
 
-function compose_plotspecs(
-    primitives::NamedTuple,
-    recipe::KDE1D,
-    config::NamedTuple
-)
+function compose_plotspecs(primitives::NamedTuple, recipe::KDE1D, config::NamedTuple)
     (; x, density, poly_points) = primitives
 
     if isempty(x)
@@ -107,23 +94,14 @@ _diag_y_extent(primitives::NamedTuple, ::KDE1D) =
 
 
 function compute_plotting_primitives(
-    ::SubArray,
-    ::SubArray,
-    ::KDE2D,
-    ::RS,
-    ::CS,
-    ::NamedTuple
+    ::SubArray, ::SubArray, ::KDE2D, ::RS, ::CS, ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_kde2d_primitives()
 end
 
 
 function compute_plotting_primitives(
-    marg_coords::SubArray,
-    weights::SubArray,
-    recipe::KDE2D,
-    ::LiveRecipe,
-    ::LiveCell,
+    marg_coords::SubArray, weights::SubArray, recipe::KDE2D, ::LiveRecipe, ::LiveCell,
     config::NamedTuple
 )
     (isempty(weights) || all(iszero, weights)) && return _empty_kde2d_primitives()
@@ -140,9 +118,7 @@ end
 
 
 function compose_plotspecs(
-    primitives::NamedTuple,
-    recipe::KDE2D,
-    config::NamedTuple;
+    primitives::NamedTuple, recipe::KDE2D, config::NamedTuple;
     transposed::Bool = false
 )
     (; x, y, xedges, yedges, density) = primitives
@@ -166,23 +142,14 @@ end
 
 
 function compute_plotting_primitives(
-    ::SubArray,
-    ::SubArray,
-    ::QuantileKDE1D,
-    ::RS,
-    ::CS,
-    ::NamedTuple
+    ::SubArray, ::SubArray, ::QuantileKDE1D, ::RS, ::CS, ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_quantilekde1d_primitives()
 end
 
 
 function compute_plotting_primitives(
-    marg_coords::SubArray,
-    weights::SubArray,
-    recipe::QuantileKDE1D,
-    ::LiveRecipe,
-    ::LiveCell,
+    marg_coords::SubArray, weights::SubArray, recipe::QuantileKDE1D, ::LiveRecipe, ::LiveCell,
     config::NamedTuple
 )
     (isempty(weights) || all(iszero, weights)) && return _empty_quantilekde1d_primitives()
@@ -216,11 +183,7 @@ function compute_plotting_primitives(
 end
 
 
-function compose_plotspecs(
-    primitives::NamedTuple,
-    recipe::QuantileKDE1D,
-    config::NamedTuple
-)
+function compose_plotspecs(primitives::NamedTuple, recipe::QuantileKDE1D, config::NamedTuple)
     (; polys, fill_colors, full_line) = primitives
 
     if isempty(full_line)
@@ -240,23 +203,14 @@ _diag_y_extent(primitives::NamedTuple, ::QuantileKDE1D) =
 
 
 function compute_plotting_primitives(
-    ::SubArray,
-    ::SubArray,
-    ::QuantileKDE2D,
-    ::RS,
-    ::CS,
-    ::NamedTuple
+    ::SubArray, ::SubArray, ::QuantileKDE2D, ::RS, ::CS, ::NamedTuple
 ) where {RS<:RecipeStatus,CS<:CellStatus}
     return _empty_quantilekde2d_primitives()
 end
 
 
 function compute_plotting_primitives(
-    marg_coords::SubArray,
-    weights::SubArray,
-    recipe::QuantileKDE2D,
-    ::LiveRecipe,
-    ::LiveCell,
+    marg_coords::SubArray, weights::SubArray, recipe::QuantileKDE2D, ::LiveRecipe, ::LiveCell,
     config::NamedTuple
 )
     (isempty(weights) || all(iszero, weights)) && return _empty_quantilekde2d_primitives()
@@ -293,9 +247,7 @@ end
 
 
 function compose_plotspecs(
-    primitives::NamedTuple,
-    recipe::QuantileKDE2D,
-    config::NamedTuple;
+    primitives::NamedTuple, recipe::QuantileKDE2D, config::NamedTuple;
     transposed::Bool = false
 )
     (; x, y, xedges, yedges, color_grid) = primitives
