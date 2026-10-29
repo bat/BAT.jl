@@ -77,7 +77,8 @@ function _safe_edges_fallback(data, nbins::Integer)
     lower = min(lo - margin, prevfloat(float(lo)))
     upper = max(hi + margin, nextfloat(float(hi)))
     n = nbins
-    edges = range(lower, upper, length=n + 1)
+    # The range's extrapolated zero-crossing index can exceed Int32.
+    edges = range(lower, upper, length=Int64(n) + 1)
     # A nonzero range step does not guarantee distinct indexed values near
     # machine precision. Legacy credible-region calculations also assume
     # uniform bin widths, so reduce resolution when rounded widths materially
@@ -86,7 +87,7 @@ function _safe_edges_fallback(data, nbins::Integer)
             isapprox(edges[i + 1] - edges[i], edges[2] - edges[1]; atol=0),
             1:length(edges)-1)
         n = max(1, n ÷ 2)
-        edges = range(lower, upper, length=n + 1)
+        edges = range(lower, upper, length=Int64(n) + 1)
     end
     # Actual rounded widths can differ from the range's abstract step. Use
     # those same widths for histogram normalization and downstream rendering.

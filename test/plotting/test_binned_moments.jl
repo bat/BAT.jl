@@ -68,7 +68,7 @@ end
             end
             source = samples(columns, vec(weights))
             original = deepcopy(source)
-            ranges = map(e -> range(first(e), last(e); length=length(e)), edges)
+            ranges = map(e -> range(first(e), last(e); length=Int64(length(e))), edges)
             selection = length(edges) == 1 ? 1 : Tuple(1:length(edges))
             bins = length(edges) == 1 ? only(ranges) : ranges
             moment_error(() -> BAT.MarginalDist(source, selection; bins, closed))
