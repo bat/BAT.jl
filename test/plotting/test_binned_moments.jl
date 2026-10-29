@@ -189,9 +189,10 @@ end
             @test mode(dist) == 2.0^1022
             @test var(dist) == 0.0
         end
-        hist = Histogram(([2^62, 2^62 + 2^20],), [1.], :left, false)
-        @test mean(BAT._plot_binned_dist(hist, true)) == Float64(2^62 + 2^19)
-        moment_error(() -> BAT._plot_binned_dist(Histogram(([2^62, 2^62 + 1],), [1.], :left, false), true))
+        offset = Int64(2)^62
+        hist = Histogram(([offset, offset + 2^20],), [1.], :left, false)
+        @test mean(BAT._plot_binned_dist(hist, true)) == Float64(offset + 2^19)
+        moment_error(() -> BAT._plot_binned_dist(Histogram(([offset, offset + 1],), [1.], :left, false), true))
     end
 
     @testset "Range, zero and actual-result admission" begin
