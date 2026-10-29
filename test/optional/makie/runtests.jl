@@ -3,6 +3,7 @@
 # Run from an instantiated optional project. Julia 1.10 users must first run
 # Pkg.develop(path = abspath("../../..")) from this directory: [sources] is newer.
 # Every potentially hanging case has a deadline enforced by its parent process.
+# BAT_MAKIE_TEST_GROUP and BAT_MAKIE_TEST_GROUPS partition the selected cases.
 using Test
 
 const CASES = [
@@ -16,6 +17,16 @@ const CASES = [
     "task_rng", "hmc_rng", "renderer_failure", "scatter_admission", "covariance_admission", "failure_ownership", "display_schema", "display_live", "display_failures", "transformed_prior", "picker",
 ]
 const ROOT = normpath(joinpath(@__DIR__, "../../.."))
+
+function select_cases(args)
+    selected = isempty(args) ? CASES : args
+    all(in(CASES), selected) || error("Unknown cases; available: $(join(CASES, ", "))")
+    group = parse(Int, get(ENV, "BAT_MAKIE_TEST_GROUP", "1"))
+    ngroups = parse(Int, get(ENV, "BAT_MAKIE_TEST_GROUPS", "1"))
+    1 <= group <= ngroups <= length(selected) ||
+        error("Require 1 <= BAT_MAKIE_TEST_GROUP <= BAT_MAKIE_TEST_GROUPS <= $(length(selected))")
+    return selected[group:ngroups:end]
+end
 
 if length(ARGS) == 2 && ARGS[1] == "--child"
     case = ARGS[2]
@@ -46,8 +57,7 @@ if length(ARGS) == 2 && ARGS[1] == "--child"
     println(stderr, "Makie case $case: finished")
     flush(stderr)
 else
-    selected = isempty(ARGS) ? CASES : ARGS
-    all(in(CASES), selected) || error("Unknown cases; available: $(join(CASES, ", "))")
+    selected = select_cases(ARGS)
     deadline = parse(Float64, get(ENV, "BAT_MAKIE_CASE_TIMEOUT", "600"))
     isfinite(deadline) && deadline > 0 || error("BAT_MAKIE_CASE_TIMEOUT must be finite and positive")
     project = dirname(Base.active_project())
@@ -56,6 +66,8 @@ else
     flush(stderr)
     @testset "BAT optional Makie lifecycle and regressions" begin
         for case in selected
+            @info "Running Makie case" case
+            flush(stderr)
             @testset "$case" begin
                 logfile = joinpath(logs, "$case.log")
                 cmd = `$(Base.julia_cmd()) --startup-file=no --threads=$(Threads.nthreads(:default)) --project=$project $(@__FILE__) --child $case`

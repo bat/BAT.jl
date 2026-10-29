@@ -173,13 +173,14 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
   test-makie:
-    name: Makie lifecycle - Julia ${{ matrix.version }}
+    name: Makie lifecycle - Julia ${{ matrix.version }} - group ${{ matrix.test-group }}/4
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         version: ['1.10', '1']
+        test-group: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v3
@@ -195,6 +196,8 @@ jobs:
         env:
           JULIA_NUM_THREADS: '2'
           BAT_MAKIE_CASE_TIMEOUT: '600'
+          BAT_MAKIE_TEST_GROUP: ${{ matrix.test-group }}
+          BAT_MAKIE_TEST_GROUPS: '4'
         run: julia --project=test/optional/makie --code-coverage=user test/optional/makie/runtests.jl
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v7
