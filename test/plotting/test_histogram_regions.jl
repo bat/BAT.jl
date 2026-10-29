@@ -215,9 +215,10 @@ end
         parent = hist1d([tiny, 1.0])
         subset = hist1d([tiny, 0.0])
         @test only(BAT.get_probability_content(parent, StatsBase.Histogram[subset])) == tiny
+        offset = Int64(2)^53
         for hist in (hist1d([tiny, 2.0]), hist1d([1e308, 1e-308]),
                 hist1d([1.0]; edges=[-1e308, 1e308]),
-                hist1d([1, 1]; edges=Int64[2^53+1, 2^53+3, 2^53+5]))
+                hist1d([1, 1]; edges=Int64[offset + 1, offset + 3, offset + 5]))
             @test_throws ArgumentError BAT.get_smallest_intervals(hist, [0.5])
         end
         setrounding(BigFloat, RoundUp) do
