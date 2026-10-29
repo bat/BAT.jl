@@ -117,7 +117,7 @@ end
         w = [typemax(Int), typemax(Int), 1]
         h = check_distribution(samples(x, w), 1, (0.0:1.0:2.0,))
         # The old wrapped histogram had heights [2,-1] and integral one.
-        @test 0 < h.weights[2] < 1e-18
+        @test h.weights[2] ≈ Float64(1 // (2big(typemax(Int)) + 1))
         @test h.weights[1] <= 1
         @test_throws OverflowError BAT._plot_checked_total(w)
         @test_throws OverflowError BAT._plot_checked_total([floatmax(Float64), floatmax(Float64)])
