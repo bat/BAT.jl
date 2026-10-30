@@ -6,6 +6,9 @@ BAT.jl Unreleased
 
 ### Bug fixes
 
+* Preserve the allocation-free return of uniform-weight samples during
+  low-weight filtering while validating the weights and filter options.
+
 * Ignore zero-weight coordinates when choosing automatic marginal bins. A
   zero-weight nonfinite value can no longer replace the domain and silently
   discard positive probability mass.

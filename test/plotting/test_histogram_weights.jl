@@ -226,6 +226,11 @@ end
     end
 
     @testset "Low-weight filtering preserves mass units, rows and cutoff ties" begin
+        uniform = samples(zeros(1, 4), ones(4))
+        @test BAT.drop_low_weight_samples(uniform) === uniform
+        @test BAT.drop_low_weight_samples(uniform, 1) === uniform
+        @test_throws ArgumentError BAT.drop_low_weight_samples(uniform, 1.1)
+        @test_throws ArgumentError BAT.drop_low_weight_samples(samples(zeros(1, 4), fill(-1.0, 4)))
         values = reshape(collect(1.0:5.0), 1, :)
         # Sorted cumulative mass crosses the default fraction at 5e-6; the
         # >= cutoff policy retains both tied 5e-6 rows and removes only 1e-6.
