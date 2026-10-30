@@ -6,6 +6,10 @@ BAT.jl Unreleased
 
 ### Bug fixes
 
+* Ignore zero-weight coordinates when choosing automatic marginal bins. A
+  zero-weight nonfinite value can no longer replace the domain and silently
+  discard positive probability mass.
+
 * Bound legacy contour smoothing before allocating its kernel or padded input,
   rejecting excessive requests instead of overflowing dimensions or exhausting
   resources. Restore the documented `(sigma_x, sigma_y)` smoothing option,
