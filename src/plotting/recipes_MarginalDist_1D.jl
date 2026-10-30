@@ -1,13 +1,41 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-# TODO: add plot without Int for overview?
-
-function plothistogram(h::StatsBase.Histogram, swap::Bool)
-    if swap
-        return h.weights, h.edges[1][1:end-1]
-    else
-        return h.edges[1][1:end-1], h.weights
+function plothistogram(h::StatsBase.Histogram, swap::Bool; filled::Bool = false)
+    edges = h.edges[1]
+    n = length(h.weights)
+    x = Vector{eltype(edges)}(undef, 2n)
+    y = Vector{eltype(h.weights)}(undef, 2n)
+    for i in eachindex(h.weights)
+        x[2i - 1], x[2i] = edges[i], edges[i + 1]
+        y[2i - 1] = y[2i] = h.weights[i]
     end
+    if filled && n > 0
+        # Close against the density-zero baseline before swapping coordinates.
+        # Zero-height bins keep disconnected regions separated along that baseline.
+        x = [first(edges); x; last(edges); first(edges)]
+        y = [zero(eltype(y)); y; zero(eltype(y)); zero(eltype(y))]
+    end
+    return swap ? (y, x) : (x, y)
+end
+
+function _validate_histogram_region_metadata(intervals, colors, labels)
+    length(colors) >= length(intervals) || throw(ArgumentError(
+        "Histogram regions require one color per requested interval"))
+    isempty(labels) || length(labels) >= length(intervals) || throw(ArgumentError(
+        "Histogram regions require one custom label per requested interval"))
+    return nothing
+end
+
+function _histogram_region_metadata(intervals, colors, labels;
+    order = sortperm(intervals; rev=true, alg=Base.Sort.MergeSort))
+    _validate_histogram_region_metadata(intervals, colors, labels)
+    return (colors=[colors[i] for i in order],
+        labels=isempty(labels) ? nothing : [labels[i] for i in order])
+end
+
+function _histogram_region_label(content; central::Bool = false)
+    kind = central ? "central" : "highest-density"
+    return "whole-bin $kind $(@sprintf("%.2f", 100 * content))% region"
 end
 
 
@@ -48,7 +76,7 @@ end
     # step histogram
     if seriestype == :stephist || seriestype == :steppost
         @series begin
-            seriestype := :steppost
+            seriestype := :path
             label --> ""
             linecolor --> :dodgerblue
             plothistogram(hist, swap)
@@ -57,40 +85,36 @@ end
     # filled histogram
     elseif seriestype == :histogram
         @series begin
-            seriestype := :steppost
+            seriestype := :shape
             label --> ""
-            fillrange --> 0
+            fillrange := nothing
             fillcolor --> :dodgerblue
             linewidth --> 0
-            plothistogram(hist, swap)
+            plothistogram(hist, swap; filled=true)
         end
 
 
     # smallest intervals aka highest density region (HDR)
     elseif seriestype == :smallest_intervals || seriestype == :HDR
+        metadata = _histogram_region_metadata(intervals, colors, interval_labels)
         hists, realintervals = get_smallest_intervals(hist, intervals)
-        colors = colors[sortperm(intervals, rev=true)]
 
         # colored histogram for each interval
         for i in 1:length(realintervals)
             @series begin
-                seriestype := :steppost
-                fillcolor --> colors[i]
+                seriestype := :shape
+                fillcolor --> metadata.colors[i]
                 linewidth --> 0
-                fillrange --> 0
-
-                if length(interval_labels) > 0
-                    label := interval_labels[i]
-                else
-                    label := "smallest $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
-                end
-                plothistogram(hists[i], swap)
+                fillrange := nothing
+                label := metadata.labels === nothing ?
+                    _histogram_region_label(realintervals[i]) : metadata.labels[i]
+                plothistogram(hists[i], swap; filled=true)
             end
         end
 
         # black contour line for total histogram
         @series begin
-            seriestype := :steppost
+            seriestype := :path
             linecolor --> :black
             linewidth --> 0.7
             label --> ""
@@ -100,30 +124,25 @@ end
 
     # central intervals
     elseif seriestype == :central_intervals
+        metadata = _histogram_region_metadata(intervals, colors, interval_labels)
         hists, realintervals = split_central(hist, intervals)
-        colors = colors[sortperm(intervals, rev=true)]
 
         # colored histogram for each interval
         for i in 1:length(realintervals)
             @series begin
-                seriestype := :steppost
-                fillcolor --> colors[i]
+                seriestype := :shape
+                fillcolor --> metadata.colors[i]
                 linewidth --> 0
-                fillrange --> 0
-
-                if length(interval_labels) > 0
-                    label := interval_labels[i]
-                else
-                    label := "central $(@sprintf("%.2f", realintervals[i]*100))% interval(s)"
-                end
-
-                plothistogram(hists[i], swap)
+                fillrange := nothing
+                label := metadata.labels === nothing ?
+                    _histogram_region_label(realintervals[i]; central=true) : metadata.labels[i]
+                plothistogram(hists[i], swap; filled=true)
             end
         end
 
         # black contour line for total histogram
         @series begin
-            seriestype := :steppost
+            seriestype := :path
             linecolor --> :black
             linewidth --> 0.7
             label --> ""

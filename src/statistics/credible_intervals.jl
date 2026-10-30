@@ -107,6 +107,14 @@ function smallest_credible_intervals(X::AbstractVector{<:Real},
         W::AbstractWeights = UnitWeights{eltype(X)}(length(X));
         p::Union{Real,Nothing} = nothing, nsigma_equivalent::Union{Real,Nothing} = nothing,
         mode::Symbol = :disjoint)
+    _smallest_credible_intervals(X, W; p, nsigma_equivalent, mode)
+end
+
+# Sample containers can carry finite weights whose floating-point sum overflows.
+# Accept their raw masses here so exact arithmetic precedes any summation.
+function _smallest_credible_intervals(X::AbstractVector{<:Real}, W::AbstractVector{<:Real};
+        p::Union{Real,Nothing} = nothing, nsigma_equivalent::Union{Real,Nothing} = nothing,
+        mode::Symbol = :disjoint)
     isnothing(p) || isnothing(nsigma_equivalent) || throw(ArgumentError("p and nsigma_equivalent are mutually exclusive"))
     p = isnothing(p) ? erf(something(nsigma_equivalent, 1) / sqrt(2)) : p
     0 < p <= 1 || throw(ArgumentError("p must be in (0, 1]"))
@@ -139,8 +147,14 @@ end
 """
 function smallest_credible_intervals(smpl::DensitySampleVector{<:AbstractVector{<:Real}}; kwargs...)
     V = flatview(smpl.v)
-    W = Weights(smpl.weight)
-    [smallest_credible_intervals(V[i,:], W; kwargs...) for i in axes(V,1)]
+    all(w -> isfinite(w) && w >= 0, smpl.weight) ||
+        throw(ArgumentError("sample weights must be finite and nonnegative"))
+    keep = .!iszero.(smpl.weight)
+    any(keep) || throw(ArgumentError("samples must contain positive mass"))
+    # Ignore zero-mass coordinates without mutating the stored samples. Keep
+    # original masses: the empirical algorithm preserves even extreme ratios.
+    W = smpl.weight[keep]
+    [_smallest_credible_intervals(V[i, keep], W; kwargs...) for i in axes(V,1)]
 end
 
 function smallest_credible_intervals(smpl::DensitySampleVector; kwargs...)

@@ -195,6 +195,8 @@ get_batcontext() = default_batcontext[]
 Sets the default computational context for BAT.
 
 The new context becomes the process-wide default, visible to all tasks.
+Options that are not given retain their current values. Unsupported keywords
+are rejected instead of silently ignored.
 To override the default for a dynamic scope only, bind
 [`default_batcontext`](@ref) via `ScopedSettings.with` instead -
 `set_batcontext` throws when called inside such a scope, as the
@@ -210,8 +212,14 @@ function set_batcontext(context::BATContext)
     return get_batcontext()
 end
 
-function set_batcontext(;kwargs...)
+const _SET_BATCONTEXT_KEYS = (:precision, :rng, :cunit, :ad)
+
+function set_batcontext(; kwargs...)
     c = get_batcontext()
+    unknown = filter(k -> !(k in _SET_BATCONTEXT_KEYS), collect(keys(kwargs)))
+    isempty(unknown) || throw(ArgumentError(
+        "set_batcontext does not support the keyword(s) " * join(unknown, ", ") *
+        "; supported keywords are " * join(_SET_BATCONTEXT_KEYS, ", ")))
     s = merge(
         (cunit = get_compute_unit(c),precision=get_precision(c), rng=get_rng(c), ad=get_adselector(c)),
         (;kwargs...)

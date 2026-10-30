@@ -435,25 +435,8 @@ Drop `fraction` of the total probability mass from samples to filter out the
 samples with the lowest weight.
 """
 function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 10^-5; threshold::Real=10^-2)
-    W = float(samples.weight)
-    if isempty(W) || all(iszero, W)
-        samples
-    elseif minimum(W) / maximum(W) > threshold
-        samples
-    else
-        W_s = sort(W)
-        Q = cumsum(W_s)
-        Q ./= maximum(Q)
-        @assert last(Q) ≈ 1
-        ind = searchsortedlast(Q, fraction)
-        if ind !== 0
-            thresh = W_s[searchsortedlast(Q, fraction)]
-            idxs = findall(x -> x >= thresh, samples.weight)
-            samples[idxs]
-        else
-            samples
-        end
-    end
+    mask = _plot_low_weight_mask(samples.weight, fraction, threshold)
+    return all(mask) ? samples : samples[mask]
 end
 
 
@@ -506,7 +489,7 @@ function LazyReports.pushcontent!(rpt::LazyReport, smplv::DensitySampleVector)
 
     usmplv = unshaped.(smplv)
     nsamples = length(eachindex(smplv))
-    total_weight = sum(smplv.weight)
+    total_weight = _plot_checked_total(smplv.weight)
     ess = round.(Int, bat_eff_sample_size(usmplv, context).result)
 
     lazyreport!(rpt, """
@@ -577,6 +560,6 @@ end
 function _marginal_histograms(smpl::DensitySampleVector{<:AbstractVector{<:Real}}; nbins = 40)
     trimmed_smpl = drop_low_weight_samples(smpl)
     V = flatview(trimmed_smpl.v)
-    W = Weights(trimmed_smpl.weight)
-    [fit(Histogram, V[i,:], W, range(minimum(V[i,:]), maximum(V[i,:]), length = 41)) for i in axes(V,1)]
+    [_plot_fit_histogram((V[i,:],), trimmed_smpl.weight,
+        (range(minimum(V[i,:]), maximum(V[i,:]), length = 41),), :none) for i in axes(V,1)]
 end

@@ -1,6 +1,21 @@
 # Plot Recipes
 The plot recipes described below apply for plotting samples. Only the plotting of estimators (mean, standard deviation, global mode and local mode) is currently only supported for samples.
 
+`MarginalDist` constructed from samples checks both histogram probabilities and
+the binned distribution's cached coordinate statistics. These statistics use bin
+centers, so a single occupied bin has zero variance in exact arithmetic; no
+within-bin variance term is added. Construction throws `ArgumentError` if
+coordinate arithmetic overflows, loses a nonzero result, produces a subnormal
+intermediate/statistic, or disagrees with the checked dependency result. This
+conservative check can reject a histogram even when wider arithmetic could
+represent its moments. Ordinary floating-point rounding and cancellation still
+apply. Gradual underflow must be enabled, and BigFloat arithmetic requires
+round-to-nearest; construction does not change either setting. Existing
+distribution wrappers and direct EmpiricalDistributions constructors do not
+pass through this sample-construction check.
+Bin edges use the floating coordinate precision of the cached statistics;
+edges that collapse under conversion are rejected.
+
 Also see the plotting tutorial for examples and further information on the plotting options.
 
 ## 1D plots
@@ -114,7 +129,7 @@ The plot style of the mean can be customized using a `Dict`.  For `mean = true`,
 * `marginalmode::Union{Dict, Bool} = true`: indicate the marginalmode(s), i.e. the center of the highest histogram bin(s) (currently only for samples). The style can be passed as a `Dict`. If `marginalmode = true`, the default style is:
 `Dict("linestyle" => :dot, "linewidth" => 1, "linecolor" => :black, "alpha" => 1, "label" => "marginal mode")`
 
-* `smoothing = 0`: When plotting contours, a Gaussian filtering can be applied for smoothing the contour lines. The keyword `smoothing` accepts  positive real number (or a tuple of two positive real numbers), specifying the standard deviation of the Gaussian kernel (for each dimension) of the filtering.
+* `smoothing = 0`: Gaussian smoothing for contours, specified by a finite, nonnegative real standard deviation in bin-index units. A scalar applies to both axes; a tuple such as `(0.5, 1.0)` specifies each axis separately. Zero disables smoothing on that axis, so `(0, 1)` smooths only the second axis. Each axis uses radius `2*ceil(sigma)`, with zero padding and cropping to the displayed grid. Requests exceeding the internal kernel, numeric-buffer or convolution-work budgets raise an `ArgumentError`; reduce smoothing or the number of bins, or use whole-bin regions. See the [contour contract](experimental_api.md#Histogram-weights-and-statistical-overlays) for resource limits and probability semantics.
 
 *  `diagonal = Dict()`: Used only for the seriestype `:marginal`. The dictionary can contain the seriestypes and plot options for 2D distributions explained above to modify the 2D plot of the marginal plot. Nested Dictionaries are possible to modify the styles of the estimators as described above
 

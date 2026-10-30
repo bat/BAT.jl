@@ -27,7 +27,11 @@
 
     vs = varshape(maybe_shaped_samples)
     samples = unshaped.(maybe_shaped_samples)
-    filter ? samples = BAT.drop_low_weight_samples(samples) : nothing
+    if filter
+        values = flatview(samples.v)
+        _plot_validate_coordinates((view(values, xindx, :), view(values, yindx, :)), samples.weight)
+        samples = BAT.drop_low_weight_samples(samples)
+    end
     reshaped_samples = vs.(samples)
 
     bins = get(plotattributes, :bins, 200)
@@ -47,15 +51,24 @@
     xguide := get(plotattributes, :xguide, xlabel)
     yguide := get(plotattributes, :yguide, ylabel)
 
-    marg = MarginalDist(
+    mean_options = convert_to_options(mean)
+    globalmode_options = convert_to_options(globalmode)
+    marginalmode_options = convert_to_options(marginalmode)
+    std_options = convert_to_options(std)
+
+    # Standalone scatter also displays rejected (nonpositive-weight) samples.
+    # Construct a statistical marginal only when a selected series uses it.
+    marg = (seriestype != :scatter || marginalmode_options != ()) ? MarginalDist(
         reshaped_samples,
         vsel,
         bins = bins,
         closed = closed
-    )
+    ) : nothing
 
     if seriestype == :scatter
-        base_markersize = get(plotattributes, :markersize, 1.5)
+        base_markersize = _plot_float64(get(plotattributes, :markersize, 1.5), "legacy scatter marker size")
+        base_markersize >= 0 || throw(ArgumentError("Legacy scatter marker size must be nonnegative"))
+        x, y = _legacy_scatter_coordinates(samples, (xindx, yindx))
 
         acc = findall(x -> x > 0, samples.weight)
         rej = findall(x -> x <= 0, samples.weight)
@@ -66,11 +79,12 @@
         @series begin
             seriestype := :scatter
             label := label
-            markersize := [w < 1 ? base_markersize : base_markersize * sqrt(w) for w in samples.weight[acc]]
+            markersize := [_plot_float64(w < 1 ? base_markersize : base_markersize * sqrt(w),
+                "legacy scatter marker size") for w in samples.weight[acc]]
             markerstrokewidth := 0
             markeralpha := 0.6
-            markercolor := [w >= 1 ? color : RGBA(convert(RGB, color), color.alpha * w) for w in samples.weight[acc]]
-            (flatview(samples.v)[xindx, acc], flatview(samples.v)[yindx, acc])
+            markercolor := [_legacy_scatter_color(color, w) for w in samples.weight[acc]]
+            (x[acc], y[acc])
         end
 
         if !isempty(rej)
@@ -80,7 +94,7 @@
                 markersize := base_markersize
                 markerstrokewidth := 0
                 markercolor := :red
-                (flatview(samples.v)[xindx, rej], flatview(samples.v)[yindx, rej])
+                (x[rej], y[rej])
             end
         end
 
@@ -102,21 +116,9 @@
 
 
     #------ stats ----------------------------
-    stats = MCMCBasicStats(samples)
-
-    mean_options = convert_to_options(mean)
-    globalmode_options = convert_to_options(globalmode)
-    marginalmode_options = convert_to_options(marginalmode)
-    std_options = convert_to_options(std)
-
-
     if mean_options != ()
-        mx= stats.param_stats.mean[xindx]
-        my = stats.param_stats.mean[yindx]
-
-        Σ_all = stats.param_stats.cov
-        Σx = Σ_all[xindx, xindx]
-        Σy = Σ_all[yindx, yindx]
+        stats = _legacy_plot_moments(samples, (xindx, yindx); spread=std_options != ())
+        mx, my = stats.mean
 
         @series begin
             seriestype := :scatter
@@ -132,9 +134,9 @@
             markerstrokewidth := get(mean_options, "markerstrokewidth", 1)
             colorbar := colorbar
 
-            if(std)
-                xerror := sqrt(Σx)
-                yerror := sqrt(Σy)
+            if std_options != ()
+                xerror := stats.std[1]
+                yerror := stats.std[2]
             end
            ([mx], [my])
         end
@@ -142,8 +144,7 @@
 
 
    if globalmode_options != ()
-        globalmode_x = stats.mode[xindx]
-        globalmode_y = stats.mode[yindx]
+        globalmode_x, globalmode_y = _legacy_plot_mode(samples, (xindx, yindx))
 
         @series begin
             seriestype := :scatter
@@ -190,7 +191,8 @@
             markerstrokewidth := get(marginalmode_options, "markerstrokewidth", 1)
             colorbar := colorbar
 
-            ([marginalmode_values[i][1]], [marginalmode_values[i][2]])
+            ([_plot_float64(l[1], "legacy marginal-mode x coordinate")],
+                [_plot_float64(l[2], "legacy marginal-mode y coordinate")])
             end
         end
     end

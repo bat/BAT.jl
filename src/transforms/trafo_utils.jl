@@ -1,28 +1,35 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-transform_samples(::typeof(identity), inputs::AbstractVector) = inputs
+# Internal execution policy: sequential observation work shares the same row
+# calculations as numerical transforms. Only local executors are supported;
+# the log-density kernels also write to a captured destination vector.
+transform_samples(::typeof(identity), inputs::AbstractVector,
+    ::Union{SequentialExec,MultiThreadedExec} = MultiThreadedExec()) = inputs
 
 function transform_samples(
     f::Any,
-    xs::AbstractVector
+    xs::AbstractVector,
+    executor::Union{SequentialExec,MultiThreadedExec} = MultiThreadedExec()
 )
     unshaped_f = _unshaped_trafo(f)
     x_shape, y_shape = _trafo_input_output_shape(f, xs)
-    _transform_xs_impl(f, unshaped_f, xs, x_shape, y_shape)
+    _transform_xs_impl(f, unshaped_f, xs, x_shape, y_shape, executor)
 end
 
 
-transform_samples(::typeof(identity), inputs::DensitySampleVector) = inputs
+transform_samples(::typeof(identity), inputs::DensitySampleVector,
+    ::Union{SequentialExec,MultiThreadedExec} = MultiThreadedExec()) = inputs
 
 function transform_samples(
     f::Any,
-    xsv::DensitySampleVector
+    xsv::DensitySampleVector,
+    executor::Union{SequentialExec,MultiThreadedExec} = MultiThreadedExec()
 )
     unshaped_f = _unshaped_trafo(f)
     x_shape, y_shape = _trafo_input_output_shape(f, xsv.v)
     ladjavail = _trafo_ladj_available(f, xsv.v)
-    _transform_xsv_impl(f, unshaped_f, xsv, x_shape, y_shape, ladjavail)
+    _transform_xsv_impl(f, unshaped_f, xsv, x_shape, y_shape, ladjavail, executor)
 end
 
 
@@ -31,24 +38,25 @@ function _transform_xs_impl(
     ::Missing,
     xs::AbstractVector,
     ::Union{AbstractValueShape,Missing},
-    ::Missing
+    ::Missing,
+    executor
 )
     return f.(xs)
 end
 
 # Shaped outputs from shaped or unshaped inputs:
-_transform_xs_impl(f::Any, ::Missing, xs::AbstractVector, ::AbstractValueShape, y_shape::AbstractValueShape) = _transform_xs_shaped(f, xs, y_shape)
-_transform_xs_impl(f::Any, ::Missing, xs::AbstractVector, ::Missing, y_shape::AbstractValueShape) = _transform_xs_shaped(f, xs, y_shape)
+_transform_xs_impl(f::Any, ::Missing, xs::AbstractVector, ::AbstractValueShape, y_shape::AbstractValueShape, executor) = _transform_xs_shaped(f, xs, y_shape, executor)
+_transform_xs_impl(f::Any, ::Missing, xs::AbstractVector, ::Missing, y_shape::AbstractValueShape, executor) = _transform_xs_shaped(f, xs, y_shape, executor)
 
-function _transform_xs_shaped(f::Any, xs::AbstractVector, y_shape::AbstractValueShape)
+function _transform_xs_shaped(f::Any, xs::AbstractVector, y_shape::AbstractValueShape, executor)
     ys_unshaped = _trafo_create_unshaped_ys(f, xs, y_shape)
 
     @assert axes(ys_unshaped) == axes(xs)
     @assert ys_unshaped isa ArrayOfSimilarArrays
 
-    @threads for i in eachindex(ys_unshaped, xs)
+    exec_map!(executor, ys_unshaped, eachindex(ys_unshaped, xs)) do i
         y = f(xs[i])
-        ys_unshaped[i] = unshaped(y, y_shape)
+        unshaped(y, y_shape)
     end
 
     ys = y_shape.(ys_unshaped)
@@ -60,7 +68,8 @@ function _transform_xs_impl(
     f_unshaped::Any,
     xs::AbstractVector,
     x_shape::AbstractValueShape,
-    y_shape::AbstractValueShape
+    y_shape::AbstractValueShape,
+    executor
 )
     xs_unshaped = _trafo_unshape_inputs(xs, x_shape)
 
@@ -69,9 +78,9 @@ function _transform_xs_impl(
     @assert axes(ys_unshaped) == axes(xs)
     @assert ys_unshaped isa ArrayOfSimilarArrays
 
-    @threads for i in eachindex(ys_unshaped, xs_unshaped)
+    exec_map!(executor, ys_unshaped, eachindex(ys_unshaped, xs_unshaped)) do i
         y = f_unshaped(xs_unshaped[i])
-        ys_unshaped[i] = y
+        y
     end
 
     ys = y_shape.(ys_unshaped)
@@ -85,7 +94,8 @@ function _transform_xs_impl_withlogd(
     xs::AbstractVector,
     logd_xs::AbstractVector,
     ::Union{AbstractValueShape,Missing},
-    ::Missing
+    ::Missing,
+    executor
 )
     ys_ladjs = Base.Fix1(with_logabsdet_jacobian, f).(xs)
     ys = map(first, ys_ladjs)
@@ -95,20 +105,20 @@ function _transform_xs_impl_withlogd(
 end
 
 # Shaped outputs from shaped or unshaped inputs:
-_transform_xs_impl_withlogd(f::Any, ::Missing, xs::AbstractVector, logd_xs::AbstractVector, ::AbstractValueShape, y_shape::AbstractValueShape) = _transform_xs_shaped_withlogd(f, xs, logd_xs, y_shape)
-_transform_xs_impl_withlogd(f::Any, ::Missing, xs::AbstractVector, logd_xs::AbstractVector, ::Missing, y_shape::AbstractValueShape) = _transform_xs_shaped_withlogd(f, xs, logd_xs, y_shape)
+_transform_xs_impl_withlogd(f::Any, ::Missing, xs::AbstractVector, logd_xs::AbstractVector, ::AbstractValueShape, y_shape::AbstractValueShape, executor) = _transform_xs_shaped_withlogd(f, xs, logd_xs, y_shape, executor)
+_transform_xs_impl_withlogd(f::Any, ::Missing, xs::AbstractVector, logd_xs::AbstractVector, ::Missing, y_shape::AbstractValueShape, executor) = _transform_xs_shaped_withlogd(f, xs, logd_xs, y_shape, executor)
 
-function _transform_xs_shaped_withlogd(f::Any, xs::AbstractVector, logd_xs::AbstractVector, y_shape::AbstractValueShape)
+function _transform_xs_shaped_withlogd(f::Any, xs::AbstractVector, logd_xs::AbstractVector, y_shape::AbstractValueShape, executor)
     ys_unshaped = _trafo_create_unshaped_ys(f, xs, y_shape)
     logd_ys = zero(logd_xs)
 
     @assert axes(ys_unshaped) == axes(xs)
     @assert ys_unshaped isa ArrayOfSimilarArrays
 
-    @threads for i in eachindex(ys_unshaped, xs)
+    exec_map!(executor, ys_unshaped, eachindex(ys_unshaped, xs)) do i
         y, ladj = with_logabsdet_jacobian(f, xs[i])
-        ys_unshaped[i] = unshaped(y, y_shape)
         logd_ys[i] = logd_xs[i] - ladj
+        unshaped(y, y_shape)
     end
 
     ys = y_shape.(ys_unshaped)
@@ -121,7 +131,8 @@ function _transform_xs_impl_withlogd(
     xs::AbstractVector,
     logd_xs::AbstractVector,
     x_shape::AbstractValueShape,
-    y_shape::AbstractValueShape
+    y_shape::AbstractValueShape,
+    executor
 )
     xs_unshaped = _trafo_unshape_inputs(xs, x_shape)
 
@@ -131,10 +142,10 @@ function _transform_xs_impl_withlogd(
     @assert axes(ys_unshaped) == axes(xs)
     @assert ys_unshaped isa ArrayOfSimilarArrays
 
-    @threads for i in eachindex(ys_unshaped, xs_unshaped)
+    exec_map!(executor, ys_unshaped, eachindex(ys_unshaped, xs_unshaped)) do i
         y, ladj = with_logabsdet_jacobian(f_unshaped, xs_unshaped[i])
-        ys_unshaped[i] = y
         logd_ys[i] = logd_xs[i] - ladj
+        y
     end
 
     ys = y_shape.(ys_unshaped)
@@ -148,9 +159,10 @@ function _transform_xsv_impl(
     xsv::DensitySampleVector,
     x_shape::Union{AbstractValueShape,Missing},
     y_shape::Union{AbstractValueShape,Missing},
-    ::Val{false}
+    ::Val{false},
+    executor
 )
-    ys = _transform_xs_impl(f, f_unshaped, xsv.v, x_shape, y_shape)
+    ys = _transform_xs_impl(f, f_unshaped, xsv.v, x_shape, y_shape, executor)
 
     DensitySampleVector((
         ys,
@@ -167,9 +179,10 @@ function _transform_xsv_impl(
     xsv::DensitySampleVector,
     x_shape::Union{AbstractValueShape,Missing},
     y_shape::Union{AbstractValueShape,Missing},
-    ::Val{true}
+    ::Val{true},
+    executor
 )
-    ys, logd_ys = _transform_xs_impl_withlogd(f, f_unshaped, xsv.v, xsv.logd, x_shape, y_shape)
+    ys, logd_ys = _transform_xs_impl_withlogd(f, f_unshaped, xsv.v, xsv.logd, x_shape, y_shape, executor)
 
     DensitySampleVector((
         ys,

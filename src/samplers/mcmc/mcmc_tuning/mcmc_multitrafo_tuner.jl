@@ -70,7 +70,9 @@ function create_trafo_tuner_state(
         )
     end
 
-    return MultiTrafoTunerState(trafo_tuners, false)
+    # Homogeneous components otherwise produce a concrete-element vector,
+    # which cannot hold a component's replacement tuner of another type.
+    return MultiTrafoTunerState(MCMCTransformTunerState[trafo_tuners...], false)
 end
 
 function create_trafo_tuner_state(

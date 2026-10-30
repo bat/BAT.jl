@@ -95,22 +95,11 @@ function MCMCChainState(
         aux = deepcopy(sample_aux_curr)
     )
 
-    prop_locs_init = deepcopy(x_init)
-    prop_logds_init = deepcopy(logd_x_init)
-    sample_weights_prop = zeros(W, n_walkers)
-    sample_info_prop = deepcopy(sample_info_curr) 
-    sample_aux_prop = fill(nothing, n_walkers)
-
-    proposed_init = DensitySampleVector(
-        v = prop_locs_init,
-        logd = prop_logds_init,
-        weight = sample_weights_prop,
-        info = sample_info_prop,
-        aux = sample_aux_prop
-    )
-
     current = (x = current_x_init, z = current_z_init)
-    proposed = (x = proposed_init, z = deepcopy(current_z_init))
+    # Each proposal buffer starts in its own coordinate space and retains the
+    # current buffer's concrete storage type, including nested/view backing.
+    # Separate copies also detach x and z if the transform shares input storage.
+    proposed = (x = deepcopy(current_x_init), z = deepcopy(current_z_init))
     output = deepcopy(current_x_init)
     accepted = fill(false, n_walkers)
     walker_order = sortperm(

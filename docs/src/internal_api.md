@@ -104,6 +104,7 @@ BAT.maximize_density
 BAT.BispacedMeasure
 BAT.pathfinder_gaussian_fit
 BAT.repetition_to_weights
+BAT.reweight_relative!
 BAT.smallest_credible_intervals
 BAT.sum_first_dim
 BAT.supports_rand

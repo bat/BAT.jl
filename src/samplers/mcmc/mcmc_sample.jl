@@ -6,6 +6,11 @@
 
 Samples a probability density using Markov chain Monte Carlo.
 
+Cancellation of MCMC chain groups is cooperative. On a sampling-owner exception,
+BAT requests cancellation and joins all launched chain workers before propagating
+the exception. An already-entered numerical step or user hook must return before
+its worker can stop; arbitrary native code cannot be forcibly interrupted.
+
 Constructors:
 
 * ```$(FUNCTIONNAME)(; fields...)```
@@ -44,6 +49,12 @@ $(TYPEDFIELDS)
     store_burnin::Bool = false
     nonzero_weights::Bool = true
     sample_weighting::WS = RepetitionWeighting()
+    """
+    With `MCMCMultiCycleBurnin` and `store_burnin = true`, called as
+    `callback(Val(:mcmc_burnin), mcmc_states)` after each tuning cycle, with
+    the vector of chain states. The return value is ignored. No user callback
+    is invoked during initialization, post-tuning stabilization or main sampling.
+    """
     callback::CB = nop_func
 end
 export TransformedMCMC

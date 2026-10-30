@@ -4,7 +4,7 @@ using Test
 using AutoDiffOperators
 using LinearAlgebra, Distributions, StatsBase, ValueShapes, Random, Random123, DensityInterface
 using UnPack, InverseFunctions
-import ForwardDiff
+import ForwardDiff, Zygote
 using Optim, OptimizationOptimJL, OptimizationLBFGSB
 
 @testset "mode_estimators" begin
@@ -52,6 +52,14 @@ using Optim, OptimizationOptimJL, OptimizationLBFGSB
 
         for pr in (flat_prior, informative_prior)
             r = bat_bgml(likelihood, pr, algorithm, context)
+            @test r.result.mu ≈ 1.2 atol = 1e-3
+        end
+
+        # Likelihood-only reverse AD must accept a bare density without varshape.
+        # The optimum is independent of either prior's information content.
+        zygote_context = BATContext(rng = Philox4x((564, 27)), ad = Zygote)
+        for pr in (flat_prior, informative_prior)
+            r = bat_bgml(likelihood, pr, algorithm, zygote_context)
             @test r.result.mu ≈ 1.2 atol = 1e-3
         end
 
