@@ -57,11 +57,16 @@ function _plot_checked_total(w::AbstractVector{<:Real})
     return total
 end
 
+function _plot_validate_filter_options(fraction::Real, threshold::Real)
+    isfinite(fraction) && 0 <= fraction <= 1 || _plot_weight_error("filter fraction must be between zero and one")
+    isfinite(threshold) && threshold >= 0 || _plot_weight_error("filter threshold must be finite and nonnegative")
+    return nothing
+end
+
 # Preserve source ordering and cutoff ties, even when division rounds distinct
 # original values to the same relative weight. A zero cutoff retains zeros.
 function _plot_low_weight_mask(w::AbstractVector{<:Real}, fraction::Real=1e-5, threshold::Real=1e-2)
-    isfinite(fraction) && 0 <= fraction <= 1 || _plot_weight_error("filter fraction must be between zero and one")
-    isfinite(threshold) && threshold >= 0 || _plot_weight_error("filter threshold must be finite and nonnegative")
+    _plot_validate_filter_options(fraction, threshold)
     u = _plot_relative_weights(w)
     (isempty(u) || all(iszero, u)) && return trues(length(w))
     minimum(u) / maximum(u) > threshold && return trues(length(w))

@@ -60,6 +60,22 @@ using BAT: MarginalDist, get_bin_centers, find_marginalmodes, asindex, bat_margi
         @test bat_marginalize(shaped_offset_samples, :b).result.v.b == [20.0, 40.0]
     end
 
+    @testset "Zero-mass coordinates preserve the automatic marginal" begin
+        reference = DensitySampleVector([[0.5], [2.0]], zeros(2); weight=[1.0, 3.0])
+        samples = DensitySampleVector([[0.5], [2.0], [NaN], [Inf], [1e100]], zeros(5);
+            weight=[1.0, 3.0, 0.0, 0.0, 0.0])
+        original_values = deepcopy(samples.v)
+        expected = convert(Histogram, MarginalDist(reference, 1).dist)
+        for filter in (false, true)
+            marginal = MarginalDist(samples, 1; filter)
+            actual = convert(Histogram, marginal.dist)
+            @test actual.edges == expected.edges
+            @test actual.weights == expected.weights
+            @test cdf(marginal.dist, 1.0) ≈ 0.25
+        end
+        @test isequal(samples.v, original_values)
+    end
+
     @testset "from distribution" begin
         marg = MarginalDist(prior, :ϕ, bins = 40, nsamples = 10^4)
         @test marg isa MarginalDist
