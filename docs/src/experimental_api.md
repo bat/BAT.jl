@@ -57,29 +57,220 @@ BAT.MeasureEvalInfo
 BAT.PolarShellDistribution
 BAT.SimpleMCMCProposalState
 BAT.TemperingState
+
+bat_makie_plot
+bat_theme
+bat_theme_dark
+BAT.BATVisBackend
+BATMakieRecipe
+BATMakieVisualization
+BATVisualizer
+BAT.visualizer_figure
+BAT.visualizer_status
+BAT.dispose_visualizer!
+ChainScatter2D
+Cov2D
+Errorbars1D
+Errorbars2D
+Hexbin2D
+Hist1D
+Hist2D
+KDE1D
+KDE2D
+Mean1D
+Mean2D
+PDF1D
+QuantileHist1D
+QuantileHist2D
+QuantileKDE1D
+QuantileKDE2D
+Scatter2D
+Std1D
+Std2D
+Trace2D
 ```
+
+## Interactive static Makie figures
+
+`bat_makie_plot` returns the `Makie.Figure` it constructs, including its controls.
+By default it also displays that same figure:
+
+```julia
+fig = bat_makie_plot(samples);
+```
+
+To defer display, for example when saving from a script, use:
+
+```julia
+fig = bat_makie_plot(samples; display=false);
+save("samples.png", fig)
+```
+
+`display=false` skips BAT's explicit display and optional shader warmup. It still
+constructs the Makie figure and evaluates the plotting graph; saving or displaying
+later requires a suitable backend. It does not suppress automatic display of the
+returned value by a REPL, notebook, or IDE. The semicolons above suppress that
+extra output. For automatic inline output, use a final expression such as
+`bat_makie_plot(samples; display=false)` without a semicolon.
+
+The variable picker in static and live figures shows the first ten coordinates.
+Use **Clear selection** to remove all selected variables, including higher
+coordinates supplied through `vsel`, then choose replacements in the picker.
+Open the controls with **☰** to access the picker and its clear button.
+
+The return changed from `nothing` to `Makie.Figure`. Existing explicit display is
+preserved, but return-value checks, automatic frontend output, and collections
+of results can change behavior or retain figures. This is an experimental API
+change, subject to the compatibility policy at the top of this page.
+
+The result supports normal Makie figure operations. Its internal BAT graph and
+control callbacks are not public API. Interactive grid updates follow the state
+policy below. Ordinary `Makie.plot` composition retains its
+existing interface; the `display` keyword above belongs to `bat_makie_plot`.
+Live sessions retain the separate lifetime operations described below.
+
+Calling `empty!(fig)` also disconnects BAT's static control subscriptions. A
+retained control no longer updates the old plotting graph after its figure is
+emptied.
+
+If static construction or BAT's explicit display fails after allocating a
+figure, BAT attempts to release its content and owned display resources before
+rethrowing the original error.
+
+## Ordinary Makie composition
+
+Use `Makie.plot` to place BAT samples in a caller-owned figure or layout position:
+
+```julia
+using BAT, Makie, CairoMakie
+
+samples = DensitySampleVector([[0.2, 0.3], [0.5, 0.8], [0.9, 0.6]], zeros(3))
+fig = Figure()
+Makie.plot(fig[1, 1], samples; vsel = [1, 2], N_max = 2);
+```
+
+The BAT-specific conversion keywords are `recipes`, `vsel`, `N_max`,
+`trace_nsteps`, `support`, `step_intervals` and `dark`. Their defaults match
+[`bat_makie_plot`](@ref), but `recipes`, `vsel` and `N_max` are passed as keywords
+here. `vsel` currently requires a `Vector` of integers; `N_max` is a positive
+integer. The `display` keyword belongs to `bat_makie_plot`, not this conversion.
+
+This path produces the corner-plot layout without BAT's interactive menus,
+variable picker or Apply/All controls. It uses the caller's theme and Makie's
+layout/reconciliation behavior. `dark` chooses contrast-dependent BAT overlay
+colors; it does not install the BAT dark theme. Apply [`bat_theme`](@ref) or
+[`bat_theme_dark`](@ref) through Makie's own scoped theme operations if desired.
+
+The same support and timing declarations are accepted. `step_intervals` supplies
+trace timing; it does not add an interactive range selector to ordinary plots.
+See [Sample ranges and repetition timing](@ref),
+[KDE support and credible regions](@ref), and the caller-owned update-failure
+policy under [Histogram weights and statistical overlays](@ref).
+
+
+## Sample ranges and repetition timing
+
+Without timing, the range selects stored samples per walker, preserving their
+weights. To declare exact repetition timing, supply `step_intervals`: one vector
+per sample row, containing `(cycle, first, last)` named tuples with inclusive,
+positive step endpoints. A row may have intervals in several cycles. Durations
+must sum to that row's repetition weight, and intervals within a chain/walker/
+cycle must not overlap. For example, weights `[100, 1]` can be accompanied by
+`[[(cycle=1, first=1, last=100)], [(cycle=1, first=101, last=101)]]`.
+The selected local step range applies independently to every cycle and clips
+weights to the overlap. Bare sample metadata does not certify this timing.
+The same keyword is supported by ordinary Makie `plot(samples; ...)`.
+The slider uses bounded ticks for large ranges; enter exact `start:end` values
+in the range field and press Enter, then Apply, for precise selection.
+
+Elapsed-step traces require explicit timing. ARP and other statistical weights
+are not interpreted as dwell durations; use the stored-sample range instead.
+
+For plots with declared step timing, selected repetition counts must be exactly
+representable by the samples' weight type. A window that would round a count
+raises an error; use integer repetition weights for exact long step ranges.
 
 ## Histogram weights and statistical overlays
 
-Histogram `:probability` and `:pdf` normalization use temporary relative weights.
-Common finite weight scaling therefore preserves their results within the
-supported numerical range. Stored samples remain unchanged. Inputs must have
-finite nonnegative weights and finite coordinates wherever weight is positive. Positive mass that would be lost
-in the working precision raises an error. A `MarginalDist` requires positive
-in-bin mass.
+Histogram `:probability` and `:pdf` normalization and Makie population moments
+use temporary relative weights. Common finite weight scaling therefore preserves
+their results within the supported numerical range. Stored samples and declared
+step counts remain unchanged. Inputs must have finite nonnegative weights and
+finite coordinates wherever weight is positive. Positive mass that would be lost
+in the working precision raises an error. Empty or zero-mass Makie populations
+retain empty-display behavior; a `MarginalDist` requires positive in-bin mass.
+
+Scatter marker areas use relative sample weights, normalized before conversion
+to Float64. Finite BigFloat and logarithmic weights therefore retain their
+relative sizes when the ratios are representable. Unrepresentable positive
+ratios raise an error. `ChainScatter2D` requires chain identity for every sample.
 
 Histogram `:none` retains counts; `:density` divides counts by bin volume without
-turning them into probabilities. These modes and report counts require a
-representable absolute total. Overflow raises an error even if each bin could
-individually hold its count. Legacy Plots mean/spread overlays
+turning them into probabilities. These modes, report counts and native hexbin
+weights require a representable absolute total. Overflow raises an error even
+if each bin could individually hold its count. Legacy Plots mean/spread overlays
 also retain absolute frequency-weight arithmetic and its correction; a corrected
 spread requires total weight greater than one. Only requested overlays and their
 selected coordinates are evaluated.
 
 Density division avoids intermediate products of widths and total mass. The
-result still must fit the numerical types actually used. Legacy Plots mean/spread
-overlays reject nonfinite or collapsed positive spread and interval geometry.
-Constant coordinates remain supported.
+result still must fit the numerical and rendering types actually used. Hist2D
+color heights must survive Makie's Float32 conversion and admit a usable default
+linear automatic color range, including its span and reciprocal arithmetic.
+This admission applies before native styling: a custom color range or color
+scale does not rescue rejected heights. Admitted inputs retain native styling;
+nearby heights may still become indistinguishable colors. Change normalization
+or units, or use QuantileHist2D when a limit is reached. ARP weights can reach
+these limits even with ordinary coordinate ranges. Statistical overlays
+reject nonfinite or collapsed positive spread and interval geometry. Constant
+data and singular covariance remain supported where the recipe defines them.
+Covariance decompositions must reproduce the covariance in each coordinate's
+scale before an ellipse is drawn; inaccurate decompositions raise an error.
+
+`Hist1D` bar widths come from the original bin edges, including single-bin
+histograms. A `BarPlot.width` theme cannot override those widths. Native gap,
+dodge, color and label styling remains available. The extension checks the
+actual native bar endpoints against exact edge-based layout arithmetic. Each
+endpoint's displacement is limited to `32eps(Float32)` times the intended
+styled bin width;
+intentionally zero-width styling uses the original bin width as its scale.
+This bounds relative width error by `64eps(Float32)` for nonzero styled bars,
+before backend transforms and rasterization. Gap/dodge styling can intentionally
+change the displayed area; it does not change the histogram's stored heights.
+
+Very narrow bins at large coordinate offsets can fail this check even with
+finite, distinct edges. Such layouts raise an `ArgumentError`, possibly wrapped
+by Makie's compute pipeline, rather than silently shifting or collapsing bins.
+Recenter the coordinates or use the original-edge `QuantileHist1D` representation.
+Uniformly rescaling coordinates need not improve their offset-to-width ratio.
+
+`Hexbin2D` colors show absolute weighted counts, with thresholds in the same
+units. The Makie extension requires Makie 0.24.8 or later in the 0.24 series,
+for native Hexbin count nodes and safe transient widget layouts.
+After native bin aggregation and threshold filtering, displayed counts
+must survive Float32 conversion without materially changing their normalized
+color positions. Unsupported magnitudes, collapsed ranges, or insufficient
+color resolution raise an `ArgumentError` (possibly wrapped by Makie's compute
+pipeline). Empty and uniform-count displays retain Makie's automatic range
+policy. Tiny individual weights are allowed when their displayed bin totals
+pass this check.
+
+Rescaling count units and thresholds together may resolve magnitude limits;
+it need not repair insufficient relative contrast. A normalized histogram or
+whole-bin region recipe is another option. Admission bounds scalar color
+positions within `8eps(Float32)` under CPU/Float32 arithmetic, including
+reciprocal-based normalization and subnormal subtraction flushed to zero. The
+reciprocal span must remain normal with headroom for shader arithmetic. This
+does not promise distinct pixels for every distinct count or identical palette
+interpolation across renderers. Colorbar endpoints retain absolute
+count units at Float32 precision.
+
+BAT-owned interactive updates demand these histogram/hexbin checks before
+returning to a renderer. Ordinary caller-owned Makie plots may reject on update
+or later geometry/color evaluation.
+After a rejected update, dispose and recreate the caller-owned figure; in-place
+retry is not supported. Live BAT visualization follows its existing failure and
+disposal policy and marks the presentation incomplete.
 
 `MarginalDist` checks its dependency's actual PDF and reconstructed bin masses.
 Its dependency's cached coordinate moments have separate extreme-range limits.
@@ -94,9 +285,10 @@ and the result is not a globally minimum-volume selection of whole bins.
 The internal central-region helper uses actual left/right tail masses and retains
 a boundary bin when the removed tail would exactly equal its target. Zero requests
 are empty, full-mass requests retain every positive cell, and zero-mass histograms
-remain empty displays. Legacy Plots region labels report achieved probability.
-Custom labels and colors stay associated with their requests when requests are
-reordered.
+remain empty displays. Makie histogram levels use zero as an inactive sentinel
+and support up to three positive requests in `(0,1]`; invalid levels are errors.
+Legacy Plots region labels report achieved probability. Custom labels and colors
+stay associated with their requests when requests are reordered.
 
 Region arithmetic factors volumes and densities before common power-of-two mass
 scaling. Each positive cell must retain positive relative mass; otherwise it raises
@@ -138,3 +330,304 @@ raise `ArgumentError` rather than changing the requested smoothing. Reduce sigma
 or the number of bins, or select whole-bin regions. Empty/all-zero probability
 requests and zero-mass histograms require no smoothing and accept any finite,
 nonnegative sigma; sign and finiteness are still validated.
+
+## KDE support and credible regions
+
+For `KDE1D`, `QuantileKDE1D`, `KDE2D` and `QuantileKDE2D`, the `support` keyword
+declares hard support in the original sample coordinates. Both
+`bat_makie_plot(samples; support=prior, display=false)` and ordinary
+`Makie.plot(samples; support=prior)` accept a measure/prior or a vector of
+per-dimension `(lo, hi)` pairs. Live plots obtain these bounds from the original
+target/prior, including when it is wrapped in an `EvaluatedMeasure`. Unknown
+distribution support is conservatively treated as unbounded. Axis limits and
+observed extrema do not declare hard support.
+
+Bounds must be strictly ordered, without NaN, incorrectly directed infinities,
+or finite endpoints outside Float64's representable range. Positive-weight
+observations must be finite and lie inside the original support bounds before
+coordinates and bounds are converted to Float64 for the numerical grid; they
+are never silently clamped. Bounds must retain positive width after conversion.
+Weights must be finite and nonnegative. Zero-weight observations are
+excluded before bandwidth and extent selection, so a zero-weight outlier cannot
+widen an estimate. Empty or all-zero populations have no density to display.
+If Float16/Float32 division would discard a positive relative weight that is
+representable in Float64, KDE admission raises an error; convert the weights to
+Float64 first. Relative weights genuinely below Float64 representation remain
+excluded from the convolution population.
+
+Unbounded estimates retain the existing bandwidth rule and fixed FFT grid.
+Admission checks the selected bandwidth against centered, scaled calculations,
+including bounds on weighted quartile ranks and coordinate conversion. Constant
+populations also require reliable effective-count arithmetic. The actual Float64
+grid and cell edges, convolution arithmetic, and raw density mass are checked.
+The Float64 FFT buffer range is checked even when input arithmetic uses BigFloat.
+Numerically ambiguous effective sample counts or bandwidths, large offsets
+relative to grid spacing, and unsafe coordinate units raise an error before any
+visibility mask or credible-region calculation. Convert coordinates and weights
+to Float64, recenter or change units, or use a histogram. Accepted estimates are
+not rescaled or replaced by a different estimator. These conservative admission
+checks do not remove the inherited fixed-grid approximation or four-bandwidth
+periodic tails.
+
+Bounded estimates also retain their selected bandwidth. Admission checks it
+against a calculation in local coordinates, including bounds on quartile-rank
+arithmetic, coordinate conversion and its effect on reference spread. True
+constants and singletons retain their absolute fallback.
+Unresolved variance, lost reference deviations, uncertain quartiles or unreliable
+bandwidths raise an error. An unavailable unequal-weight bandwidth no longer
+falls back to an unweighted rule; an effective count rounded to one is an
+arithmetic limit. Convert coordinates and weights to Float64, recenter or change
+units, or use a histogram. These checks do not replace the estimator or promise
+exact arithmetic at every numerical boundary.
+
+Boundary correction uses one Gaussian mirror per nearby finite boundary,
+including corner images in 2D, selected within four bandwidths. This is a finite
+reflection approximation, not an infinite reflection series. The FFT interval
+follows the data and included images, with extra padding; a distant support
+endpoint does not stretch the numerical grid. The clipped result is normalized
+within its returned interval or cells. Unsupported numerical ranges or a grid
+exceeding the internal resolution/memory budget raise an error rather than
+returning an unrestricted or silently coarsened density. A histogram is an
+alternative for these populations. These limits apply per estimate, not to
+total figure memory or rendering latency.
+
+Makie stores numeric heatmap color values as Float32. `KDE2D` therefore rejects
+visible densities that would overflow, become zero or subnormal, or leave an
+invalid native color span or reciprocal, even if the numerical estimate is valid
+in Float64. This includes uniform densities whose automatic range collapses
+after Float32 rounding. Change coordinate units or
+use `QuantileKDE2D`, which passes credible-region colors directly to Makie.
+Density values are never silently rescaled to hide this rendering limit.
+
+In 1D the displayed density is a piecewise-linear curve, with interpolated
+endpoints where it meets hard support. `QuantileKDE1D` integrates this curve to
+find highest-density regions, including interpolated threshold crossings;
+separated modes can produce disconnected filled regions. In 2D the displayed
+density consists of constant-density cells with explicit edges inside support.
+`QuantileKDE2D` ranks cells by density and accumulates density times actual cell
+area. Both region recipes include complete threshold ties, so achieved content
+can exceed the requested content. A single constant-density cell belongs to
+every nonzero requested region. The ordinary `KDE2D` visibility mask is applied
+after normalization and does not redefine probability mass.
+
+Ordinary all-positive unbounded density estimates retain their existing
+estimation path where valid. The improved integrated 1D region calculation can
+change their credible-region thresholds and polygons. Excluding zero weights
+from bandwidth selection is also an intentional correction.
+
+## Interactive grid updates
+
+Interactive static and live figures keep their axes in fixed grid cells while
+recipes, samples and selected variables change. Inactive cells are collapsed;
+recipe round trips retain Figure membership and working controls. Plot object
+identity and the nesting of recipe internals are implementation details.
+
+BAT owns the grid's labels, decorations, aspect and computed bounds. Other axis
+styling, such as titles and background colors, stays with its grid position.
+Across BAT updates, navigation and explicit `limits!` overrides survive while
+that cell represents the same variables with unchanged finite computed bounds.
+A variable/activation change or changed bounds resets the whole cell, including
+both coordinates when a diagonal density height changes. Automatic dimensions
+are recomputed after updates. Removed variables have no saved navigation state.
+Makie's display and export operations can independently reset pan/zoom; this
+policy does not override those operations.
+
+Generated coordinate bounds include the original bin intervals of the selected
+histogram recipes, in addition to the padded data domain. This preserves complete
+outer bins without changing their statistical edges or density heights. For
+unchanged observation history, changing the sample window, including an empty
+window, leaves these coordinate bounds unchanged. Live sample publication can
+change the data domain and therefore the coordinate bounds.
+Switching recipes can change the required bounds and reset
+navigation under the rule above. Caller zoom or explicit limits may still crop
+bins intentionally.
+
+These rules apply to BAT's interactive figures. Ordinary `Makie.plot` composition
+uses the caller's existing Makie layout and reconciliation behavior.
+
+## Live Makie configuration
+
+See [`BATMakieVisualization`](@ref) for constructors, fields and defaults.
+The following guarantees apply to its live observation pipeline.
+
+Prior-based plot bounds use a private copy of the sampling context's RNG;
+estimating them does not advance the sampling RNG or the default RNG.
+
+Batching and backpressure count completed walker-steps across all chains,
+including rejected steps. Terminal sampler flushes contribute no steps.
+Repetition-weighted runs capture cycle/step timing without changing returned
+samples. Apply selects local steps in every cycle and clips displayed dwell
+weights; All follows the growing data. If timing is unavailable (including ARP
+weighting), the labelled sample range preserves each selected row's weight and
+elapsed-step traces are unavailable. Slider movement is a draft until Apply.
+For long runs the slider uses bounded ticks; edit `start:end` and press Enter
+to set exact integer endpoints, then Apply to update the plots.
+`max_buffered` must be at least the batch size (50 with the keyword constructor).
+It is an initial backpressure threshold, not a strict memory limit: a multi-walker
+update may cross it before waiting. With adaptive batching, both thresholds grow
+by the finite `batch_growth_rate > 1`, saturating at `typemax(Int)`.
+
+`observer_timeout` (default 60 seconds) bounds each continuous backpressure
+wait and, separately, finalization. Exceeding it disables observation while
+sampling continues. Both it and `poll_interval` must be finite and positive.
+Timeouts require scheduler progress; they cannot cancel a stuck native renderer.
+Inspect `BAT.visualizer_status(vis)` for incomplete observation or pending cleanup,
+and call `BAT.dispose_visualizer!(vis)` to release a retained completed view.
+
+## Live Makie session lifetime
+
+Create a fresh `BATVisualizer(BATMakieVisualization(...))` for each sampling run.
+Successful completion drains the final observations and retains an interactive
+figure. Closing the live figure disables observation while sampling continues.
+To release a retained figure and its observation history, call
+`BAT.dispose_visualizer!(vis)` on the thread that created it. This operation
+requests disposal without joining active view callbacks. Cleanup waits for
+admitted startup, listener and view work, then releases the session's graph and
+computed caches without requiring status polling. It also releases a fresh
+session that has never created a figure; disposed sessions remain single-use.
+Inspect `BAT.visualizer_status(vis).cleanup_pending` if needed. A cleanup fault
+keeps release pending; another owner-thread disposal call can retry it.
+BAT's GLMakie display, renderer warmup and live initialization must run on
+Julia's main thread. BAT creates a separate native screen for each newly
+displayed figure, preserving unrelated windows, and reuses that figure's open
+screen on repeated display. BAT scopes its theme to figure construction, before
+renderer startup. Custom renderer callbacks must not wait on locks held by
+their caller, including an outer caller-owned `with_theme` scope.
+
+Keep the original visualizer to retrieve its completed figure:
+
+```julia
+vis = BATVisualizer(BATMakieVisualization())
+context = BATContext(visualizer=vis)
+result = bat_sample(target, algorithm, context)
+fig = BAT.visualizer_figure(vis);
+if !isnothing(fig)
+    save("live-samples.png", fig)
+end
+```
+
+The getter returns the same retained `Makie.Figure` once observation has completed
+successfully and its tasks have settled. It returns `nothing` during sampling,
+inside view callbacks, while the view is busy, or when no usable completed figure
+remains. It does not wait, create a view, display or render. Obtain and use the
+figure on the thread that created the session; a wrong-thread query raises
+`ArgumentError` when the session can be inspected. Control-lock contention
+returns `nothing` without waiting.
+
+This is a borrowed reference. Coordinate saving or customization with view
+callbacks and disposal; a later close or `BAT.dispose_visualizer!(vis)` can empty
+the same figure. Retrieval does not transfer ownership or protect subsequent
+operations. A deep-copied visualizer, including the sampling result's provenance
+context, has no live resources and returns `nothing`. The figure retains the
+existing live observation population, which can include initialization and
+burn-in; it is not a reconstructed plot of the returned posterior samples.
+Availability follows the current completion and view state; an older diagnostic
+alone does not prevent retrieval. Use `BAT.visualizer_status(vis)` to inspect it.
+
+Live plots use the original model's flattened value shape, including when the
+sampler's transformation changes the number of coordinates. For example, a
+three-component Dirichlet displays all three components although sampling uses
+two unconstrained coordinates. Declared constant fields do not occupy plot
+dimensions. This also applies when no initialization samples are retained;
+initializing an empty display does not add observations or sample weight.
+
+Live figures identify this population with the caption “Observed sampling
+history” and the note “May include initialization and burn-in”. The caption remains
+visible when controls are collapsed and in exports of the complete Figure.
+Applying a range changes the displayed window within that history; it does not
+select a sampling phase. Static plots of supplied samples make no such provenance
+claim.
+
+After successful startup, a failure in observation or rendering disables further
+observation without changing fixed-work samples, computational RNG states, or
+public sampling callbacks. Configuration, reuse, and startup errors still throw;
+sampling errors and intentional interruption remain errors. Time-limited runs
+remain sensitive to observation overhead. Direct scalar iteration does not own
+the session and does not promise a final display flush on cancellation/time-limit
+exits.
+For live GLMakie sessions, BAT observes the native render loop it starts even
+after sampling completes. An error propagated by that loop invalidates the
+presentation and requests asynchronous disposal; the figure getter then returns
+`nothing`. Previously confirmed `data_complete` and completed observation outcome
+are preserved, with the rendering error reported separately.
+Custom render loops must remain running through live startup. An already running
+caller-owned loop cannot be adopted, and returning while the owned window remains
+open without a stop request is rejected. Later caller-driven renderer replacements
+and errors suppressed inside a custom loop are outside this guarantee.
+When reusing a native screen for another figure, dispose the old BAT session:
+screen reuse alone can retain old scene callbacks and does not release the
+session's observation history. Disposal preserves a screen now showing another
+figure.
+
+BAT-created observation tasks use private RNG state, preserving the initiating
+task's ordinary draws and the streams of its future child tasks. BAT's GL shader
+warmup renders without a background loop. Its explicit GL display starts the
+renderer through a private startup task, joined before returning or cleaning up
+an interrupted startup. Synchronous scene and inline-display callbacks still
+execute on the caller, and retain their random draws and child tasks. Renderer
+callbacks execute in the renderer task. BAT does not rewind a whole callback or
+display call to hide its effects; private renderer seeds do not promise unique
+or statistically independent streams for custom rendering code.
+Direct caller-owned Makie/GLMakie display calls, including later displaying a
+figure returned with `display=false`, are outside this BAT startup guarantee.
+Automatic garbage-collection finalizers are also outside the tested boundary.
+Initial observation transforms run sequentially on the sampling owner to avoid
+launching additional row-processing tasks. Custom transforms, including shape
+and Jacobian probes, retain their own random draws and task creation; their
+effects are outside the observation neutrality guarantee.
+Runtime-owned lazy scheduler initialization is also outside this guarantee:
+on Julia 1.13.2, a thread's first blocking wait can itself change future child
+streams, even without BAT observation.
+Failed or aborted live views are disposed; their outcome remains available
+through the status query and diagnostics independently of the renderer.
+Disposal after the sampling owner has acquired the session also permits that
+same acquisition to finish numerical initialization and continue sampling without
+starting a view. Observation history may already have been released at that point.
+This continuation is single-use and restricted to the acquiring task and thread;
+a disposed session cannot be acquired for a new run. Numerical failures and
+non-benign startup failures still propagate.
+
+Cancellation of an MCMC chain group is cooperative. If its sampling owner is
+interrupted or a chain fails, BAT requests cancellation and releases participating
+observation waits, then joins every launched chain worker before propagating the
+error. Initialization timing cleanup consequently follows the last chain writer.
+Repeated catchable interrupts during this cleanup do not abandon workers or
+replace the original owner exception. An already-entered numerical step or user
+hook must finish or throw before its worker can stop; there is no safe forced
+termination of arbitrary native model code. This ownership guarantee concerns
+BAT's MCMC chain groups, not arbitrary tasks started by user code or separate
+parallel sample transformations. It relies on a functioning Julia runtime and
+the application's signal policy; it cannot cover process termination.
+
+`observer_timeout=60.0` bounds each continuous capacity wait and, separately, the
+owner's shutdown wait. Nested or repeated cleanup shares the same allowance
+until the requested resources settle. Expiry stops observation and reports
+incompleteness; it does not cancel sampling. The allowance uses monotonic time and requires Julia's
+scheduler to make progress. It cannot interrupt a non-yielding native renderer.
+A listener still running after a timeout stays owned and reports
+`quiesced=false` and `cleanup_pending=true` until it actually finishes.
+
+`BAT.visualizer_status(vis)` is independent of rendering. `outcome` describes the
+run, `data_complete` describes confirmed observation history, and
+`last_publication` counts successfully returned data publications. Closing a
+completed figure preserves its historical completeness. A later view error may
+invalidate `presentation_valid` independently. `error` preserves the first
+failure; `cleanup_error` records a separate cleanup fault. Each diagnostic is an
+inert `(type, message, phase)` snapshot, with a bounded copied type name and
+message. Plain `ErrorException` and `ArgumentError` string messages are retained
+within the bound; other exceptions use a fallback message. Status and cleanup
+never call custom error formatters. Diagnostic snapshots do not retain raw
+exceptions, backtraces or failed tasks. Pending cleanup still owns the tasks it
+must join. Existing error logging can expose the original exception transiently.
+Failed sessions do not
+retry detached batches or resume as if observation had remained complete.
+
+`history_released` becomes true only after disposal has released all
+session-owned observation history and the cleanup task has terminated
+successfully. It remains false after successful sampling until disposal, and
+while a requested release is pending. A no-op or provenance-only visualizer has
+no such history and reports true. `quiesced` describes observer resources, not
+completion of numerical sampling. Retaining only the borrowed, emptied figure
+does not retain BAT's observation history. Independently retained graph nodes,
+controls, sampling results, user configuration or logger records can still own
+data; disposal does not invalidate those external references.

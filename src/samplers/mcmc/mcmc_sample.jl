@@ -7,9 +7,11 @@
 Samples a probability density using Markov chain Monte Carlo.
 
 Cancellation of MCMC chain groups is cooperative. On a sampling-owner exception,
-BAT requests cancellation and joins all launched chain workers before propagating
-the exception. An already-entered numerical step or user hook must return before
-its worker can stop; arbitrary native code cannot be forcibly interrupted.
+BAT requests cancellation, releases observation waits and joins all launched
+chain workers before propagating the exception. An already-entered numerical
+step or user hook must return before its worker can stop; arbitrary native code
+cannot be forcibly interrupted. Observation timeouts do not impose a numerical
+worker shutdown deadline.
 
 Constructors:
 
@@ -129,34 +131,68 @@ function evalmeasure_impl(em::EvaluatedMeasure, samplingalg::TransformedMCMC, co
     transformed_m, f_pretransform = transform_and_unshape(samplingalg.pretransform, em, context)
     n_dof = some_dof(transformed_m)
 
-    mcmc_states, chain_outputs = mcmc_init!(
-        samplingalg,
-        transformed_m,
-        apply_trafo_to_init(f_pretransform, samplingalg.init), # TODO: MD: at which point should the init_alg be transformed? Might be better to read, if it's transformed later during init of states
-        samplingalg.store_burnin ? samplingalg.callback : nop_func,
-        context
-    )
+    visualizer_acquired = false
+    visualizer_finished = false
+    mcmc_states, chain_outputs = try
+        prepare_visualizer_init!(context.visualizer, samplingalg)
+        visualizer_acquired = true
+        mcmc_states, chain_outputs = mcmc_init!(
+            samplingalg,
+            transformed_m,
+            apply_trafo_to_init(f_pretransform, samplingalg.init), # TODO: MD: at which point should the init_alg be transformed? Might be better to read, if it's transformed later during init of states
+            samplingalg.store_burnin ? samplingalg.callback : nop_func,
+            context
+        )
 
-    if !samplingalg.store_burnin
-        chain_outputs = _empty_chain_outputs.(mcmc_states)
+        if !samplingalg.store_burnin
+            chain_outputs = _empty_chain_outputs.(mcmc_states)
+        end
+
+        # Start before burn-in, even when its samples are not retained in the result.
+        # Domain/support belong to the original measure because displayed samples
+        # are mapped back through inverse(f_pretransform).
+        init_visualizer!(context.visualizer; rng=get_rng(context), mcmc_states=mcmc_states, outputs=chain_outputs, f_pretransform=f_pretransform, target=em)
+        _safe_clear_visualizer_init!(context.visualizer)
+
+        mcmc_states = mcmc_burnin!(
+            samplingalg.store_burnin ? chain_outputs : nothing,
+            mcmc_states,
+            samplingalg,
+            samplingalg.store_burnin ? samplingalg.callback : nop_func
+        )
+
+        next_cycle!.(mcmc_states)
+
+        @info "Generate main samples using $(length(mcmc_states)) MCMC chain(s)."
+        mcmc_states = mcmc_iterate!!(
+            chain_outputs,
+            mcmc_states;
+            max_nsteps = samplingalg.nsteps,
+            nonzero_weights=samplingalg.nonzero_weights,
+            update_visualizer=true
+        )
+
+        # Producers have joined. Observation completes before merging/ESS; a
+        # later result-construction error does not change observation history.
+        _safe_finish_visualizer!(context.visualizer; success=true)
+        visualizer_finished = true
+        (mcmc_states, chain_outputs)
+    catch err
+        if visualizer_acquired
+            _safe_request_visualizer_stop!(context.visualizer;
+                reason=:aborted, exception=CapturedException(err, catch_backtrace()))
+        end
+        rethrow()
+    finally
+        if visualizer_acquired
+            try
+                _safe_clear_visualizer_init!(context.visualizer;
+                    suppress_interrupt=!visualizer_finished)
+            finally
+                visualizer_finished || _safe_finish_visualizer!(context.visualizer; success=false)
+            end
+        end
     end
-    
-    mcmc_states = mcmc_burnin!(
-        samplingalg.store_burnin ? chain_outputs : nothing,
-        mcmc_states,
-        samplingalg,
-        samplingalg.store_burnin ? samplingalg.callback : nop_func
-    )
-
-    next_cycle!.(mcmc_states)
-
-    @info "Generate main samples using $(length(mcmc_states)) MCMC chain(s)."
-    mcmc_states = mcmc_iterate!!(
-        chain_outputs,
-        mcmc_states;
-        max_nsteps = samplingalg.nsteps,
-        nonzero_weights = samplingalg.nonzero_weights
-    )
 
     @debug "Merge samples of chains and transform to original space."
 
@@ -291,4 +327,91 @@ function _merge_chain_outputs(mcmc_state::MCMCState, chain_outputs::AbstractVect
     end
 
     return merged_output
+end
+
+
+function _append_chain_outputs(
+    mcmc_state::MCMCState,
+    outputs_A, #::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
+    outputs_B  #::AbstractVector{<:AbstractVector{<:DensitySampleVector}}
+)
+    merged_outputs = [_empty_chain_outputs(mcmc_state) for chain_outputs in outputs_A]
+
+    for i in eachindex(outputs_A)
+        for j in eachindex(outputs_A[i])
+            if !isempty(outputs_A[i][j])
+                for sample in outputs_A[i][j]
+                    checked_push!(merged_outputs[i][j], sample)
+                end
+            end
+        end
+    end
+
+    for i in eachindex(outputs_B)
+        for j in eachindex(outputs_B[i])
+            if !isempty(outputs_B[i][j])
+                for sample in outputs_B[i][j]
+                    checked_push!(merged_outputs[i][j], sample)
+                end
+            end
+        end
+    end
+
+    return merged_outputs
+end
+
+
+
+function _append_walker_outputs(
+    mcmc_state::MCMCState,
+    outputs_A, #::AbstractVector{<:AbstractVector{<:DensitySampleVector}},
+    outputs_B  #::AbstractVector{<:AbstractVector{<:DensitySampleVector}}
+)
+    merged_outputs = _empty_chain_outputs(mcmc_state)
+
+    for i in eachindex(outputs_A)
+        if !isempty(outputs_A[i])
+            for sample in outputs_A[i]
+                checked_push!(merged_outputs[i], sample)
+            end
+        end
+    end
+
+    for i in eachindex(outputs_B)
+        if !isempty(outputs_B[i])
+            for sample in outputs_B[i]
+                checked_push!(merged_outputs[i], sample)
+            end
+        end
+    end
+
+    return merged_outputs
+end
+
+
+
+
+
+function _transform_chain_outputs(
+    f_pretransform::Function,
+    outputs   #::AbstractVector{<:AbstractVector{<:DensitySampleVector}}
+)
+    return [_transform_walker_outputs(f_pretransform, chain_output) for chain_output in outputs]
+end
+
+function _transform_walker_outputs(
+    f_pretransform::Function,
+    chain_output,   #::AbstractVector{<:DensitySampleVector}
+    executor::Union{SequentialExec,MultiThreadedExec} = MultiThreadedExec()
+)
+    return [_transform_walker_output(f_pretransform, walker_output, executor) for walker_output in chain_output]
+end
+
+# `transform_samples` infers the transformed shape from the first sample, which
+# fails on an empty `DensitySampleVector` (e.g. before any samples have been
+# produced yet, or when a chain hasn't filled its buffer slot this batch).
+function _transform_walker_output(f_pretransform::Function, walker_output::DensitySampleVector,
+    executor::Union{SequentialExec,MultiThreadedExec} = MultiThreadedExec())
+    isempty(walker_output) && return unshaped.(walker_output)
+    return unshaped.(transform_samples(inverse(f_pretransform), walker_output, executor))
 end

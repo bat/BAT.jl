@@ -1,0 +1,362 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
+
+# Shared static graph setup. Keep renderer warmup in the public entry points
+# so precompilation does not require a backend.
+function _setup_static_graph(
+    samples::DensitySampleVector, recipes::NamedTuple, vsel::AbstractVector{<:Integer},
+    N_max::Integer, triagonal_config::NamedTuple, diagonal_config::NamedTuple;
+    support = nothing,
+    step_intervals = nothing,
+)
+    graph = _init_compute_graph(recipes, triagonal_config, diagonal_config, N_max)
+
+    unshaped_samples = unshaped.(samples)
+    flat_timing = _static_step_spans(samples, step_intervals)
+    by_row = [SampleStepSpan[] for _ in samples]
+    if !isnothing(flat_timing)
+        for span in flat_timing
+            push!(by_row[span.row], span)
+        end
+    end
+    timing_graph = SampleStepSpans()
+    function group_timing(rows)
+        result = SampleStepSpan[]
+        for (local_row, original_row) in enumerate(rows), span in by_row[original_row]
+            push!(result, SampleStepSpan(local_row, span.cycle, span.first, span.last))
+        end
+        return result
+    end
+
+    # Apply step windows per chain/walker rather than to the concatenated result.
+    # Materialize each group to match the live walker's .v.data-backed storage.
+    samples_graph = graph[:samples][]
+    current_idxs_graph = graph[:current_idxs][]
+    info_T = eltype(unshaped_samples.info)
+    if _samples_have_chain_ids(unshaped_samples)
+        wid_field = hasfield(info_T, :walkerid) ? :walkerid :
+            (hasfield(info_T, :walker) ? :walker : nothing)
+        groups = Dict{Tuple{Int32,Int32},Vector{Int}}()
+        for (k, inf) in pairs(unshaped_samples.info)
+            key = (Int32(inf.chainid), isnothing(wid_field) ? Int32(0) : Int32(getfield(inf, wid_field)))
+            push!(get!(() -> Int[], groups, key), k)
+        end
+        for cid in sort!(unique(map(first, collect(keys(groups)))))
+            wids = sort!([w for (c, w) in keys(groups) if c == cid])
+            walkers = [unshaped_samples[groups[(cid, w)]] for w in wids]
+            push!(samples_graph, walkers)
+            push!(timing_graph, [group_timing(groups[(cid, w)]) for w in wids])
+            push!(current_idxs_graph, [length(w) for w in walkers])
+        end
+    else
+        push!(samples_graph, [unshaped_samples])
+        push!(timing_graph, [group_timing(eachindex(samples))])
+        push!(current_idxs_graph, [length(samples)])
+    end
+
+    if isempty(samples_graph)
+        push!(samples_graph, [unshaped_samples])
+        push!(current_idxs_graph, [0])
+        push!(timing_graph, [SampleStepSpan[]])
+    end
+    n_dof = totalndof(varshape(samples))
+    domain_lo, domain_hi = _domain_from_samples(unshaped_samples.v.data, n_dof)
+    support_lo, support_hi = _support_vectors(support, n_dof)
+
+    update!(graph;
+        samples = samples_graph,
+        sample_timing = isnothing(flat_timing) ? nothing : timing_graph,
+        current_idxs = current_idxs_graph,
+        domain_lo = domain_lo,
+        domain_hi = domain_hi,
+        support_lo = support_lo,
+        support_hi = support_hi,
+        idxs = _clamp_vsel(vsel, n_dof, N_max),
+    )
+    graph[:window_data][] # Validate declared timing before constructing a figure.
+    return graph, n_dof
+end
+
+
+# Select layout conversion to avoid Makie's Scatter fallback and overlapping methods.
+Makie.plottype(::DensitySampleVector) = Makie.Plot{Makie.plot}
+
+# Makie only forwards conversion keywords declared by used_attributes.
+Makie.used_attributes(::Type{<:Makie.Plot{Makie.plot}}, ::DensitySampleVector) =
+    (:recipes, :vsel, :N_max, :trace_nsteps, :support, :step_intervals, :dark)
+
+function Makie.convert_arguments(
+    ::Type{<:Makie.Plot{Makie.plot}},
+    samples::DensitySampleVector;
+    recipes::NamedTuple = (upper = QuantileHist2D, diagonal = Hist1D, lower = Hist2D),
+    vsel::Vector{<:Integer} = [1, 2, 3],
+    N_max::Integer = 3,
+    trace_nsteps::Integer = 20,
+    support = nothing,
+    step_intervals = nothing,
+    # The caller owns the theme; dark selects overlay colors that override Makie cycling.
+    dark::Bool = false,
+)
+    # Warmup requires a concrete rendering backend.
+    warmup_makie_shaders()
+
+    graph, _ = _setup_static_graph(
+        samples, recipes, vsel, N_max,
+        _default_makie_triagonal_config(trace_nsteps = trace_nsteps, dark = dark),
+        _default_makie_diagonal_config(dark = dark);
+        support = support, step_intervals = step_intervals,
+    )
+
+    gridlayout = _init_gridlayout!(graph, N_max)
+
+    return gridlayout[]
+end
+
+
+function BAT.bat_makie_plot(
+    samples::DensitySampleVector,
+    recipes::NamedTuple = (upper = QuantileHist2D, diagonal = Hist1D, lower = Hist2D),
+    vsel::Vector{<:Integer} = [1, 2, 3],
+    N_max::Integer = 3;
+    dark::Bool = false,
+    display::Bool = true,
+    trace_nsteps::Integer = 20,
+    support = nothing,
+    step_intervals = nothing,
+)
+    # TODO: Support user configuration and attribute overrides.
+
+    # Deferred display must also defer this optional temporary-figure render.
+    display && warmup_makie_shaders()
+
+    graph, n_dof = _setup_static_graph(
+        samples, recipes, vsel, N_max,
+        _default_makie_triagonal_config(trace_nsteps = trace_nsteps, dark = dark),
+        _default_makie_diagonal_config(dark = dark);
+        support = support, step_intervals = step_intervals,
+    )
+
+    picker_info = PickerInfo(
+        n_dof,
+        N_max,
+        vsel,
+        new_vsel -> _apply_vsel_to_graph!(graph, n_dof, N_max, new_vsel),
+    )
+
+    built = with_theme(dark ? bat_theme_dark() : bat_theme()) do
+        gridlayout = _init_gridlayout!(graph, N_max)
+        _build_fig(graph, gridlayout, picker_info;
+            has_chain_info = _samples_have_chain_ids(samples),
+            has_trace_info = graph[:has_step_timing][])
+    end
+    # Renderer startup/rollback may join callbacks which use Makie's theme
+    # lock. Keep the theme scoped to construction, before any such join.
+    if display
+        try
+            _maybe_display(built.fig)
+        catch
+            # A failed display leaves the figure owned here.
+            try
+                _close_owned_live_screens!(built.fig)
+            catch err
+                BAT._visualizer_cleanup_diagnostic(:static_display, (err, catch_backtrace()))
+            end
+            _empty_failed_static_figure!(built.fig)
+            rethrow()
+        end
+    end
+    return built.fig
+end
+
+
+# Shared attributes for the light and dark themes.
+function _bat_base_theme()
+    return Theme(
+        fontsize = 20,
+        fonts = Attributes(
+            :bold => Makie.texfont(:bold),
+            :bolditalic => Makie.texfont(:bolditalic),
+            :italic => Makie.texfont(:italic),
+            :regular => Makie.texfont(:regular),
+        ),
+        Axis = (
+            xminorticksvisible = false,
+            yminorticksvisible = false,
+            xticksvisible = true,
+            yticksvisible = true,
+            xlabelpadding = 3,
+            ylabelpadding = 3,
+            # Keep ticks small for corner-plot cells.
+            xticklabelsize = 10,
+            yticklabelsize = 10,
+            xticklabelpad = 1,
+            yticklabelpad = 1,
+            xticksize = 3,
+            yticksize = 3,
+        ),
+        Legend = (
+            framevisible = false,
+            padding = (0, 0, 0, 0),
+        ),
+        Colorbar = (
+            ticksvisible = false,
+            spinewidth = 0,
+            ticklabelpad = 5,
+        ),
+        Heatmap = Theme(
+            colormap = :inferno,
+            alpha = 1.0
+        ),
+        BarPlot = Theme(
+            color = RGB(0.898, 0.361, 0.188),
+            alpha = 1.0,
+            gap = 0.0
+        ),
+        # The light and dark themes set visibility separately.
+        Stairs = Theme(
+            step = :post,
+            color = :darkblue,
+            linewidth = 1.0,
+        ),
+        Lines = Theme(
+            color = RGB(0.741, 0.518, 0.02),
+            linewidth = 1.0,
+            visible = true
+        ),
+        Poly = Theme(
+            color = RGB(0.898, 0.361, 0.188),
+            alpha = 1.0,
+            visible = true
+        ),
+        Scatter = Theme(
+            color = RGB(0.898, 0.361, 0.188),
+            alpha = 1.0
+        ),
+        # `color` here is overridden by these types' automatic color-cycling;
+        # the stats overlays set color per-PlotSpec instead (makie_stats.jl).
+        VLines = Theme(
+            color = :dodgerblue,
+            linestyle = :solid,
+            linewidth = 2.0
+        ),
+        HLines = Theme(
+            color = :dodgerblue,
+            linestyle = :solid,
+            linewidth = 2.0
+        ),
+        LineSegments = Theme(
+            color = :dodgerblue,
+            linestyle = :solid,
+            linewidth = 2.0
+        ),
+        Errorbars = Theme(
+            color = :blue,
+            linewidth = 2.0,
+            whiskerwidth = 10
+        ),
+        Hexbin = Theme(
+            alpha = 1.0
+        )
+    )
+end
+
+
+function BAT.bat_theme()
+    # Background -> panel -> widget shade ladder, see _panel_bg_color.
+    panel_color = _panel_bg_color(RGB(1, 1, 1))
+    widget_color = _panel_bg_color(panel_color)
+
+    return merge(_bat_base_theme(), Theme(
+        Button = (
+            buttoncolor = widget_color,
+        ),
+        Menu = (
+            cell_color_inactive_even = widget_color,
+            cell_color_inactive_odd = widget_color,
+            selection_cell_color_inactive = widget_color,
+        ),
+        Slider = (
+            color_inactive = widget_color,
+        ),
+        # IntervalSlider is a distinct type from Slider (Makie themes key by
+        # exact type name), so it needs its own block.
+        IntervalSlider = (
+            color_inactive = widget_color,
+        ),
+        Toggle = (
+            framecolor_inactive = widget_color,
+        ),
+        Checkbox = (
+            checkboxcolor_unchecked = widget_color,
+        ),
+        # Light-theme cosmetic: hide the Stairs outline (the dark theme keeps it).
+        Stairs = (
+            visible = false,
+        ),
+    ))
+end
+
+
+function BAT.bat_theme_dark()
+
+    color_active = RGB(0.451, 0.102, 0.431)
+    color_hover = RGB(0.714, 0.216, 0.322)
+    text_color = RGB(0.80, 0.80, 0.80)
+    # Same background -> panel -> widget shade ladder as bat_theme().
+    panel_color = _panel_bg_color(Makie.to_color(:gray10))
+    color_inactive = _panel_bg_color(panel_color)
+
+    return merge(_bat_base_theme(), Theme(
+        backgroundcolor = :gray10,
+        textcolor = :gray80,
+        linecolor = :gray70,
+        palette = Makie.generate_default_palette(:gray10),
+        Axis = (
+            backgroundcolor = :transparent,
+            xgridcolor = :gray50,
+            ygridcolor = :gray50,
+            leftspinecolor = :gray20,
+            rightspinecolor = :gray20,
+            bottomspinecolor = :gray20,
+            topspinecolor = :gray20,
+        ),
+        Button = (
+            buttoncolor = color_inactive,
+        ),
+        Menu = (
+            cell_color_active = color_active,
+            cell_color_hover = color_hover,
+            cell_color_inactive_even = RGBf(0.20, 0.20, 0.20),
+            cell_color_inactive_odd = RGBf(0.15, 0.15, 0.15),
+            selection_cell_color_inactive = color_inactive,
+            textcolor = text_color,
+            dropdown_arrow_color = :grey30
+        ),
+        Slider = (
+            color_active = color_active,
+            color_active_dimmed = color_hover,
+            color_inactive = color_inactive,
+        ),
+        # IntervalSlider needs its own block -- see bat_theme().
+        IntervalSlider = (
+            color_active = color_active,
+            color_active_dimmed = color_hover,
+            color_inactive = color_inactive,
+        ),
+        Toggle = (
+            buttoncolor = color_hover,
+            framecolor_active = color_active,
+            framecolor_inactive = color_inactive
+        ),
+        Checkbox = (
+            checkboxcolor_unchecked = color_inactive,
+            checkboxcolor_checked = color_active,
+            checkboxstrokecolor_unchecked = color_active,
+            checkboxstrokecolor_checked = color_active,
+            checkmarkcolor_checked = text_color,
+        ),
+        Stairs = (
+            visible = true,
+        ),
+    ))
+end

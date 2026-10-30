@@ -8,18 +8,24 @@ Set the default computational context for BAT.
 Constructors:
 
 ```julia
-BATContext{T}(rng::AbstractRNG, cunit::AbstractComputeUnit, ADSelector::AD)
+BATContext{T}(rng::AbstractRNG, cunit::AbstractComputeUnit, ad::ADSelector)
+
+BATContext{T}(rng::AbstractRNG, cunit::AbstractComputeUnit, ad::ADSelector, visualizer::BATVisualizer)
 
 BATContext(;
     precision::Type{<:AbstractFloat} = ...,
     rng::AbstractRNG = ...,
     cunit::HeterogeneousComputing.AbstractComputeUnit = ...,
     ad::Union{AutoDiffOperators.ADSelector, Module, Symbol, Val} = ...,
+    visualizer::BATVisualizer = ...,
 )
 ```
 
 The default `rng` is seeded from `Random.default_rng()`, so results become
 reproducible via `Random.seed!`.
+
+Constructors that omit `visualizer` produce a context without sampling
+visualization, see [`BATVisualizer`](@ref).
 
 See [`get_batcontext`](@ref), [`set_batcontext`](@ref) and
 [`default_batcontext`](@ref).
@@ -28,14 +34,17 @@ struct BATContext{T<:AbstractFloat,RNG<:AbstractRNG,CU<:AbstractComputeUnit,AD<:
     rng::RNG
     cunit::CU
     ad::AD
+    visualizer::BATVisualizer
 end
 
 export BATContext
 
+# `visualizer` defaults so the documented three-argument form keeps working; it
+# was the only positional constructor before the field was added.
 function BATContext{T}(
-    rng::RNG, cunit::CU, ad::AD
+    rng::RNG, cunit::CU, ad::AD, visualizer::BATVisualizer = BATVisualizer()
 ) where {T<:AbstractFloat,RNG<:AbstractRNG,CU<:AbstractComputeUnit,AD<:ADSelector}
-    BATContext{T,RNG,CU,AD}(rng, cunit, ad)
+    BATContext{T,RNG,CU,AD}(rng, cunit, ad, visualizer)
 end
 
 function BATContext(;
@@ -43,9 +52,10 @@ function BATContext(;
     rng::AbstractRNG = Philox4x((rand(UInt64), rand(UInt64)))::Philox4x{UInt64,10},
     cunit::AbstractComputeUnit = CPUnit(),
     ad::Union{ADSelector, Module, Symbol, Val} = NoAutoDiff(),
+    visualizer::BATVisualizer = BATVisualizer(),
 ) where T
     adsel = _to_adsel(ad)
-    BATContext{T}(rng, cunit, adsel)
+    BATContext{T}(rng, cunit, adsel, visualizer)
 end
 
 _to_adsel(ad::ADSelector) = ad
@@ -54,7 +64,7 @@ _to_adsel(ad::Symbol) = ADSelector(ad)
 _to_adsel(ad::Val) = ADSelector(ad)
 
 
-HeterogeneousComputing.get_precision(::BATContext{T}) where T = T
+HeterogeneousComputing.get_precision(::BATContext{T}) where {T} = T
 HeterogeneousComputing.get_rng(context::BATContext) = context.rng
 HeterogeneousComputing.get_compute_unit(context::BATContext) = context.cunit
 
@@ -75,7 +85,6 @@ Returns the automatic differentiation selector specified in `context`.
 function get_adselector end
 
 get_adselector(context::BATContext) = context.ad
-
 
 
 """
@@ -115,12 +124,12 @@ end
 
 Returns a copy of `context` with the random number generator set to `rng`.
 """
-function set_rng(context::BATContext{T}, rng::AbstractRNG) where T
-    BATContext{T}(rng, get_compute_unit(context), get_adselector(context))
+function set_rng(context::BATContext{T}, rng::AbstractRNG) where {T}
+    BATContext{T}(rng, get_compute_unit(context), get_adselector(context), context.visualizer)
 end
 
 
-function Base.show(io::IO, context::BATContext{T}) where T
+function Base.show(io::IO, context::BATContext{T}) where {T}
     gen = get_gencontext(context)
     print(io, nameof(typeof(context)), "{", T, "}(")
     print(io, get_rng(gen), ", ")
@@ -189,14 +198,17 @@ get_batcontext() = default_batcontext[]
         precision = ...,
         rng = ...,
         cunit = ...,
-        ad = ...
+        ad = ...,
+        visualizer = ...
     )
 
 Sets the default computational context for BAT.
 
 The new context becomes the process-wide default, visible to all tasks.
-Options that are not given retain their current values. Unsupported keywords
-are rejected instead of silently ignored.
+Options that are not given are taken from the current context, and
+unsupported keywords are rejected rather than silently ignored. Note that a
+[`BATVisualizer`](@ref) that has already been used by a sampling run cannot
+be reused, so a process-wide default visualizer serves a single run.
 To override the default for a dynamic scope only, bind
 [`default_batcontext`](@ref) via `ScopedSettings.with` instead -
 `set_batcontext` throws when called inside such a scope, as the
@@ -212,20 +224,25 @@ function set_batcontext(context::BATContext)
     return get_batcontext()
 end
 
-const _SET_BATCONTEXT_KEYS = (:precision, :rng, :cunit, :ad)
+const _SET_BATCONTEXT_KEYS = (:precision, :rng, :cunit, :ad, :visualizer)
 
 function set_batcontext(; kwargs...)
     c = get_batcontext()
+    # Rejected explicitly: an unmatched keyword would otherwise land in `s` and be
+    # dropped without a trace, which is how `visualizer` went unnoticed.
     unknown = filter(k -> !(k in _SET_BATCONTEXT_KEYS), collect(keys(kwargs)))
     isempty(unknown) || throw(ArgumentError(
         "set_batcontext does not support the keyword(s) " * join(unknown, ", ") *
         "; supported keywords are " * join(_SET_BATCONTEXT_KEYS, ", ")))
+    # Every settable field is a member of the merged defaults, and construction
+    # reads all of them from `s` -- taking one from `c` instead is what ignored
+    # an explicitly requested visualizer.
     s = merge(
-        (cunit = get_compute_unit(c),precision=get_precision(c), rng=get_rng(c), ad=get_adselector(c)),
-        (;kwargs...)
+        (cunit=get_compute_unit(c), precision=get_precision(c), rng=get_rng(c), ad=get_adselector(c), visualizer=c.visualizer),
+        (; kwargs...)
     )
     adsel = _to_adsel(s.ad)
-    set_batcontext(BATContext{s.precision}(s.rng, s.cunit, adsel))
+    set_batcontext(BATContext{s.precision}(s.rng, s.cunit, adsel, s.visualizer))
 end
 
 

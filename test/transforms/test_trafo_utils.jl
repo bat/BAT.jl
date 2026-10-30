@@ -192,13 +192,18 @@ end
         end
     end
 
-    @testset "Identity transforms retain their bypasses" begin
+    @testset "Identity and empty observation output retain their bypasses" begin
         for executor in (BAT.SequentialExec(), BAT.MultiThreadedExec())
             before = copy(Random.default_rng())
             @test transform_samples(identity, xs, executor) === xs
             @test transform_samples(identity, xsv, executor) === xsv
             empty_samples = xsv[1:0]
             @test transform_samples(identity, empty_samples, executor) === empty_samples
+            # Empty observation output must bypass inverse/shape probing even
+            # for a callable without an inverse, before choosing an executor.
+            invalid_transform = _ -> error("empty output called its transform")
+            walkers = BAT._transform_walker_outputs(invalid_transform, [empty_samples], executor)
+            @test length(walkers) == 1 && isempty(only(walkers))
             @test Random.default_rng() == before
         end
         @test_throws MethodError transform_samples(f_dt, xs, nothing)

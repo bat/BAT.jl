@@ -16,14 +16,20 @@ import tempfile
 import time
 
 HERE = Path(__file__).resolve().parent
-CORE_CASES = ("vector_owner", "vector_drain")
-CASES = CORE_CASES
+CORE_CASES = ("vector_owner", "vector_stop", "vector_drain", "public_owner",
+              "init_pool_first", "init_pool_second", "init_retry")
+# Explicit opt-in: these require a project containing Makie as well as BAT.
+MAKIE_CASES = ("makie_rng",)
+GL_CASES = ("gl_startup", "gl_cleanup")
+CASES = CORE_CASES + MAKIE_CASES + GL_CASES
 
 
 def run_case(args, name, logdir):
     gates = logdir / (name + "-gates")
     gates.mkdir()
-    script = HERE / ("control.jl" if name == "control" else "native_case.jl")
+    script = HERE / ("control.jl" if name == "control" else
+                     name + "_case.jl" if name in GL_CASES else
+                     "makie_rng_case.jl" if name in MAKIE_CASES else "native_case.jl")
     command = [args.julia, "--startup-file=no", "--threads=" + args.threads,
                "--project=" + str(args.project)]
     if args.compiled_modules:
@@ -66,20 +72,62 @@ def run_case(args, name, logdir):
             # Measure the hold from actual delivery, not from the earlier
             # readiness marker; a busy driver must not release both barriers
             # immediately after a delayed signal action.
-            if name == "vector_drain":
+            if name == "vector_drain" and len(sent) == 2:
+                schedule(0.2, lambda: release_gate("release_workers"))
+            elif name.startswith("init_") and len(sent) == 1:
+                schedule(1.0, lambda: release_gate("release_init"))
+            elif name == "gl_cleanup":
                 if len(sent) == 1:
-                    # Avoid Julia's rapid repeated-SIGINT force/abort path.
                     schedule(1.1, send_interrupt)
                 elif len(sent) == 2:
-                    schedule(0.2, lambda: release_gate("release_workers"))
-            elif name == "vector_owner" and len(sent) == 1:
-                schedule(0.2, lambda: release_gate("release_workers"))
+                    schedule(0.2, lambda: release_gate("release_" + name))
+            elif name == "gl_startup" and len(sent) == 1:
+                schedule(0.2, lambda: release_gate("release_gl_startup"))
 
     def on_line(line):
         nonlocal result_seen
         if line == "BAT_OWNER READY control" or line == "BAT_OWNER ENTERED 2":
             if not sent and not scheduled:
                 schedule(0.2, send_interrupt)
+        elif line == "BAT_OWNER INIT_ENTERED 2":
+            if not sent and not scheduled:
+                schedule(0.2, send_interrupt)
+                # No stop participant during initialization: retain the two
+                # blocked metadata writers while the owner enters its join.
+        elif line == "BAT_OWNER MAKIE_FINISH_WAIT":
+            if not sent and not scheduled:
+                schedule(0.2, send_interrupt)
+        elif line in ("BAT_OWNER GL_STARTUP_WAIT", "BAT_OWNER GL_CLEANUP_WAIT"):
+            if not sent and not scheduled:
+                schedule(0.2, send_interrupt)
+        elif line == "BAT_OWNER GL_STARTUP_HELD":
+            if len(sent) != 1:
+                protocol_errors.append("GL startup released without one SIGINT delivery")
+        elif line == "BAT_OWNER GL_CLEANUP_HELD":
+            if len(sent) != 2:
+                protocol_errors.append("GL cleanup released before two owner SIGINT deliveries")
+        elif line == "BAT_OWNER MAKIE_DISPOSING":
+            if len(sent) != 1:
+                protocol_errors.append("Makie disposal reached without exactly one owner SIGINT")
+                return
+            # Keep the listener held until the interrupted owner has enrolled
+            # and inspected the real disposal coordinator.
+            schedule(0.2, lambda: release_gate("release_listener"))
+        elif line.startswith("BAT_OWNER STOP_WAIT "):
+            if not sent:
+                protocol_errors.append("stop hook reached before the first owner SIGINT")
+                return
+            attempt = int(line.rsplit(" ", 1)[1])
+            if attempt == 1:
+                # Avoid Julia's rapid repeated-SIGINT force/abort path.
+                schedule(max(0.0, 1.1 - (time.monotonic() - started - sent[0])), send_interrupt)
+            elif attempt == 2:
+                release_gate("release_stop")
+        elif line == "BAT_OWNER STOPPED" and name == "vector_drain":
+            if not sent:
+                protocol_errors.append("stop hook completed before the first owner SIGINT")
+                return
+            schedule(max(0.0, 1.1 - (time.monotonic() - started - sent[0])), send_interrupt)
         elif line == "BAT_OWNER RESULT " + name:
             result_seen = True
 
@@ -132,7 +180,7 @@ def run_case(args, name, logdir):
         finally:
             selector.close()
             child.stdout.close()
-    expected_signals = 2 if name == "vector_drain" else 1
+    expected_signals = 2 if name in ("vector_stop", "vector_drain", "gl_cleanup") else 1
     if len(sent) != expected_signals:
         protocol_errors.append("expected %d SIGINT deliveries, sent %d" % (expected_signals, len(sent)))
     passed = child.returncode == 0 and not timed_out and result_seen and not protocol_errors
@@ -167,7 +215,10 @@ def main():
     selected = list(args.cases or CORE_CASES)
     metadata = dict(platform=platform.platform(), python=sys.version,
                     scripts={p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-                             for p in (HERE / "control.jl", HERE / "native_case.jl", Path(__file__))})
+                             for p in (HERE / "control.jl", HERE / "native_case.jl",
+                                       HERE / "makie_rng_case.jl",
+                                       HERE / "gl_startup_case.jl",
+                                       HERE / "gl_cleanup_case.jl", Path(__file__))})
     print("Logs: " + str(logdir), flush=True)
     control = run_case(args, "control", logdir)
     if not control["passed"]:
