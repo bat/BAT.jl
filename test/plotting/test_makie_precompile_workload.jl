@@ -83,8 +83,8 @@ end
     @test WINDOW_CHANGES == WINDOW_REQUESTS
     @test first.(WINDOW_REQUESTS) == [true, true, false, false]
     @test all(i -> WINDOW_REQUESTS[i][2] isa Tuple{Int64,Int64}, (1, 3))
-    @test all(i -> isnothing(WINDOW_REQUESTS[i][2]), (2, 4))
-    @test all(graph -> isnothing(graph[:window_steps][]), keys(WINDOW_HANDLES))
+    @test all(i -> first(WINDOW_REQUESTS[i][2]) == 1, (2, 4))
+    @test all(graph -> graph[:window_steps][] == (1, graph[:max_step][]), keys(WINDOW_HANDLES))
     foreach(Makie.off, values(WINDOW_HANDLES))
     @test DARK_MENU_CHANGES[] > 0
     @test CONVERSIONS[] == 1

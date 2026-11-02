@@ -236,7 +236,7 @@ end
 *Experimental feature, not yet part of stable public API.*
 
 Return a `Makie.Figure` containing an interactive corner plot for `samples`,
-with recipe menus, statistics/trace overlays, variable selection and Apply/All
+with recipe menus, statistics/trace overlays, variable selection and manual or live-drag
 range controls. Requires Makie. The BAT light or dark theme is scoped to figure
 construction; unrelated figures and the global theme are unchanged.
 

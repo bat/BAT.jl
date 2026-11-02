@@ -25,6 +25,11 @@ after those assertions. The `core` case includes the backend-neutral owner and
 RNG/sample-preservation tests. Real process-SIGINT tests are separately bounded
 by [the optional MCMC owner runner](../mcmc_owner/README.md).
 
+`gl_range_controls.jl` checks manual range application and Live drag with native
+pointer events for individual handles and the whole interval, on static and
+completed live figures. It requires GLMakie, a working display and an external
+process deadline, like the other native checks.
+
 `gl_smoke.jl` additionally tests native GLMakie recipe/selection round trips,
 rendering, and live close isolation from an unrelated screen.
 Run it with an external process deadline in a scratch environment containing
@@ -39,7 +44,7 @@ independent figures, and scoped themes. `precompile_workload` and
 success and injected failure. These cases also run in separate bounded processes.
 The precompile cases add narrow test-only methods at real workload boundaries;
 keep them isolated rather than including them in a shared test process.
-They verify real Apply/All graph updates and reject swallowed live-widget
+They verify manual and live-drag range updates and reject swallowed live-widget
 failures. `warmup` checks renderer bookkeeping, retries and temporary-Figure
 cleanup with Cairo rendering and a second synthetic renderer identity.
 `gl_warmup.jl` supplies the native Cairo → GL → Cairo check, including survival
@@ -120,7 +125,7 @@ and verifies observation failure and autonomous history release.
 `scatter_admission` checks relative marker areas with finite BigFloat, BigInt,
 rational and logarithmic weights before renderer conversion, plus rejection of missing
 chain metadata. It also checks zero-mass populations through both public plotting
-paths and Apply/All controls, preserving positive-weight sizes and source samples.
+paths and range controls, preserving positive-weight sizes and source samples.
 `failure_ownership` checks partial static construction and
 display rollback, unrelated-figure survival, and grid/bin dispatch with several
 integer widths. The dispatch checks do not replace a native 32-bit platform run.

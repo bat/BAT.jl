@@ -156,7 +156,7 @@ here. `vsel` currently requires a `Vector` of integers; `N_max` is a positive
 integer. The `display` keyword belongs to `bat_makie_plot`, not this conversion.
 
 This path produces the corner-plot layout without BAT's interactive menus,
-variable picker or Apply/All controls. It uses the caller's theme and Makie's
+variable picker or range controls. It uses the caller's theme and Makie's
 layout/reconciliation behavior. `dark` chooses contrast-dependent BAT overlay
 colors; it does not install the BAT dark theme. Apply [`bat_theme`](@ref) or
 [`bat_theme_dark`](@ref) through Makie's own scoped theme operations if desired.
@@ -181,7 +181,10 @@ The selected local step range applies independently to every cycle and clips
 weights to the overlap. Bare sample metadata does not certify this timing.
 The same keyword is supported by ordinary Makie `plot(samples; ...)`.
 The slider uses bounded ticks for large ranges; enter exact `start:end` values
-in the range field and press Enter, then Apply, for precise selection.
+in the range field and press Enter, then **Apply range**, for precise selection.
+In both static and live figures, **Live drag** is off by default. Enable it to
+apply the current draft and update the plot automatically while moving the
+slider handles or the whole interval.
 
 Elapsed-step traces require explicit timing. ARP and other statistical weights
 are not interpreted as dwell durations; use the stored-sample range instead.
@@ -456,12 +459,19 @@ estimating them does not advance the sampling RNG or the default RNG.
 Batching and backpressure count completed walker-steps across all chains,
 including rejected steps. Terminal sampler flushes contribute no steps.
 Repetition-weighted runs capture cycle/step timing without changing returned
-samples. Apply selects local steps in every cycle and clips displayed dwell
-weights; All follows the growing data. If timing is unavailable (including ARP
-weighting), the labelled sample range preserves each selected row's weight and
-elapsed-step traces are unavailable. Slider movement is a draft until Apply.
+samples. Applying a range selects local steps in every cycle and clips displayed
+dwell weights. Initially the view follows all growing data; an applied range
+keeps its endpoints fixed, including a selection of the full current range.
+If timing is unavailable (including ARP weighting), the labelled sample range
+preserves each selected row's weight and elapsed-step traces are unavailable.
+By default, slider movement is a draft until **Apply range** is clicked.
+Enable **Live drag** to apply the current draft and update while moving either
+handle or the whole interval. Updates retain the latest selection, run at most
+about ten times per second during dragging, and finish on mouse release.
+Disabling Live drag keeps the last applied range and restores manual selection.
 For long runs the slider uses bounded ticks; edit `start:end` and press Enter
-to set exact integer endpoints, then Apply to update the plots.
+to set exact integer endpoints. This also applies immediately with Live drag
+enabled; otherwise click **Apply range**.
 `max_buffered` must be at least the batch size (50 with the keyword constructor).
 It is an initial backpressure threshold, not a strict memory limit: a multi-walker
 update may cross it before waiting. With adaptive batching, both thresholds grow

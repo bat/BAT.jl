@@ -263,7 +263,7 @@ end
                 @test !isempty(Makie.colorbuffer(fig))
                 if !ordinary
                     slider = only(filter(item -> item isa IntervalSlider, fig.content))
-                    apply = only(filter(item -> item isa Button && item.label[] == "Apply", fig.content))
+                    apply = only(filter(item -> item isa Button && item.label[] == "Apply range", fig.content))
                     slider.interval[] = (2, 3)
                     Makie.notify(apply.clicks)
                     check_public_figure(fig, values[2:3], w[2:3])

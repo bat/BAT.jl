@@ -163,11 +163,14 @@ end
         @test !BAT.capture_visualizer_init(vis)
         @test !BAT.capture_visualizer_init(BATVisualizer())
     end
-    @testset "Apply/All controls do not recompute on draft changes" begin
+    @testset "Manual range controls do not recompute on draft changes" begin
         s,timing = fixture(steps=[1,11], weights=[10,10])
         g = graph(s; timing)
         built = EXT._build_fig(g,EXT._init_gridlayout!(g,2),nothing;has_chain_info=true,has_trace_info=true)
         controls = built.range_controls[]
+        @test !controls.live_drag[]
+        @test controls.apply.label[] == "Apply range"
+        @test !any(x -> x isa Button && x.label[] == "All", built.fig.content)
         computations = Ref(0)
         observer = on(g[:flat_samples]) do _
             computations[] += 1
@@ -185,14 +188,82 @@ end
             @test !controls.dirty[]
             Makie.notify(controls.apply.clicks)
             @test computations[] == 1
-            Makie.notify(controls.all.clicks)
+            controls.slider.interval[] = (1, 20)
+            Makie.notify(controls.apply.clicks)
             @test computations[] == 2
-            @test isnothing(g[:window_steps][])
+            @test g[:window_steps][] == (1, 20)
             @test sum(g[:flat_weights][]) == 20
+            @test EXT._apply_sample_window!(g,nothing)
             @test !EXT._apply_sample_window!(g,nothing)
             @test_throws ArgumentError EXT._apply_sample_window!(g,(2,1))
         finally
             off(observer)
+        end
+    end
+    @testset "Live dragging, pending ranges and figure cleanup" begin
+        s,timing = fixture(steps=[1,11], weights=[10,10])
+        g = graph(s; timing)
+        built = EXT._build_fig(g,EXT._init_gridlayout!(g,2),nothing;has_chain_info=true,has_trace_info=true)
+        controls = built.range_controls[]
+        events = Makie.events(built.fig)
+        try
+            controls.slider.interval[] = (4,12)
+            @test isnothing(g[:window_steps][])
+            Makie.notify(controls.live_drag_button.clicks)
+            @test controls.live_drag[]
+            @test controls.live_drag_button.label[] == "● Live drag"
+            @test g[:window_steps][] == (4,12)
+            controls.slider.interval[] = (5,9)
+            @test g[:window_steps][] == (5,9)
+            @test sum(g[:flat_weights][]) == 5
+
+            # Pointer-held changes are coalesced; a render tick flushes the latest draft.
+            push!(events.mousebuttonstate, Mouse.left)
+            controls.slider.interval[] = (6,10)
+            controls.slider.interval[] = (7,11)
+            @test timedwait(() -> begin
+                Makie.notify(events.tick)
+                g[:window_steps][] == (7,11)
+            end, 5.0; pollint=0.02) == :ok
+            controls.slider.interval[] = (8,12)
+            events.mousebutton[] = Makie.MouseButtonEvent(Mouse.left,Mouse.release)
+            @test g[:window_steps][] == (8,12)
+
+            # Disabling cancels unpublished drag work and restores manual selection.
+            push!(events.mousebuttonstate, Mouse.left)
+            controls.slider.interval[] = (9,13)
+            Makie.notify(controls.live_drag_button.clicks)
+            applied = g[:window_steps][]
+            controls.slider.interval[] = (2,6)
+            events.mousebutton[] = Makie.MouseButtonEvent(Mouse.left,Mouse.release)
+            Makie.notify(events.tick)
+            @test !controls.live_drag[]
+            @test controls.live_drag_button.label[] == "○ Live drag"
+            @test g[:window_steps][] == applied
+            Makie.notify(controls.apply.clicks)
+            @test g[:window_steps][] == (2,6)
+
+            Makie.notify(controls.live_drag_button.clicks)
+            push!(events.mousebuttonstate, Mouse.left)
+            controls.slider.interval[] = (3,7)
+            s2,timing2 = fixture(steps=[1,26],weights=[25,25])
+            g2 = graph(s2; timing=timing2)
+            Makie.update!(g; samples=g2[:samples][], current_idxs=g2[:current_idxs][],
+                sample_timing=g2[:sample_timing][])
+            @test last(controls.slider.range[]) == 20
+            events.mousebutton[] = Makie.MouseButtonEvent(Mouse.left,Mouse.release)
+            @test last(controls.slider.range[]) == 50
+            @test controls.draft[] == (3,7)
+            @test g[:window_steps][] == (3,7)
+
+            empty!(built.fig)
+            controls.slider.interval[] = (8,12)
+            Makie.notify(events.tick)
+            Makie.notify(controls.apply.clicks)
+            @test g[:window_steps][] == (3,7)
+        finally
+            delete!(events.mousebuttonstate, Mouse.left)
+            empty!(built.fig)
         end
     end
     @testset "Initialization failure discards timing before UI startup" begin
@@ -236,8 +307,13 @@ end
         Makie.notify(controls.apply.clicks)
         @test g[:window_steps][] == (limit-1,limit)
         @test g[:flat_weights][] == [2]
-        Makie.notify(controls.all.clicks)
+        Makie.set!(controls.value_entry,"1:$limit")
+        Makie.notify(controls.apply.clicks)
         @test g[:flat_weights][] == [3]
+        Makie.notify(controls.live_drag_button.clicks)
+        Makie.set!(controls.value_entry,"$(limit-1):$limit")
+        @test g[:window_steps][] == (limit-1,limit)
+        @test g[:flat_weights][] == [2]
     end
 end
 end

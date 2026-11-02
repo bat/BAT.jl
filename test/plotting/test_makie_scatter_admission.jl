@@ -111,13 +111,13 @@ end
             check_scatter_sizes(fig, weights)
             if !ordinary
                 slider = only(filter(x -> x isa IntervalSlider, fig.content))
-                apply = only(filter(x -> x isa Button && x.label[] == "Apply", fig.content))
-                all_button = only(filter(x -> x isa Button && x.label[] == "All", fig.content))
+                apply = only(filter(x -> x isa Button && x.label[] == "Apply range", fig.content))
                 slider.interval[] = (2, 3)
                 check_scatter_sizes(fig, weights)
                 notify(apply.clicks)
                 check_scatter_sizes(fig, weights[[2, 3, 5, 6]])
-                notify(all_button.clicks)
+                slider.interval[] = (first(slider.range[]), last(slider.range[]))
+                notify(apply.clicks)
                 check_scatter_sizes(fig, weights)
             end
             @test samples == before

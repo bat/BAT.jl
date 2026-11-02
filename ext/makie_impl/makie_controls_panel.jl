@@ -21,6 +21,7 @@ const _UI_LAYOUT_COL_GAP = 16.0
 const _UI_LAYOUT_ROW_GAP = 16.0
 # Measured control-row height; update when font size or menu styling changes.
 const _UI_CONTROL_ROW_HEIGHT = 36.0
+const _LIVE_DRAG_INTERVAL_NS = UInt64(100_000_000)
 
 # Compute panel width explicitly: a GridLayout with deferred width prevents bottom-up sizing.
 function _controls_panel_width(
@@ -183,7 +184,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
         direction = :up
     )
 
-    # Keep interaction cheap: pending range changes never invalidate recipes.
+    # Manual range selection remains a draft until explicitly applied.
     collapse_button = Button(fig, label = "☰", halign = :left, valign = :top)
     toggle_row_content[1, 1] = collapse_button
     colsize!(toggle_row_content, 1, Relative(1))
@@ -212,6 +213,36 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
             value_entry = Textbox(toggle_row_content[3, 2:4]; stored_string = "1:$limit",
                 placeholder = "start:end", width = nothing, tellwidth = false,
                 validator = text -> !isnothing(_parse_sample_window(text, graph[:max_step][])))
+            apply = Button(toggle_row_content[1, 4], label = "Apply range")
+            live_drag = Observable(false)
+            live_drag_button = Button(toggle_row_content[2, 4], label = "○ Live drag")
+            dirty = Observable(true)
+            pending = Ref(false)
+            applying = Ref(false)
+            last_apply = Ref(zero(UInt64))
+            function apply_range!()
+                (!pending[] || applying[]) && return nothing
+                pending[] = false
+                applying[] = true
+                last_apply[] = time_ns()
+                try
+                    _apply_sample_window!(graph, draft[]; live_vis = live_vis)
+                finally
+                    applying[] = false
+                end
+                return nothing
+            end
+            # Keep only the latest draft; render ticks and release flush it.
+            function apply_drag!(; force = false)
+                live_drag[] || return nothing
+                if force || time_ns() - last_apply[] >= _LIVE_DRAG_INTERVAL_NS
+                    apply_range!()
+                end
+                return nothing
+            end
+            _view_onany(subscription_owner, graph[:window_steps], draft) do applied, pending_range
+                dirty[] = applied != pending_range
+            end
             _view_on(subscription_owner, slider.interval) do interval
                 syncing[] || (draft[] = Int64.(interval))
             end
@@ -229,26 +260,35 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
                 finally
                     syncing[] = false
                 end
-            end
-            apply = Button(toggle_row_content[1, 4], label = "Apply")
-            all_button = Button(toggle_row_content[2, 4], label = "All")
-            dirty = Observable(true)
-            _view_onany(subscription_owner, graph[:window_steps], draft) do applied, pending
-                dirty[] = applied != pending
-                apply.label[] = dirty[] ? "Apply" : "Applied"
+                if live_drag[]
+                    pending[] = true
+                    apply_drag!(; force = !(Mouse.left in events(fig.scene).mousebuttonstate))
+                end
             end
             _view_on(subscription_owner, apply.clicks) do _
-                dirty[] && _apply_sample_window!(graph, draft[]; live_vis = live_vis)
+                if dirty[] || pending[]
+                    pending[] = true
+                    apply_range!()
+                end
             end
-            _view_on(subscription_owner, all_button.clicks) do _
-                _apply_sample_window!(graph, nothing; live_vis = live_vis)
+            _view_on(subscription_owner, live_drag_button.clicks) do _
+                live_drag[] = !live_drag[]
+            end
+            _view_on(subscription_owner, live_drag) do active
+                live_drag_button.label[] = active ? "● Live drag" : "○ Live drag"
+                pending[] = active
+                active && apply_drag!(; force = true)
+            end
+            _view_on(subscription_owner, events(fig.scene).tick) do _
+                apply_drag!()
             end
             range_controls[] = (slider = slider, draft = draft, syncing = syncing, apply = apply,
-                all = all_button, dirty = dirty, title = title, value_entry = value_entry)
+                live_drag = live_drag, live_drag_button = live_drag_button, apply_drag! = apply_drag!,
+                dirty = dirty, title = title, value_entry = value_entry)
             rowgap!(toggle_row_content, 1, 0)
         end
         # Growing data must not move the scale under a pressed pointer. Preserve
-        # draft values as well as the applied range; All remains a separate state.
+        # draft values as well as the applied range.
         if !(Mouse.left in events(fig.scene).mousebuttonstate)
             slider = range_controls[].slider
             if last(slider.range[]) != limit
@@ -270,7 +310,10 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     # Observe release before widgets consume it (native mouse handlers use 1).
     # Makie's button-state tracker has already removed the released button.
     _view_on(subscription_owner, events(fig.scene).mousebutton; priority = 2) do event
-        event.button == Mouse.left && event.action == Mouse.release && add_index_slider!()
+        if event.button == Mouse.left && event.action == Mouse.release
+            isnothing(range_controls[]) || range_controls[].apply_drag!(; force = true)
+            add_index_slider!()
+        end
         return Consume(false)
     end
     add_index_slider!()
@@ -581,7 +624,7 @@ function _apply_sample_window!(graph, window; live_vis = nothing)
         1 <= lo <= hi || throw(ArgumentError("Require 1 <= window start <= window end"))
     end
     # Live intents may replace an earlier deferred value even when this value
-    # equals the currently displayed one (Apply followed by All, for example).
+    # equals the currently displayed one after another deferred selection.
     isnothing(live_vis) && graph[:window_steps][] == window && return false
     _view_graph_update!(graph, live_vis; window_steps = window)
     return true

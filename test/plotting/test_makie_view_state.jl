@@ -73,8 +73,7 @@ end
         lower_menu,diag_menu,upper_menu=filter(x -> x isa Menu,fig.content)
         toggles=filter(x -> x isa Toggle,fig.content)
         slider=only(filter(x -> x isa IntervalSlider,fig.content))
-        apply=only(filter(x -> x isa Button && x.label[]=="Apply",fig.content))
-        all_button=only(filter(x -> x isa Button && x.label[]=="All",fig.content))
+        apply=only(filter(x -> x isa Button && x.label[]=="Apply range",fig.content))
         initial_hist=histogram(diagonal1,v2,weights)
         initial_upper,initial_lower=heat(upper),heat(lower)
         @test isequal(initial_upper.z, permutedims(initial_lower.z))
@@ -141,12 +140,13 @@ end
         histogram(diagonal1,v2[2:4],weights[2:4])
         @test diagonal1.targetlimits[] != old_diagonal.target
         @test upper.targetlimits[]==pair_target
-        @test apply.label[]=="Applied"
+        @test apply.label[]=="Apply range"
         select!(upper_menu,KDE2D)
-        @test slider.interval[]==(2,4) && apply.label[]=="Applied"
+        @test slider.interval[]==(2,4) && apply.label[]=="Apply range"
         @test toggles[1].active[]
         select!(upper_menu,Hist2D)
-        Makie.notify(all_button.clicks)
+        slider.interval[] = (first(slider.range[]), last(slider.range[]))
+        Makie.notify(apply.clicks)
         @test histogram(diagonal1,v2,weights)==initial_hist
         toggles[1].active[]=false
 

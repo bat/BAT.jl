@@ -373,14 +373,16 @@ function interaction_failure()
             graph = EXT._live_graph(vis)
             @test EXT._live_graph_update!(vis; window_steps=(Int64(2), Int64(8)))
             observer = Makie.on(graph[:window_steps]) do window
-                if isnothing(window)
+                if window == (Int64(1), Int64(8))
                     work[] = caller_work()
                     throw(FAILURE)
                 end
             end
-            all_button = only(filter(x -> x isa Makie.Button && x.label[] == "All", figure.content))
+            slider = only(filter(x -> x isa Makie.IntervalSlider, figure.content))
+            slider.interval[] = (1, 8)
+            live_drag = only(filter(x -> x isa Makie.Button && x.label[] == "○ Live drag", figure.content))
             check_user_effects() do
-                all_button.clicks[] += 1 # Real guarded BAT All entry point.
+                live_drag.clicks[] += 1 # Real guarded BAT live-drag entry point.
                 join_release(vis)
                 return work[]
             end
@@ -591,7 +593,7 @@ end
     @testset "Actual serial startup transform failure retains caller effects" begin
         startup_transform_failure()
     end
-    @testset "Real All failure retains callback randomness" begin
+    @testset "Real live-drag failure retains callback randomness" begin
         interaction_failure()
     end
     @testset "Real window close retains caller event randomness" begin

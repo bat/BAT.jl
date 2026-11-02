@@ -112,18 +112,18 @@ end
         @test only(figure_axes(displayed)).xticklabelsize[] == 10
         check_histogram(displayed, values, weights)
 
-        # Drive the actual returned figure's Apply/All controls. Selecting row
+        # Drive the actual returned figure's range controls. Selecting row
         # two changes the visible density, while the second figure is untouched.
         slider = only(filter(x -> x isa IntervalSlider, deferred.content))
-        apply = only(filter(x -> x isa Button && x.label[] == "Apply", deferred.content))
-        all_button = only(filter(x -> x isa Button && x.label[] == "All", deferred.content))
+        apply = only(filter(x -> x isa Button && x.label[] == "Apply range", deferred.content))
         slider.interval[] = (2, 2)
         @test check_histogram(deferred, values, weights) == original_points
         Makie.notify(apply.clicks)
         check_histogram(deferred, values[2:2], weights[2:2])
         @test check_histogram(displayed, values, weights) == original_points
         @test !isempty(Makie.colorbuffer(displayed))
-        Makie.notify(all_button.clicks)
+        slider.interval[] = (first(slider.range[]), last(slider.range[]))
+        Makie.notify(apply.clicks)
         @test check_histogram(deferred, values, weights) == original_points
 
         # Errors retain their identity and do not leak BAT's scoped theme.

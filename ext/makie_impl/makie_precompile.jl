@@ -37,14 +37,16 @@ function _drive_figure_widgets!(fig)
 
     resize!(fig, 500, 650)
 
-    # Apply draft changes to exercise window computation, then restore All.
+    # Exercise manual and live range application through the actual controls.
     slider = only(filter(x -> x isa IntervalSlider, fig.content))
     r = slider.range[]
     slider.interval[] = (max(first(r), fld(last(r), 4)), max(first(r), fld(last(r), 2)))
-    apply = only(filter(x -> x isa Button && x.label[] == "Apply", fig.content))
-    all_button = only(filter(x -> x isa Button && x.label[] == "All", fig.content))
+    apply = only(filter(x -> x isa Button && x.label[] == "Apply range", fig.content))
+    live_drag = only(filter(x -> x isa Button && x.label[] == "○ Live drag", fig.content))
     notify(apply.clicks)
-    notify(all_button.clicks)
+    slider.interval[] = (first(r), last(r))
+    notify(live_drag.clicks)
+    notify(live_drag.clicks)
     return nothing
 end
 

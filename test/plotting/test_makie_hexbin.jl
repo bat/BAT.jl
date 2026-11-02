@@ -278,7 +278,7 @@ end
                 @test !isempty(Makie.colorbuffer(fig))
                 if !ordinary
                     slider = only(filter(x -> x isa IntervalSlider, fig.content))
-                    button = only(filter(x -> x isa Button && x.label[] == "Apply", fig.content))
+                    button = only(filter(x -> x isa Button && x.label[] == "Apply range", fig.content))
                     slider.interval[] = (2, 3)
                     Makie.notify(button.clicks)
                     @test all(h -> sort(h.plots[1].count_hex[]) == [2, 3], descendants(fig, EXT.BATCheckedHexbin))
