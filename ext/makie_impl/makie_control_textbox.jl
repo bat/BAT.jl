@@ -64,6 +64,13 @@ function _control_textbox(fig, position; owner = fig.scene, limit::Integer,
             on_reject()
             return false
         end
+        # Older Textbox skips cursor clamping when the new string is empty.
+        # Reset it before notifying text observers so the next native keystroke
+        # cannot index past the text after clearing or reopening an empty editor.
+        if _legacy_control_textbox(box)
+            cursor = clamp(box.cursorindex[], 0, length(value))
+            box.cursorindex[] == cursor || (box.cursorindex[] = cursor)
+        end
         box.displayed_string[] = String(value)
         stored && (box.stored_string[] = String(value))
         return true
