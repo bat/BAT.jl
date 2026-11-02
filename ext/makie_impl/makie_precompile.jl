@@ -11,7 +11,11 @@ function _drive_figure_widgets!(fig)
         end
     end
 
+    range_controls = _figure_controls(fig).range[]
     for t in filter(x -> x isa Toggle, fig.content)
+        # Live drag is exercised with explicit range requests below. Activating
+        # it here would also apply the untouched full range as a separate edit.
+        t === range_controls.live_drag_toggle && continue
         t.active[] = true
         t.active[] = false
     end
