@@ -53,3 +53,21 @@ using BAT, Test
     end
     @test timed(poll_interval=0.01).poll_interval === 0.01
 end
+
+@testset "Makie message duration and legacy constructor routes" begin
+    cfg = BATMakieVisualization()
+    args = (cfg.recipes, cfg.vsel, cfg.N_max, cfg.n_batch, cfg.max_buffered,
+        cfg.adaptive_batching, cfg.batch_growth_rate, cfg.poll_interval, cfg.dark,
+        cfg.triagonal_config, cfg.diagonal_config)
+    @test cfg.message_duration === 3.0
+    @test BATMakieVisualization(args...).message_duration === 3.0
+    @test BATMakieVisualization(args..., 60.0).message_duration === 3.0
+    @test BATMakieVisualization(message_duration = 0.25).message_duration === 0.25
+    @test BATMakieVisualization(args...; message_duration = 0.25).message_duration === 0.25
+    @test BATMakieVisualization(args..., 60.0; message_duration = 0.25).message_duration === 0.25
+    for duration in (NaN, Inf, -Inf, -1, 0, BigFloat(floatmax(Float64)) * 2)
+        @test_throws ArgumentError BATMakieVisualization(message_duration = duration)
+        @test_throws ArgumentError BATMakieVisualization(args...; message_duration = duration)
+        @test_throws ArgumentError BATMakieVisualization(args..., 60.0; message_duration = duration)
+    end
+end

@@ -16,7 +16,8 @@ Constructors:
 ```julia
 BATMakieVisualization(;
     dark = false, max_buffered = 200, adaptive_batching = true,
-    batch_growth_rate = 1.2, trace_nsteps = 20, observer_timeout = 60.0
+    batch_growth_rate = 1.2, trace_nsteps = 20, observer_timeout = 60.0,
+    message_duration = 3.0
 )
 
 BATMakieVisualization(
@@ -32,7 +33,7 @@ BATMakieVisualization(
 )
 ```
 
-The keyword constructor accepts only the six keywords shown. It fixes
+The keyword constructor accepts only the seven keywords shown. It fixes
 `vsel = [1, 2, 3]`, `N_max = 3`, `n_batch = 50`, `poll_interval = 0.1` and
 the default recipes/configurations below. Use a positional constructor to supply
 those settings. `trace_nsteps` is an integer of at least one; it sets
@@ -65,11 +66,14 @@ Fields:
 - `diagonal_config::NamedTuple`: diagonal recipe and overlay settings.
   The keyword constructor supplies BAT defaults with a statistics color chosen
   for `dark`.
+- `message_duration::Float64`: finite positive marginal-message duration in seconds.
+  Hovering pauses the countdown. Default: `3.0`.
 - `observer_timeout::Float64`: finite positive timeout in seconds for each
   continuous backpressure wait and, separately, finalization. Default: `60.0`.
 
 Defaults listed above are those of the keyword constructor. Positional values
-are converted to the stored field types and validated. Timeout expiry disables
+are converted to the stored field types and validated. Both positional constructors
+also accept `message_duration` as a keyword. Timeout expiry disables
 observation while sampling continues; it requires scheduler progress and cannot
 cancel a stuck native renderer. Inspect [`BAT.visualizer_status`](@ref), and use
 [`BAT.dispose_visualizer!`](@ref) to release a retained completed view.
@@ -90,11 +94,14 @@ struct BATMakieVisualization <: BATVisBackend
     triagonal_config::NamedTuple
     diagonal_config::NamedTuple
     observer_timeout::Float64
+    message_duration::Float64
 
     function BATMakieVisualization(
         recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate,
-        poll_interval, dark, triagonal_config, diagonal_config, observer_timeout
+        poll_interval, dark, triagonal_config, diagonal_config, observer_timeout;
+        message_duration::Real = 3.0
     )
+        message_duration = _makie_message_duration(message_duration)
         N_max = Int(N_max)
         N_max > 0 || throw(ArgumentError("N_max must be positive (got $N_max)"))
         n_batch = Int(n_batch)
@@ -119,7 +126,7 @@ struct BATMakieVisualization <: BATVisBackend
         new(
             recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching,
             batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config,
-            observer_timeout
+            observer_timeout, message_duration
         )
     end
 end
@@ -128,10 +135,11 @@ export BATMakieVisualization
 # Preserve the original positional constructor, with a named timeout option.
 function BATMakieVisualization(
     recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching, batch_growth_rate,
-    poll_interval, dark, triagonal_config, diagonal_config; observer_timeout::Real = 60.0
+    poll_interval, dark, triagonal_config, diagonal_config; observer_timeout::Real = 60.0,
+    message_duration::Real = 3.0
 )
     BATMakieVisualization(recipes, vsel, N_max, n_batch, max_buffered, adaptive_batching,
-        batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config, observer_timeout)
+        batch_growth_rate, poll_interval, dark, triagonal_config, diagonal_config, observer_timeout; message_duration)
 end
 
 
@@ -191,7 +199,8 @@ end
 
 function BATMakieVisualization(;
     dark::Bool = false, max_buffered::Integer = 4 * 50, adaptive_batching::Bool = true,
-    batch_growth_rate::Real = 1.2, trace_nsteps::Integer = 20, observer_timeout::Real = 60.0
+    batch_growth_rate::Real = 1.2, trace_nsteps::Integer = 20, observer_timeout::Real = 60.0,
+    message_duration::Real = 3.0
 )
     recipes = (upper = QuantileHist2D, diagonal = Hist1D, lower = Hist2D)
     vsel = [1, 2, 3]
@@ -214,7 +223,7 @@ function BATMakieVisualization(;
         dark,
         triagonal_config,
         diagonal_config,
-        observer_timeout,
+        observer_timeout; message_duration,
     )
     return vis_config
 end
@@ -230,7 +239,8 @@ end
         display::Bool = true,
         trace_nsteps::Integer = 20,
         support = nothing,
-        step_intervals = nothing
+        step_intervals = nothing,
+        message_duration = 3.0
     )
 
 *Experimental feature, not yet part of stable public API.*
@@ -540,3 +550,12 @@ session-wide dark theme.
 """
 function bat_theme_dark end
 export bat_theme_dark
+
+
+# Validate before allocating a figure or warming up a renderer.
+function _makie_message_duration(value::Real)
+    seconds = Float64(value)
+    isfinite(seconds) && seconds > 0 ||
+        throw(ArgumentError("message_duration must be finite and positive (got $seconds)"))
+    return seconds
+end
