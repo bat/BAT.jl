@@ -16,6 +16,7 @@ mutable struct _LiveView
     updating::Bool
     pending::Dict{Symbol,Any}
     seen_open::Threads.Atomic{Bool}
+    settled::Observable{UInt64}
 end
 
 
@@ -23,7 +24,7 @@ _LiveView() = _LiveView(
     ReentrantLock(), nothing, Any[],
     Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(false),
     Threads.Atomic{Bool}(false), Threads.Atomic{Bool}(true), 0, false, Dict{Symbol,Any}(),
-    Threads.Atomic{Bool}(false)
+    Threads.Atomic{Bool}(false), Observable(UInt64(0))
 )
 
 function _live_view(vis)
@@ -183,6 +184,8 @@ function _live_graph_update!(vis; publication::Bool = false, kwargs...)
             empty!(view.pending)
             view.updating = false
         end
+        # Acknowledge outer updates, including no-ops and publication-triggered UI edits.
+        view.presentation_valid[] && !view.cleanup_pending[] && (view.settled[] += 1)
     end
 end
 

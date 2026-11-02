@@ -113,10 +113,38 @@ returned value by a REPL, notebook, or IDE. The semicolons above suppress that
 extra output. For automatic inline output, use a final expression such as
 `bat_makie_plot(samples; display=false)` without a semicolon.
 
-The variable picker in static and live figures shows the first ten coordinates.
-Use **Clear selection** to remove all selected variables, including higher
-coordinates supplied through `vsel`, then choose replacements in the picker.
-Open the controls with **☰** to access the picker and its clear button.
+Open the controls with **☰** to access **Plot type**, **Statistics**, and
+**Marginals**. The marginal matrix shows up to six coordinates, with fewer
+positions when longer dimension indices need more room. Its row and column
+fields are linked: enter a dimension and press Enter or leave the field to
+replace that position and update the plot. Replacing an unselected position adds
+the new dimension to the selection. Duplicate headers and selections beyond
+`N_max` are rejected without changing the plot. Escape cancels a header edit.
+
+The small menu button beside **Marginals** opens **Display dimensions:**. Accept
+lists (`2, 7, 8` or `[2, 7, 8]`), increasing inclusive ranges (`2:4`), or pairs
+(`(2,8); (7,8)`). Pair notation selects the union of its dimensions and displays
+all combinations; it does not request a sparse set of pair plots. Indices are
+one-based. New selections are sorted and deduplicated. Empty input clears the
+selection, including dimensions outside the matrix. Confirm with **✓** or Enter;
+**×** or Escape cancels without changing the plot. Folding preserves unfinished
+edits. The caption reports selections outside the visible matrix and opens the
+same editor.
+
+The circular-arrow button restores the effective selection from construction,
+its original matrix headers, and matrix mode. It does not reset plot types,
+statistics, or sample ranges. Error/info tiles have a dismiss button and a
+countdown bar. They disappear after `message_duration=3.0` seconds by default;
+hovering pauses the countdown. Invalid fields remain marked after dismissal.
+Set the finite positive `message_duration` keyword on `bat_makie_plot` or
+`BATMakieVisualization` to change the duration. This keyword does not apply to
+the control-free `Makie.plot` path.
+
+The controls use a fixed minimum size derived from their contents. Native
+GLMakie windows enforce that minimum, including deferred display; ordinary
+resizing above it preserves both menu states. For exported figures, retain at
+least the construction width and sufficient height for the expanded controls.
+The controls do not scroll.
 
 The return changed from `nothing` to `Makie.Figure`. Existing explicit display is
 preserved, but return-value checks, automatic frontend output, and collections
@@ -181,7 +209,8 @@ The selected local step range applies independently to every cycle and clips
 weights to the overlap. Bare sample metadata does not certify this timing.
 The same keyword is supported by ordinary Makie `plot(samples; ...)`.
 The slider uses bounded ticks for large ranges; enter exact `start:end` values
-in the range field and press Enter, then **Apply range**, for precise selection.
+in the range field and click **Apply range** for precise selection. Pending
+manual edits give that button a quiet tint; they do not change the plot.
 In both static and live figures, **Live drag** is off by default. Enable it to
 apply the current draft and update the plot automatically while moving the
 slider handles or the whole interval.
@@ -470,7 +499,8 @@ handle or the whole interval. Updates retain the latest selection, run at most
 about ten times per second during dragging, and finish on mouse release.
 Disabling Live drag keeps the last applied range and restores manual selection.
 For long runs the slider uses bounded ticks; edit `start:end` and press Enter
-to set exact integer endpoints. This also applies immediately with Live drag
+to set exact integer endpoints, or click **Apply range** directly after typing.
+This also applies immediately with Live drag
 enabled; otherwise click **Apply range**.
 `max_buffered` must be at least the batch size (50 with the keyword constructor).
 It is an initial backpressure threshold, not a strict memory limit: a multi-walker

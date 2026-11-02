@@ -326,7 +326,8 @@ function _run_live_listener!(vis, tick!::F, finish!::G) where {F,G}
     ctl = vis.content.lifecycle
     phase = :selection
     try
-        _apply_vsel!(vis, vis.backend.vsel)
+        # Display callbacks may already have accepted a user selection during startup.
+        _apply_vsel!(vis, _initial_live_vsel(vis))
         while true
             mode = lock(vis.content.buffer_lock) do
                 while ctl.phase === :running && !ctl.tick

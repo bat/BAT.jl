@@ -1,45 +1,41 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-# Measured label widths; update when labels or theme font size change.
-const _LBL_ROW_WIDTH = 80.0        # max("Upper", "Diagonal", "Lower")
-const _LBL_STATS_WIDTH = 116.0     # "Stats overlay"
-const _LBL_TRACE_WIDTH = 122.0     # "Trace overlay"
-const _LBL_MARGINALS_WIDTH = 182.0 # "Displayed Marginals"
-const _LBL_MARGINALS_CAPPED_WIDTH = 292.0 # "Displayed Marginals (1-10 of NN)"
-const _UI_COL2_MENU_WIDTH = 200.0  # fixed recipe-menu column width (colsize! below)
-# Limit the picker to ten variables; further coordinates remain selectable through vsel.
-const _PICKER_MAX_N = 10
-# Size picker cells from N so the matrix fits the panel without reactive rescaling.
-_picker_cell_size(N::Integer) = clamp(176.0 / (N + 1), 14.0, 24.0)
-_picker_gap(N::Integer) = N <= 5 ? 5.0 : 3.0
-_picker_fontsize(N::Integer) = clamp(0.55 * _picker_cell_size(N), 7.0, 12.0)
-# Matrix width includes the index column and gaps.
-_picker_matrix_width(N::Integer) = (N + 1) * _picker_cell_size(N) + N * _picker_gap(N)
-# Default GridLayoutBase gaps between control tracks.
-const _UI_LAYOUT_COL_GAP = 16.0
-const _UI_LAYOUT_ROW_GAP = 16.0
-# Measured control-row height; update when font size or menu styling changes.
-const _UI_CONTROL_ROW_HEIGHT = 36.0
+# Stable native layout: reserve a minimum figure size instead of clipping or scrolling.
+const _LBL_ROW_WIDTH = 28.0
+const _LBL_STATS_WIDTH = 98.0
+const _LBL_TRACE_WIDTH = 92.0
+const _UI_COL2_MENU_WIDTH = 180.0
+const _UI_LAYOUT_COL_GAP = 12.0
+const _UI_LAYOUT_ROW_GAP = 12.0
 const _LIVE_DRAG_INTERVAL_NS = UInt64(100_000_000)
 
-# Compute panel width explicitly: a GridLayout with deferred width prevents bottom-up sizing.
-function _controls_panel_width(
-    picker_info::Union{PickerInfo,Nothing}, ui_box_pad::Real; has_trace_col::Bool = true
-)
-    fixed_cols = _LBL_ROW_WIDTH + _UI_COL2_MENU_WIDTH + _LBL_STATS_WIDTH +
-                 (has_trace_col ? _LBL_TRACE_WIDTH : 0.0)
-    picker_col_width = if isnothing(picker_info)
-        0.0
-    else
-        # The capped "(1-10 of N)" title variant is wider than the matrix.
-        title_w = picker_info.N > _PICKER_MAX_N ? _LBL_MARGINALS_CAPPED_WIDTH : _LBL_MARGINALS_WIDTH
-        max(title_w, _picker_matrix_width(min(picker_info.N, _PICKER_MAX_N)))
-    end
-    n_cols = (isnothing(picker_info) ? 3 : 4) + (has_trace_col ? 1 : 0)
-    return 2 * ui_box_pad + fixed_cols + picker_col_width + (n_cols - 1) * _UI_LAYOUT_COL_GAP
+function _picker_body_size(N::Integer)
+    slots = _marginal_slot_count(N)
+    return Float64(max(N > 5 ? 220 : 156, (slots + 1) * max(26, 7 * ndigits(N) + 10) + slots * 4))
 end
 
+function _controls_panel_width(picker_info::Union{PickerInfo,Nothing}, padding::Real;
+    has_trace_col::Bool = true)
+    settings = _LBL_ROW_WIDTH + _UI_COL2_MENU_WIDTH + _LBL_STATS_WIDTH +
+        (has_trace_col ? _LBL_TRACE_WIDTH : 0)
+    columns = 3 + has_trace_col + !isnothing(picker_info)
+    picker = isnothing(picker_info) ? 0 : _picker_body_size(picker_info.N)
+    return max(620.0, 2padding + settings + picker + (columns - 1) * _UI_LAYOUT_COL_GAP)
+end
+
+mutable struct _FigureControls
+    range::Base.RefValue{Any}
+    picker::Any
+    expanded::Observable{Bool}
+    collapse::Button
+    notice::Any
+    minimum_size::Tuple{Int,Int}
+end
+
+# Weak keys AND values: the figure's callbacks own its controls, never this test/debug lookup.
+const _FIGURE_CONTROLS = WeakKeyDict{Scene,WeakRef}()
+_figure_controls(fig::Figure) = get(_FIGURE_CONTROLS, fig.scene, WeakRef(nothing)).value
 
 # Fixed widths keep panel sizing independent of the grid's aspect ratio.
 _fix_panel_size!(x, panel_width::Real) = (x.width[] = Fixed(panel_width); x.halign[] = :center)
@@ -71,17 +67,18 @@ function _build_fig(
     has_chain_info::Bool = false,
     has_trace_info::Bool = false,
     live_vis = nothing,
+    message_duration::Real = 3.0,
 )
     # Panel rows have independent fixed widths; the plot grid can still expand.
     n_grid = size(graph[:live_map][], 1)
     grid_growth = 170 * max(n_grid - 3, 0)
     ui_box_pad = to_value(Makie.theme(:fontsize)) / 3
     panel_width = _controls_panel_width(picker_info, ui_box_pad; has_trace_col = has_trace_info)
-    fig_w = max(min(665 + grid_growth, 1600), ceil(Int, panel_width) + 24)
+    fig_w = max(min(665 + grid_growth, 1600), ceil(Int, panel_width) + 40)
     fig = Figure(size = (fig_w, min(850 + grid_growth, 1785)))
     try
         return _populate_fig!(fig, graph, gridlayout, picker_info, ui_box_pad, panel_width;
-            has_chain_info, has_trace_info, live_vis)
+            has_chain_info, has_trace_info, live_vis, message_duration)
     catch
         # Live startup already has a lifecycle owner that disposes its view.
         isnothing(live_vis) && _empty_failed_static_figure!(fig)
@@ -92,7 +89,7 @@ end
 
 function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     picker_info::Union{PickerInfo,Nothing}, ui_box_pad, panel_width;
-    has_chain_info::Bool, has_trace_info::Bool, live_vis)
+    has_chain_info::Bool, has_trace_info::Bool, live_vis, message_duration)
     subscription_owner = isnothing(live_vis) ? fig.scene : live_vis
     isnothing(live_vis) || _attach_live_view!(live_vis, fig)
 
@@ -185,7 +182,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     )
 
     # Manual range selection remains a draft until explicitly applied.
-    collapse_button = Button(fig, label = "☰", halign = :left, valign = :top)
+    collapse_button = Button(fig, label = "☰", width = 40, halign = :left, valign = :top)
     toggle_row_content[1, 1] = collapse_button
     colsize!(toggle_row_content, 1, Relative(1))
     range_controls = Ref{Any}(nothing)
@@ -200,23 +197,47 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
             limit_label.tellwidth[] = false
             colsize!(toggle_row_content, 1, Auto())
             collapse_button.height[] = Relative(1)
-            toggle_row_content[1:3, 1] = collapse_button
-            title = Label(
-                toggle_row_content[1, 2:3],
-                graph[:has_step_timing][] ? "Step in cycle" : "Sample range (per walker)";
-                tellwidth = false
-            )
-            slider = IntervalSlider(toggle_row_content[2, 2:3],
+            toggle_row_content[1:2, 1] = collapse_button
+            summary_layout = toggle_row_content[1, 2] = GridLayout(; width = Auto(), halign = :center)
+            colgap!(summary_layout, 8)
+            title = Label(summary_layout[1, 1],
+                graph[:has_step_timing][] ? "Step in cycle:" : "Sample range per walker:")
+            slider = IntervalSlider(toggle_row_content[2, 2],
                 range = SampleRangeGrid(limit), startvalues = (1, limit), width = nothing)
             draft = Observable((Int64(1), limit))
             syncing = Ref(false)
-            value_entry = Textbox(toggle_row_content[3, 2:4]; stored_string = "1:$limit",
-                placeholder = "start:end", width = nothing, tellwidth = false,
+            text_editing = Ref(false)
+            touched = Ref(false)
+            value_control = _control_textbox(fig, summary_layout[1, 2]; owner = subscription_owner,
+                limit = 48, text = "1:$limit", width = 126, height = 30, fontsize = 18,
+                textpadding = (6, 6, 3, 3),
+                on_submit = () -> commit_range_text!(), on_cancel = () -> begin
+                    value_control.replace!("$(draft[][1]):$(draft[][2])")
+                    value_control.blur!()
+                end,
                 validator = text -> !isnothing(_parse_sample_window(text, graph[:max_step][])))
-            apply = Button(toggle_row_content[1, 4], label = "Apply range")
-            live_drag = Observable(false)
-            live_drag_button = Button(toggle_row_content[2, 4], label = "○ Live drag")
-            dirty = Observable(true)
+            value_entry = value_control.box
+            apply = Button(toggle_row_content[1, 3], label = "Apply range", height = 30,
+                width = 132, strokewidth = 1, strokecolor = _panel_bg_color(fig.scene.backgroundcolor[], 0.3),
+                buttoncolor = _panel_bg_color(fig.scene.backgroundcolor[], 0.02))
+            live_layout = toggle_row_content[2, 3] = GridLayout()
+            colgap!(live_layout, 6)
+            live_drag_toggle = Toggle(live_layout[1, 1]; active = false, length = 27, markersize = 13)
+            live_drag = live_drag_toggle.active
+            live_drag_button = Button(live_layout[1, 2], label = "Live drag", fontsize = 18,
+                height = 30, padding = (0, 0, 0, 0), buttoncolor = :transparent, strokewidth = 0)
+            dirty = Observable(false)
+            function commit_range_text!()
+                interval = _parse_sample_window(_control_text(value_entry), graph[:max_step][])
+                if isnothing(interval)
+                    value_entry.bordercolor[] = _status_text_color(fig.scene.backgroundcolor[])
+                    return false
+                end
+                value_entry.bordercolor[] = _panel_bg_color(fig.scene.backgroundcolor[], 0.3)
+                touched[] = true
+                draft[] = interval
+                return true
+            end
             pending = Ref(false)
             applying = Ref(false)
             last_apply = Ref(zero(UInt64))
@@ -241,10 +262,13 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
                 return nothing
             end
             _view_onany(subscription_owner, graph[:window_steps], draft) do applied, pending_range
-                dirty[] = applied != pending_range
+                dirty[] = (touched[] || !isnothing(applied)) && applied != pending_range
             end
             _view_on(subscription_owner, slider.interval) do interval
-                syncing[] || (draft[] = Int64.(interval))
+                if !syncing[]
+                    touched[] = true
+                    draft[] = Int64.(interval)
+                end
             end
             _view_on(subscription_owner, value_entry.stored_string) do text
                 if !syncing[]
@@ -256,7 +280,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
                 syncing[] = true
                 try
                     set_close_to!(slider, interval...)
-                    Makie.set!(value_entry, "$(interval[1]):$(interval[2])")
+                    text_editing[] || value_control.replace!("$(interval[1]):$(interval[2])"; stored = true)
                 finally
                     syncing[] = false
                 end
@@ -265,7 +289,29 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
                     apply_drag!(; force = !(Mouse.left in events(fig.scene).mousebuttonstate))
                 end
             end
+            _view_on(subscription_owner, value_entry.displayed_string) do _
+                syncing[] && return
+                touched[] = true
+                dirty[] = true
+                if live_drag[]
+                    text_editing[] = true
+                    try
+                        commit_range_text!()
+                    finally
+                        text_editing[] = false
+                    end
+                end
+            end
+            _view_on(subscription_owner, dirty) do needs_apply
+                active = needs_apply && !live_drag[]
+                base = RGB(Makie.to_color(_panel_bg_color(fig.scene.backgroundcolor[], 0.02)))
+                accent = RGB(Makie.to_color(slider.color_active[]))
+                apply.buttoncolor[] = active ? 0.82base + 0.18accent : base
+                apply.strokecolor[] = active ? accent :
+                    _panel_bg_color(fig.scene.backgroundcolor[], 0.3)
+            end
             _view_on(subscription_owner, apply.clicks) do _
+                commit_range_text!() || return
                 if dirty[] || pending[]
                     pending[] = true
                     apply_range!()
@@ -275,7 +321,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
                 live_drag[] = !live_drag[]
             end
             _view_on(subscription_owner, live_drag) do active
-                live_drag_button.label[] = active ? "● Live drag" : "○ Live drag"
+                Makie.notify(dirty)
                 pending[] = active
                 active && apply_drag!(; force = true)
             end
@@ -283,9 +329,14 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
                 apply_drag!()
             end
             range_controls[] = (slider = slider, draft = draft, syncing = syncing, apply = apply,
-                live_drag = live_drag, live_drag_button = live_drag_button, apply_drag! = apply_drag!,
+                live_drag = live_drag, live_drag_button = live_drag_button, live_drag_toggle = live_drag_toggle,
+                value_control = value_control, apply_drag! = apply_drag!,
                 dirty = dirty, title = title, value_entry = value_entry)
-            rowgap!(toggle_row_content, 1, 0)
+            rowgap!(toggle_row_content, 1, 10)
+            colgap!(toggle_row_content, 12)
+            colsize!(toggle_row_content, 1, Fixed(40))
+            colsize!(toggle_row_content, 2, Auto())
+            colsize!(toggle_row_content, 3, Fixed(132))
         end
         # Growing data must not move the scale under a pressed pointer. Preserve
         # draft values as well as the applied range.
@@ -316,22 +367,25 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
         end
         return Consume(false)
     end
-    add_index_slider!()
 
-    lbl_upper = Label(fig, "Upper")
-    ui_layout[2, 1] = lbl_upper
-    lbl_diag = Label(fig, "Diagonal")
-    ui_layout[3, 1] = lbl_diag
-    lbl_lower = Label(fig, "Lower")
-    ui_layout[4, 1] = lbl_lower
+    notice = _control_notice(fig, toggle_box; owner = subscription_owner, duration = message_duration)
+    lbl_upper = Box(ui_layout[2, 1]; width = 28, height = 28, color = :transparent, strokewidth = 0)
+    lbl_diag = Box(ui_layout[3, 1]; width = 28, height = 28, color = :transparent, strokewidth = 0)
+    lbl_lower = Box(ui_layout[4, 1]; width = 28, height = 28, color = :transparent, strokewidth = 0)
+    _control_icon!(lbl_upper, :upper; filled = true)
+    _control_icon!(lbl_diag, :diagonal)
+    _control_icon!(lbl_lower, :lower; filled = true)
+    for (block, text) in ((lbl_upper, "Upper triangle"), (lbl_diag, "Diagonal"), (lbl_lower, "Lower triangle"))
+        _control_tooltip!(fig, block, text; owner = subscription_owner)
+    end
 
-    lbl_recipe = Label(fig, "Recipe")
+    lbl_recipe = Label(fig, "Plot type")
     ui_layout[1, 2] = lbl_recipe
     ui_layout[2, 2] = menu_upper
     ui_layout[3, 2] = menu_diagonal
     ui_layout[4, 2] = menu_lower
 
-    lbl_stats = Label(fig, "Stats overlay")
+    lbl_stats = Label(fig, "Statistics")
     ui_layout[1, 3] = lbl_stats
     toggle_upper = Toggle(ui_layout[2, 3], active = false)
     toggle_diag = Toggle(ui_layout[3, 3], active = false)
@@ -345,7 +399,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
 
     # Trace controls require step timing and only apply to off-diagonal cells.
     if has_trace_info
-        lbl_trace = Label(fig, "Trace overlay")
+        lbl_trace = Label(fig, "Trace")
         ui_layout[1, 4] = lbl_trace
         toggle_trace_upper = Toggle(ui_layout[2, 4], active = false)
         toggle_trace_lower = Toggle(ui_layout[4, 4], active = false)
@@ -358,10 +412,10 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
         end
     end
 
-    colsize!(ui_layout, 1, Auto())
+    colsize!(ui_layout, 1, Fixed(_LBL_ROW_WIDTH))
     colsize!(ui_layout, 2, _UI_COL2_MENU_WIDTH)
-    colsize!(ui_layout, 3, Auto())
-    has_trace_info && colsize!(ui_layout, 4, Auto())
+    colsize!(ui_layout, 3, Fixed(_LBL_STATS_WIDTH))
+    has_trace_info && colsize!(ui_layout, 4, Fixed(_LBL_TRACE_WIDTH))
 
     rowsize!(controls_layout, 2, Auto())
 
@@ -387,27 +441,33 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
         _view_graph_update!(graph, live_vis; show_stats_lower = is_live)
     end
 
-    if !isnothing(picker_info)
-        (; N, N_max, initial_vsel, apply_vsel!) = picker_info
-        picker_blocks = _build_vsel_picker!(
-            fig, ui_layout, graph, N, N_max, initial_vsel, apply_vsel!,
-            has_trace_info ? 5 : 4; live_vis = live_vis,
-        )
-        append!(ui_blocks, picker_blocks)
+    picker = isnothing(picker_info) ? nothing : _build_marginal_controls!(fig, ui_layout,
+        graph, picker_info, has_trace_info ? 5 : 4, notice, collapse_button; live_vis)
+    body_size = isnothing(picker_info) ? 156.0 : _picker_body_size(picker_info.N)
+    rowgap!(ui_layout, _UI_LAYOUT_ROW_GAP)
+    colgap!(ui_layout, _UI_LAYOUT_COL_GAP)
+    rowsize!(ui_layout, 1, Fixed(28))
+    for row in 2:4
+        rowsize!(ui_layout, row, Fixed((body_size - 2 * _UI_LAYOUT_ROW_GAP) / 3))
     end
-
+    isnothing(picker_info) || colsize!(ui_layout, has_trace_info ? 5 : 4, Fixed(body_size))
     controls_visible = Observable(false)
+    minimum_size = (ceil(Int, panel_width) + 40, ceil(Int, body_size) + 430 + (isnothing(live_vis) ? 0 : 48))
+    controls = _FigureControls(range_controls, picker, controls_visible, collapse_button, notice, minimum_size)
+    _FIGURE_CONTROLS[fig.scene] = WeakRef(controls)
     _view_on(subscription_owner, controls_visible; update = true) do vis
         rowsize!(fig.layout, 3, vis ? Auto() : Fixed(0))
-        # Hide the background explicitly; Fixed(0) alone can leave a rounding sliver.
         controls_box.visible[] = vis
-        for b in ui_blocks
-            _set_block_visible!(b, vis)
+        for block in ui_blocks
+            _set_block_visible!(block, vis)
         end
+        isnothing(controls.picker) || controls.picker.set_visible!(vis)
+        vis || controls.notice.dismiss!()
     end
     _view_on(subscription_owner, collapse_button.clicks) do _
-        controls_visible[] = !controls_visible[]
+        controls.expanded[] = !controls.expanded[]
     end
+    _install_controls_minimum!(fig, controls.minimum_size; owner = subscription_owner)
 
     if !isnothing(live_vis)
         # The population label stays visible when controls collapse or the window changes.
@@ -415,9 +475,10 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
             tellwidth = false)
     end
 
+    add_index_slider!()
     guarded_slider! = isnothing(live_vis) ? add_index_slider! :
         () -> _with_live_view(add_index_slider!, live_vis)
-    return (fig = fig, add_index_slider! = guarded_slider!, range_controls = range_controls)
+    return (fig = fig, add_index_slider! = guarded_slider!, range_controls = range_controls, controls = controls)
 end
 
 
@@ -457,15 +518,26 @@ _checkbox_should_be_checked(active_vars::Set{<:Integer}, i::Integer, j::Integer)
     (i in active_vars) && (j in active_vars)
 
 # A Fixed(0) cell alone does not disable geometric hit-testing: hidden blocks
-# need zero width and height. Restore each block's original dimensions; using
+# need zero width and height. Restore each block's desired dimensions; using
 # Auto() would shrink-wrap a Menu whose default width is nothing.
 const _BLOCK_NATURAL_SIZE = WeakKeyDict{Any,Tuple{Any,Any}}()
 _natural_size!(b) = get!(() -> (b.width[], b.height[]), _BLOCK_NATURAL_SIZE, b)
+const _BLOCK_VISIBILITY = WeakKeyDict{Any,Bool}()
+
+function _set_block_geometry!(b, width, height)
+    _BLOCK_NATURAL_SIZE[b] = (width, height)
+    if get(_BLOCK_VISIBILITY, b, true)
+        _silent_set!(b.width, width)
+        b.height[] = height
+    end
+    return nothing
+end
 
 # Batch attribute writes without notification; the last write must notify to trigger relayout.
 _silent_set!(observable, val) = setexcludinghandlers!(observe(observable), val)
 
 function _set_block_visible!(b, v::Bool)
+    _BLOCK_VISIBILITY[b] = v
     _silent_set!(b.blockscene.visible, v)
     w, h = _natural_size!(b)
     _silent_set!(b.width, v ? w : 0)
@@ -480,6 +552,7 @@ _set_block_visible!(b::Union{Label,Box}, v::Bool) = (b.visible[] = v)
 # when hiding/restoring both.
 const _CHECKBOX_NATURAL_SIZE = WeakKeyDict{Checkbox,Float64}()
 function _set_block_visible!(b::Checkbox, v::Bool)
+    _BLOCK_VISIBILITY[b] = v
     _silent_set!(b.blockscene.visible, v)
     w, h = _natural_size!(b)
     _silent_set!(b.width, v ? w : 0)
@@ -494,126 +567,39 @@ function _set_block_visible!(b::Checkbox, v::Bool)
 end
 
 
-# Build the capped variable picker with fixed square cells. Only the lower triangle is
-# interactive because mirrored cells select the same marginal.
-function _build_vsel_picker!(
-    fig::Figure, ui_layout::GridLayout, graph::ComputeGraph, N::Integer, N_max::Integer,
-    initial_vsel::AbstractVector{<:Integer}, apply_vsel!::Function, picker_col::Integer;
-    live_vis = nothing,
-)
-    subscription_owner = isnothing(live_vis) ? fig.scene : live_vis
-    N_shown = min(N, _PICKER_MAX_N)
-    cell = _picker_cell_size(N_shown)
-    gap = _picker_gap(N_shown)
-    lbl_fontsize = _picker_fontsize(N_shown)
-    cb_size = round(0.72 * cell)
-
-    title = N > _PICKER_MAX_N ?
-        "Displayed Marginals (1-$(_PICKER_MAX_N) of $N)" : "Displayed Marginals"
-    lbl_marginals = Label(fig, title)
-    ui_layout[1, picker_col] = lbl_marginals
-
-    picker_layout = ui_layout[2:4, picker_col] = GridLayout()
-
-    status_label = Label(fig, "", fontsize = 12, color = _status_text_color(fig.scene.backgroundcolor[]))
-
-    initial_vsel_set = Set(_clamp_vsel(initial_vsel, N, N_max))
-    checkboxes = Dict{Tuple{Int,Int},Checkbox}()
-    clear_button = Button(ui_layout[5, picker_col], label = "Clear selection")
-    all_blocks = Union{Checkbox,Label,Box,Button}[status_label, lbl_marginals, clear_button]
-    updating_programmatically = Ref(false)
-
-    for j in 1:N_shown
-        lbl = Label(fig, string(j), fontsize = lbl_fontsize)
-        picker_layout[1, j+1] = lbl
-        push!(all_blocks, lbl)
-    end
-    for i in 1:N_shown
-        lbl = Label(fig, string(i), fontsize = lbl_fontsize)
-        picker_layout[i+1, 1] = lbl
-        push!(all_blocks, lbl)
-        for j in 1:N_shown
-            if i >= j
-                cb = Checkbox(
-                    picker_layout[i+1, j+1],
-                    checked = (i in initial_vsel_set && j in initial_vsel_set),
-                    roundness = 0,
-                    size = cb_size
-                )
-                checkboxes[(i, j)] = cb
-                push!(all_blocks, cb)
-            else
-                bx = Box(fig,
-                    color = _panel_bg_color(_panel_bg_color(fig.scene.backgroundcolor[])),
-                    width = cb_size, height = cb_size)
-                picker_layout[i+1, j+1] = bx
-                push!(all_blocks, bx)
-            end
-        end
-    end
-    picker_layout[N_shown+2, 1:(N_shown+1)] = status_label
-
-    # Set track sizes after insertion so layout growth cannot stretch picker cells.
-    rowgap!(picker_layout, gap)
-    colgap!(picker_layout, gap)
-    for k in 1:N_shown+1
-        colsize!(picker_layout, k, Fixed(cell))
-        rowsize!(picker_layout, k, Fixed(cell))
-    end
-
-    # Auto tracks ignore spanning content; enlarge rows equally to fit the picker.
-    status_h = 16.0
-    matrix_h = (N_shown + 1) * cell + (N_shown + 1) * gap + status_h
-    row_h = max(_UI_CONTROL_ROW_HEIGHT, (matrix_h - 2 * _UI_LAYOUT_ROW_GAP) / 3)
-    for r in 2:4
-        rowsize!(ui_layout, r, Fixed(row_h))
-    end
-
-    active_vars = Ref(initial_vsel_set)
-
-    function apply_selection!(new_vars)
-        status_label.text[] = ""
-        active_vars[] = new_vars
-        apply_vsel!(sort(collect(new_vars)))
-
-        # Resync all checkboxes: deselecting a pair also deselects its diagonal variables.
-        updating_programmatically[] = true
-        try
-            for ((i, j), cb) in checkboxes
-                cb.checked[] = _checkbox_should_be_checked(new_vars, i, j)
-            end
-        finally
-            updating_programmatically[] = false
-        end
+function _install_controls_minimum!(fig, minimum_size; owner = fig.scene)
+    size = Tuple(Makie.viewport(fig.scene)[].widths)
+    enlarged = max.(size, minimum_size)
+    size == enlarged || Makie.resize!(fig, enlarged...)
+    function apply_native_minimum!()
+        screen = Makie.getscreen(fig.scene)
+        isnothing(screen) && return nothing
+        backend = parentmodule(typeof(screen))
+        _is_gl_backend(backend) || return nothing
+        isopen(screen) && screen.scene === fig.scene || return nothing
+        current = Tuple(Makie.viewport(fig.scene)[].widths)
+        target = max.(current, minimum_size)
+        current == target || Makie.resize!(fig, target...)
         return nothing
     end
-
-    # Selected coordinates outside the capped picker must also be removable.
-    _view_on(subscription_owner, clear_button.clicks) do _
-        updating_programmatically[] && return
-        apply_selection!(Set{Int}())
+    # Clamp through Makie's scale-aware resize path after native resize events.
+    # Persistent GLFW limits would leak into another figure when GLMakie reuses
+    # its screen/window. These callbacks instead end with this figure's owner.
+    _view_on(owner, events(fig.scene).window_open) do _
+        apply_native_minimum!()
     end
-
-    for (i, j) in keys(checkboxes)
-        cb = checkboxes[(i, j)]
-        _view_on(subscription_owner, cb.checked) do is_on
-            updating_programmatically[] && return
-
-            new_vars = _vsel_after_toggle(active_vars[], i, j, is_on)
-
-            if is_on && length(new_vars) > N_max
-                updating_programmatically[] = true
-                cb.checked[] = false
-                updating_programmatically[] = false
-                status_label.text[] = "Can't select more than $(N_max) variables at once -- deselect one first."
-                return
-            end
-
-            apply_selection!(new_vars)
-        end
+    _view_on(owner, events(fig.scene).tick) do _
+        apply_native_minimum!()
     end
+    return nothing
+end
 
-    return all_blocks
+
+function _initial_live_vsel(vis)
+    view = _live_view(vis)
+    controls = isnothing(view.figure) ? nothing : _figure_controls(view.figure)
+    return isnothing(controls) || isnothing(controls.picker) ? vis.backend.vsel :
+        copy(controls.picker.state.selection)
 end
 
 

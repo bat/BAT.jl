@@ -192,8 +192,7 @@ function _apply_vsel!(
     clamped = _clamp_vsel(requested_vsel, vis.content.n_dof[], vis.backend.N_max)
     # Do not discard an intent equal to the current graph value: another intent
     # may already be queued by a reentrant callback.
-    _live_graph_update!(vis; idxs = clamped)
-    return nothing
+    return _live_graph_update!(vis; idxs = clamped)
 end
 
 
@@ -296,7 +295,8 @@ function _init_live_visualizer!(vis, rng, mcmc_states, outputs, f_pretransform, 
             gridlayout = _init_gridlayout!(graph, vis.backend.N_max)
             built = _build_fig(graph, gridlayout, picker_info;
                 has_chain_info = _samples_have_chain_ids(outputs[1][1]),
-                has_trace_info = vis.content.step_mode[], live_vis = vis)
+                has_trace_info = vis.content.step_mode[], live_vis = vis,
+                message_duration = vis.backend.message_duration)
         end
     end
     started || return nothing

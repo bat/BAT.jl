@@ -35,14 +35,14 @@ function _drive_figure_widgets!(fig)
     notify(button.clicks)
     notify(button.clicks)
 
-    resize!(fig, 500, 650)
+    resize!(fig, _figure_controls(fig).minimum_size...)
 
     # Exercise manual and live range application through the actual controls.
     slider = only(filter(x -> x isa IntervalSlider, fig.content))
     r = slider.range[]
     slider.interval[] = (max(first(r), fld(last(r), 4)), max(first(r), fld(last(r), 2)))
     apply = only(filter(x -> x isa Button && x.label[] == "Apply range", fig.content))
-    live_drag = only(filter(x -> x isa Button && x.label[] == "○ Live drag", fig.content))
+    live_drag = only(filter(x -> x isa Button && x.label[] == "Live drag", fig.content))
     notify(apply.clicks)
     slider.interval[] = (first(r), last(r))
     notify(live_drag.clicks)

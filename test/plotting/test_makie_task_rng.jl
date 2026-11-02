@@ -380,7 +380,7 @@ function interaction_failure()
             end
             slider = only(filter(x -> x isa Makie.IntervalSlider, figure.content))
             slider.interval[] = (1, 8)
-            live_drag = only(filter(x -> x isa Makie.Button && x.label[] == "○ Live drag", figure.content))
+            live_drag = only(filter(x -> x isa Makie.Button && x.label[] == "Live drag", figure.content))
             check_user_effects() do
                 live_drag.clicks[] += 1 # Real guarded BAT live-drag entry point.
                 join_release(vis)

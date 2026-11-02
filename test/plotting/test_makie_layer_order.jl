@@ -1,6 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 module TestMakieLayerOrder
 using BAT, Makie, Test
+const EXT = Base.get_extension(BAT, :BATMakieExt)
 
 axis(fig) = only(filter(x -> x isa Axis, fig.content))
 snapshot(fig) = [(typeof(p), deepcopy(p.converted[])) for p in axis(fig).scene.plots]
@@ -19,7 +20,7 @@ snapshot(fig) = [(typeof(p), deepcopy(p.converted[])) for p in axis(fig).scene.p
         held_axis.title = "retained axis"
         upper_stats, stats = filter(x -> x isa Toggle, fig.content)[1:2]
         stats.active[] = true
-        textbox = only(filter(x -> x isa Textbox, fig.content))
+        textbox = EXT._figure_controls(fig).range[].value_entry
         apply = only(filter(x -> x isa Button && x.label[] == "Apply range", fig.content))
         if native
             screen = backend.Screen(; visible = false, start_renderloop = false)

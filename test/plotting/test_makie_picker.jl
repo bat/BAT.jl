@@ -13,19 +13,27 @@ axes(fig) = filter(x -> x isa Axis, fig.content)
 diagonal(checks, i) = checks[i * (i + 1) ÷ 2]
 cell(fig, i, j) = only(filter(x -> x isa Axis, contents(fig[1, 1][i, j])))
 
+function clear_selection!(fig)
+    picker = EXT._figure_controls(fig).picker
+    picker.open_editor!()
+    picker.editor.replace!("")
+    @test picker.commit_editor!()
+end
+
 @testset "Clearing static variable selections" begin
     for (n, selected, capacity) in ((1, [1], 1), (11, [11], 1),
         (12, [2, 11, 12], 3), (12, Int[], 2))
         @testset "n=$n selected=$selected capacity=$capacity" begin
             samples = DensitySampleVector(v = [Float64.(1:n), Float64.(2:n+1)], logd = zeros(2))
             before = deepcopy(samples)
-            fig = bat_makie_plot(samples, RECIPES, selected, capacity; display = false)
+            fig = bat_makie_plot(samples, RECIPES, selected, capacity; display = false, message_duration = 4.5)
             try
+                @test EXT._figure_controls(fig).notice.clock.duration == 4.5
                 checks = checkboxes(fig)
                 original_axes = axes(fig)
-                clear = button(fig, "Clear selection")
+                clear = EXT._figure_controls(fig).picker.reset
                 collapse = button(fig, "☰")
-                @test length(checks) == min(n, 10) * (min(n, 10) + 1) ÷ 2
+                @test length(checks) == EXT._marginal_slot_count(n) * (EXT._marginal_slot_count(n) + 1) ÷ 2
                 @test !clear.blockscene.visible[]
                 @test clear.width[] == clear.height[] == 0
                 Makie.notify(collapse.clicks)
@@ -41,14 +49,14 @@ cell(fig, i, j) = only(filter(x -> x isa Axis, contents(fig[1, 1][i, j])))
                 if length(selected) == capacity && 1 ∉ selected
                     diagonal(checks, 1).checked[] = true
                     @test !diagonal(checks, 1).checked[]
-                    @test any(x -> x isa Label && startswith(x.text[], "Can't select"), fig.content)
+                    @test EXT._figure_controls(fig).notice.clock.active
                 end
 
                 for _ in 1:2
-                    Makie.notify(clear.clicks)
+                    clear_selection!(fig)
                     @test all(cb -> !cb.checked[], checks)
                     @test all(axis -> !axis.xlabelvisible[] && !axis.ylabelvisible[], original_axes)
-                    @test !any(x -> x isa Label && startswith(x.text[], "Can't select"), fig.content)
+                    @test !EXT._figure_controls(fig).notice.clock.active
                 end
                 diagonal(checks, 1).checked[] = true
                 @test diagonal(checks, 1).checked[]
@@ -60,7 +68,7 @@ cell(fig, i, j) = only(filter(x -> x isa Axis, contents(fig[1, 1][i, j])))
                     @test diagonal(checks, 2).checked[] == (capacity >= 2)
                     @test diagonal(checks, 1).checked[]
                 end
-                Makie.notify(clear.clicks)
+                clear_selection!(fig)
                 @test all(cb -> !cb.checked[], checks)
                 @test all(axes(fig) .=== original_axes)
                 @test samples == before
@@ -96,7 +104,7 @@ end
     defaults = BATMakieVisualization()
     config = BATMakieVisualization(RECIPES, [11], 1, 1, 4, false,
         defaults.batch_growth_rate, 0.01, defaults.dark,
-        defaults.triagonal_config, defaults.diagonal_config; observer_timeout = 120.0)
+        defaults.triagonal_config, defaults.diagonal_config; observer_timeout = 120.0, message_duration = 4.5)
     vis = BATVisualizer(config)
     target = BAT.BATDistMeasure(MvNormal(zeros(11), ones(11)))
     algorithm = TransformedMCMC(nchains = 1, nwalkers = 1,
@@ -110,8 +118,9 @@ end
         BAT.init_visualizer!(vis; rng = BAT.get_rng(context), mcmc_states = states,
             outputs = outputs, target = target, f_pretransform = identity)
         fig = only(capture.figures)
+        @test EXT._figure_controls(fig).notice.clock.duration == 4.5
         graph = EXT._live_graph(vis)
-        clear = button(fig, "Clear selection")
+        clear = EXT._figure_controls(fig).picker.reset
         checks = checkboxes(fig)
         original_axis = only(axes(fig))
 
@@ -125,7 +134,7 @@ end
                 @test graph[:idxs][] == [11]
                 @test String(original_axis.xlabel[]) == "\$v_11\$"
                 rng = copy(BAT.get_rng(states[1].chain_state.context))
-                Makie.notify(clear.clicks)
+                clear_selection!(fig)
                 @test isempty(graph[:idxs][])
                 @test all(cb -> !cb.checked[], checks)
                 @test !original_axis.xlabelvisible[]
@@ -144,12 +153,68 @@ end
         BAT.finish_visualizer!(vis; success = true)
         @test BAT.visualizer_status(vis).data_complete
         @test BAT.visualizer_figure(vis) === fig
-        Makie.notify(clear.clicks)
+        clear_selection!(fig)
         @test isempty(graph[:idxs][])
         diagonal(checks, 1).checked[] = true
         @test graph[:idxs][] == [1]
         @test only(axes(fig)) === original_axis
         @test sum(only(only(outputs)).weight) == 16
+
+        # A reset nested in an older selection must win after the owner drains updates.
+        picker = EXT._figure_controls(fig).picker
+        armed = Ref(true)
+        reentrant = on(graph[:idxs]) do _
+            if armed[]
+                armed[] = false
+                picker.reset!()
+            end
+        end
+        try
+            picker.submit!([2])
+            @test graph[:idxs][] == [11]
+            @test picker.state.selection == [11]
+            @test picker.state.headers == picker.state.initial_headers
+            @test picker.mode[] === :matrix
+        finally
+            off(reentrant)
+        end
+        # Selection actions nested in a non-selection graph update also settle.
+        nested = on(graph[:show_stats_diag]) do enabled
+            if enabled
+                picker.submit!([2])
+                picker.submit!([11])
+            end
+        end
+        try
+            EXT._live_graph_update!(vis; show_stats_diag = true)
+            @test picker.state.selection == graph[:idxs][] == [11]
+            @test diagonal(checks, 1).checked[] == false
+            @test occursin("outside picker", picker.summary.label[])
+        finally
+            off(nested)
+        end
+
+        # A draft entered during a synchronous graph notification is newer than
+        # the submission whose completion is still unwinding.
+        picker.submit!([1])
+        header = picker.headers[(1, :row)]
+        header.replace!("9")
+        armed[] = true
+        newer_draft = on(graph[:idxs]) do _
+            if armed[]
+                armed[] = false
+                header.replace!("8")
+            end
+        end
+        try
+            @test picker.commit_header!(1)
+            @test graph[:idxs][] == [9]
+            @test picker.header_drafts[1] == "8"
+            @test header.box.displayed_string[] == "8"
+        finally
+            off(newer_draft)
+        end
+        picker.reset!()
 
         BAT.dispose_visualizer!(vis)
         waitfor(() -> !BAT.visualizer_status(vis).cleanup_pending)

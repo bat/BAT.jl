@@ -40,7 +40,7 @@ release!(fig) = (events(fig).mousebutton[] = Makie.MouseButtonEvent(Mouse.left, 
 function check_controls(fig, graph)
     slider = only(filter(x -> x isa IntervalSlider, fig.content))
     apply = only(filter(x -> x isa Button && x.label[] == "Apply range", fig.content))
-    live_drag = only(filter(x -> x isa Button && x.label[] == "○ Live drag", fig.content))
+    live_drag = only(filter(x -> x isa Button && x.label[] == "Live drag", fig.content))
     @test !any(x -> x isa Button && x.label[] == "All", fig.content)
     @test !isempty(Makie.colorbuffer(fig))
     initial = graph[:window_steps][]
@@ -54,7 +54,7 @@ function check_controls(fig, graph)
     @test graph[:window_steps][] == slider.interval[]
 
     click!(fig, live_drag)
-    @test live_drag.label[] == "● Live drag"
+    @test live_drag.label[] == "Live drag"
     n = last(slider.range[])
     set_close_to!(slider, round(Int, 0.2n), round(Int, 0.6n))
     before = slider.interval[]
@@ -85,7 +85,7 @@ function check_controls(fig, graph)
     end
 
     click!(fig, live_drag)
-    @test live_drag.label[] == "○ Live drag"
+    @test live_drag.label[] == "Live drag"
     applied = graph[:window_steps][]
     set_close_to!(slider, 2, 3)
     @test graph[:window_steps][] == applied

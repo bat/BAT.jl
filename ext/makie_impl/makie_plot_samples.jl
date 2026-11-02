@@ -123,7 +123,9 @@ function BAT.bat_makie_plot(
     trace_nsteps::Integer = 20,
     support = nothing,
     step_intervals = nothing,
+    message_duration::Real = 3.0,
 )
+    message_duration = BAT._makie_message_duration(message_duration)
     # TODO: Support user configuration and attribute overrides.
 
     # Deferred display must also defer this optional temporary-figure render.
@@ -147,7 +149,7 @@ function BAT.bat_makie_plot(
         gridlayout = _init_gridlayout!(graph, N_max)
         _build_fig(graph, gridlayout, picker_info;
             has_chain_info = _samples_have_chain_ids(samples),
-            has_trace_info = graph[:has_step_timing][])
+            has_trace_info = graph[:has_step_timing][], message_duration)
     end
     # Renderer startup/rollback may join callbacks which use Makie's theme
     # lock. Keep the theme scoped to construction, before any such join.

@@ -211,7 +211,7 @@ end
             @test isnothing(g[:window_steps][])
             Makie.notify(controls.live_drag_button.clicks)
             @test controls.live_drag[]
-            @test controls.live_drag_button.label[] == "● Live drag"
+            @test controls.live_drag_toggle.active[]
             @test g[:window_steps][] == (4,12)
             controls.slider.interval[] = (5,9)
             @test g[:window_steps][] == (5,9)
@@ -238,7 +238,7 @@ end
             events.mousebutton[] = Makie.MouseButtonEvent(Mouse.left,Mouse.release)
             Makie.notify(events.tick)
             @test !controls.live_drag[]
-            @test controls.live_drag_button.label[] == "○ Live drag"
+            @test !controls.live_drag_toggle.active[]
             @test g[:window_steps][] == applied
             Makie.notify(controls.apply.clicks)
             @test g[:window_steps][] == (2,6)

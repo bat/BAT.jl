@@ -30,6 +30,15 @@ pointer events for individual handles and the whole interval, on static and
 completed live figures. It requires GLMakie, a working display and an external
 process deadline, like the other native checks.
 
+`gl_controls_redesign.jl` exercises native text entry, linked headers, editor
+confirmation/cancellation, reset, glyph visibility, minimum-window resizing,
+and reuse of the screen by an unrelated figure. It can save review images to
+an external directory specified by `BAT_UI_EVIDENCE`. Run it in its own process:
+
+```sh
+timeout 600 julia --startup-file=no --threads=2 --project=/path/to/gl-project test/optional/makie/gl_controls_redesign.jl
+```
+
 `gl_smoke.jl` additionally tests native GLMakie recipe/selection round trips,
 rendering, and live close isolation from an unrelated screen.
 Run it with an external process deadline in a scratch environment containing
@@ -103,10 +112,13 @@ sizes, heterogeneous sample metadata, exact timed-weight conversion, and static
 control subscription cleanup. `lifecycle_interactive_interrupt` injects an
 interrupt through a real control callback and checks observation status,
 disposal, and continued sampler/RNG equality.
-The `picker` case clears selections above the ten-variable matrix through the
-actual static and live controls, then selects replacements. It checks mixed and
-empty selections, capacity limits, collapsed/expanded layout, continued live
-publication, and subscription cleanup after figure disposal.
+The `picker` case clears selections above the visible matrix through the
+text editor, then selects replacements in static and live figures. It checks
+mixed and empty selections, capacity limits, continued publication, and disposal.
+`marginal_selection` checks the bounded input grammar and owned construction
+state without a renderer. `controls_redesign` covers linked headers, reset,
+editor confirmation/cancellation, folded drafts, minimum-size layouts, notice
+expiry, paste admission, and exact range application in both themes.
 The `numerics` case checks Float64 geometry, zero-mass KDE behavior, stable
 relative scatter weights, and actual PDF/covariance rendering at extreme scales.
 `covariance_admission` checks decomposition accuracy in each coordinate's scale,
