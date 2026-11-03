@@ -30,6 +30,12 @@ pointer events for individual handles and the whole interval, on static and
 completed live figures. It requires GLMakie, a working display and an external
 process deadline, like the other native checks.
 
+`gl_range_highlight.jl` renders the pending range highlight before Apply and
+after Apply/Live drag transitions. It rejects logged render errors and compares
+the button pixels across repeated transitions in light, dark and translucent
+border themes. It uses stopped native screens and the same external deadline
+and display requirements.
+
 `gl_controls_redesign.jl` exercises native text entry, linked headers, editor
 confirmation/cancellation, reset, glyph visibility, minimum-window resizing,
 and reuse of the screen by an unrelated figure. It can save review images to

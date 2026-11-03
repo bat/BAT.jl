@@ -224,9 +224,13 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
                 end,
                 validator = text -> !isnothing(_parse_sample_window(text, graph[:max_step][])))
             value_entry = value_control.box
-            apply = Button(toggle_row_content[1, 3], label = "Apply range", height = 30, width = 132)
+            # Resolve the native theme through the existing button, preserving
+            # alpha. The border must have one concrete color type from creation:
+            # Makie's cached Poly computation cannot switch from Symbol to RGB.
+            apply_stroke = RGBAf(Makie.to_color(collapse_button.strokecolor[]))
+            apply = Button(toggle_row_content[1, 3], label = "Apply range", height = 30,
+                width = 132, strokecolor = apply_stroke)
             apply_color = apply.buttoncolor[]
-            apply_stroke = apply.strokecolor[]
             live_layout = toggle_row_content[2, 3] = GridLayout()
             colgap!(live_layout, 6)
             live_drag_toggle = Toggle(live_layout[1, 1]; active = false, length = 27, markersize = 13)
@@ -314,7 +318,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
                 base = RGB(Makie.to_color(apply_color))
                 accent = RGB(Makie.to_color(slider.color_active[]))
                 apply.buttoncolor[] = active ? 0.82base + 0.18accent : apply_color
-                apply.strokecolor[] = active ? accent : apply_stroke
+                apply.strokecolor[] = active ? RGBAf(accent) : apply_stroke
             end
             _view_on(subscription_owner, apply.clicks) do _
                 commit_range_text!() || return
