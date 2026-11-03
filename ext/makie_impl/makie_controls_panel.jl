@@ -6,6 +6,8 @@ const _LBL_ROW_WIDTH = 28.0
 const _LBL_STATS_WIDTH = 98.0
 const _LBL_TRACE_WIDTH = 92.0
 const _UI_COL2_MENU_WIDTH = 180.0
+const _UI_PANEL_PADDING = 12.0
+const _UI_DIVIDER_WIDTH = 1.0
 const _UI_LAYOUT_COL_GAP = 12.0
 const _UI_LAYOUT_ROW_GAP = 12.0
 const _LIVE_DRAG_INTERVAL_NS = UInt64(100_000_000)
@@ -15,13 +17,17 @@ function _picker_body_size(N::Integer)
     return Float64(max(N > 5 ? 220 : 156, (slots + 1) * max(26, 7 * ndigits(N) + 10) + slots * 4))
 end
 
-function _controls_panel_width(picker_info::Union{PickerInfo,Nothing}, padding::Real;
+function _controls_panel_dimensions(picker_info::Union{PickerInfo,Nothing}, padding::Real;
     has_trace_col::Bool = true)
     settings = _LBL_ROW_WIDTH + _UI_COL2_MENU_WIDTH + _LBL_STATS_WIDTH +
         (has_trace_col ? _LBL_TRACE_WIDTH : 0)
-    columns = 3 + has_trace_col + !isnothing(picker_info)
+    columns = 3 + has_trace_col + 2 * !isnothing(picker_info)
     picker = isnothing(picker_info) ? 0 : _picker_body_size(picker_info.N)
-    return max(620.0, 2padding + settings + picker + (columns - 1) * _UI_LAYOUT_COL_GAP)
+    divider = isnothing(picker_info) ? 0 : _UI_DIVIDER_WIDTH
+    natural_width = 2padding + settings + picker + divider + (columns - 1) * _UI_LAYOUT_COL_GAP
+    width = max(620.0, natural_width)
+    # Give spare width to the menus, preserving exact outer/divider padding.
+    return (; width, menu_width = _UI_COL2_MENU_WIDTH + width - natural_width)
 end
 
 mutable struct _FigureControls
@@ -72,13 +78,14 @@ function _build_fig(
     # Panel rows have independent fixed widths; the plot grid can still expand.
     n_grid = size(graph[:live_map][], 1)
     grid_growth = 170 * max(n_grid - 3, 0)
-    ui_box_pad = to_value(Makie.theme(:fontsize)) / 3
-    panel_width = _controls_panel_width(picker_info, ui_box_pad; has_trace_col = has_trace_info)
+    ui_box_pad = _UI_PANEL_PADDING
+    dimensions = _controls_panel_dimensions(picker_info, ui_box_pad; has_trace_col = has_trace_info)
+    panel_width = dimensions.width
     fig_w = max(min(665 + grid_growth, 1600), ceil(Int, panel_width) + 40)
     fig = Figure(size = (fig_w, min(850 + grid_growth, 1785)))
     try
         return _populate_fig!(fig, graph, gridlayout, picker_info, ui_box_pad, panel_width;
-            has_chain_info, has_trace_info, live_vis, message_duration)
+            has_chain_info, has_trace_info, live_vis, message_duration, menu_width = dimensions.menu_width)
     catch
         # Live startup already has a lifecycle owner that disposes its view.
         isnothing(live_vis) && _empty_failed_static_figure!(fig)
@@ -89,7 +96,7 @@ end
 
 function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     picker_info::Union{PickerInfo,Nothing}, ui_box_pad, panel_width;
-    has_chain_info::Bool, has_trace_info::Bool, live_vis, message_duration)
+    has_chain_info::Bool, has_trace_info::Bool, live_vis, message_duration, menu_width)
     subscription_owner = isnothing(live_vis) ? fig.scene : live_vis
     isnothing(live_vis) || _attach_live_view!(live_vis, fig)
 
@@ -217,9 +224,9 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
                 end,
                 validator = text -> !isnothing(_parse_sample_window(text, graph[:max_step][])))
             value_entry = value_control.box
-            apply = Button(toggle_row_content[1, 3], label = "Apply range", height = 30,
-                width = 132, strokewidth = 1, strokecolor = _panel_bg_color(fig.scene.backgroundcolor[], 0.3),
-                buttoncolor = _panel_bg_color(fig.scene.backgroundcolor[], 0.02))
+            apply = Button(toggle_row_content[1, 3], label = "Apply range", height = 30, width = 132)
+            apply_color = apply.buttoncolor[]
+            apply_stroke = apply.strokecolor[]
             live_layout = toggle_row_content[2, 3] = GridLayout()
             colgap!(live_layout, 6)
             live_drag_toggle = Toggle(live_layout[1, 1]; active = false, length = 27, markersize = 13)
@@ -304,11 +311,10 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
             end
             _view_on(subscription_owner, dirty) do needs_apply
                 active = needs_apply && !live_drag[]
-                base = RGB(Makie.to_color(_panel_bg_color(fig.scene.backgroundcolor[], 0.02)))
+                base = RGB(Makie.to_color(apply_color))
                 accent = RGB(Makie.to_color(slider.color_active[]))
-                apply.buttoncolor[] = active ? 0.82base + 0.18accent : base
-                apply.strokecolor[] = active ? accent :
-                    _panel_bg_color(fig.scene.backgroundcolor[], 0.3)
+                apply.buttoncolor[] = active ? 0.82base + 0.18accent : apply_color
+                apply.strokecolor[] = active ? accent : apply_stroke
             end
             _view_on(subscription_owner, apply.clicks) do _
                 commit_range_text!() || return
@@ -413,7 +419,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     end
 
     colsize!(ui_layout, 1, Fixed(_LBL_ROW_WIDTH))
-    colsize!(ui_layout, 2, _UI_COL2_MENU_WIDTH)
+    colsize!(ui_layout, 2, Fixed(menu_width))
     colsize!(ui_layout, 3, Fixed(_LBL_STATS_WIDTH))
     has_trace_info && colsize!(ui_layout, 4, Fixed(_LBL_TRACE_WIDTH))
 
@@ -441,8 +447,16 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
         _view_graph_update!(graph, live_vis; show_stats_lower = is_live)
     end
 
+    divider_column = has_trace_info ? 5 : 4
+    if !isnothing(picker_info)
+        divider = Box(ui_layout[1:4, divider_column]; width = _UI_DIVIDER_WIDTH,
+            height = nothing, tellheight = false, strokewidth = 0,
+            color = _panel_bg_color(fig.scene.backgroundcolor[], 0.3))
+        push!(ui_blocks, divider)
+        colsize!(ui_layout, divider_column, Fixed(_UI_DIVIDER_WIDTH))
+    end
     picker = isnothing(picker_info) ? nothing : _build_marginal_controls!(fig, ui_layout,
-        graph, picker_info, has_trace_info ? 5 : 4, notice, collapse_button; live_vis)
+        graph, picker_info, divider_column + 1, notice, collapse_button; live_vis)
     body_size = isnothing(picker_info) ? 156.0 : _picker_body_size(picker_info.N)
     rowgap!(ui_layout, _UI_LAYOUT_ROW_GAP)
     colgap!(ui_layout, _UI_LAYOUT_COL_GAP)
@@ -450,7 +464,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     for row in 2:4
         rowsize!(ui_layout, row, Fixed((body_size - 2 * _UI_LAYOUT_ROW_GAP) / 3))
     end
-    isnothing(picker_info) || colsize!(ui_layout, has_trace_info ? 5 : 4, Fixed(body_size))
+    isnothing(picker_info) || colsize!(ui_layout, divider_column + 1, Fixed(body_size))
     controls_visible = Observable(false)
     minimum_size = (ceil(Int, panel_width) + 40, ceil(Int, body_size) + 430 + (isnothing(live_vis) ? 0 : 48))
     controls = _FigureControls(range_controls, picker, controls_visible, collapse_button, notice, minimum_size)

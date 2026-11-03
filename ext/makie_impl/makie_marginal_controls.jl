@@ -16,8 +16,7 @@ function _build_marginal_controls!(fig, layout, graph, info::PickerInfo, column,
     header_errors = Dict{Int,Any}()
     editor_error = Ref{Any}(nothing)
 
-    heading = layout[1, column] = GridLayout()
-    colgap!(heading, 6)
+    heading = layout[1, column] = GridLayout(; halign = :left)
     title = Label(heading[1, 1], "Marginals"; halign = :left)
     reset = _control_icon_button(fig, heading[1, 2], :reset,
         "Restore original marginal selection and headers"; owner)
@@ -25,12 +24,10 @@ function _build_marginal_controls!(fig, layout, graph, info::PickerInfo, column,
     colsize!(heading, 1, Fixed(92))
     colsize!(heading, 2, Fixed(24))
     colsize!(heading, 3, Fixed(24))
+    colgap!(heading, 6)
 
     matrix = layout[2:4, column] = GridLayout(; width = body_size, height = body_size)
     editor_layout = layout[2:4, column] = GridLayout(; width = body_size, height = body_size)
-    summary = Button(layout[5, column]; label = "", fontsize = 12,
-        buttoncolor = :transparent, strokewidth = 0, height = 24, tellwidth = false)
-    _control_tooltip!(fig, summary, "Edit selected dimensions; pairs display all combinations"; owner)
     editor_title = Label(editor_layout[1, 1:2], "Display dimensions:"; halign = :left, fontsize = 16)
     preview = Label(editor_layout[3, 1:2], ""; fontsize = 12, tellwidth = false,
         word_wrap = true, halign = :left, justification = :left)
@@ -39,7 +36,7 @@ function _build_marginal_controls!(fig, layout, graph, info::PickerInfo, column,
     cancel = _control_icon_button(fig, editor_layout[4, 2], :close, "Cancel dimension edits"; owner)
     skip_blur() = (notice.clock.active && Point2f(events(fig.scene).mouseposition[]) in notice.bounds[]) ||
         any(b -> _control_hit(b, fig.scene),
-            (reset.button, switch.button, cancel.button, collapse_button, notice.close, summary, help))
+            (reset.button, switch.button, cancel.button, collapse_button, notice.close, help))
     reject_input() = notice.show!(_marginal_error("Input is too long", "Enter a shorter dimension list."))
     editor = _control_textbox(fig, editor_layout[2, 1:2]; owner,
         limit = _marginal_text_limit(info.N, info.N_max),
@@ -138,10 +135,6 @@ function _build_marginal_controls!(fig, layout, graph, info::PickerInfo, column,
                 checked = _checkbox_should_be_checked(selected, state.headers[i], state.headers[j])
                 check.checked[] == checked || (check.checked[] = checked)
             end
-            outside = count(v -> v ∉ state.headers, state.selection)
-            caption = "$(length(state.selection)) / $(state.capacity) selected" *
-                (outside == 0 ? "" : " · $outside outside picker")
-            summary.label[] == caption || (summary.label[] = caption)
         finally
             syncing[] = false
         end
@@ -281,9 +274,6 @@ function _build_marginal_controls!(fig, layout, graph, info::PickerInfo, column,
     _view_on(owner, switch.button.clicks) do _
         mode[] === :matrix ? open_editor!() : commit_editor!()
     end
-    _view_on(owner, summary.clicks) do _
-        open_editor!()
-    end
     _view_on(owner, cancel.button.clicks) do _
         cancel_editor!()
     end
@@ -311,7 +301,7 @@ function _build_marginal_controls!(fig, layout, graph, info::PickerInfo, column,
     end
     function set_visible!(value)
         visible[] = value
-        for block in (title, reset.button, switch.button, summary)
+        for block in (title, reset.button, switch.button)
             _set_block_visible!(block, value)
         end
         value || notice.dismiss!()
@@ -322,6 +312,6 @@ function _build_marginal_controls!(fig, layout, graph, info::PickerInfo, column,
     set_visible!(false)
     return (; state, headers, checks, editor, header_drafts, header_errors, editor_error,
         mode, reset = reset.button, switch = switch.button, cancel = cancel.button,
-        summary, preview, submit!, reset!, commit_header!, commit_editor!, cancel_editor!,
+        preview, submit!, reset!, commit_header!, commit_editor!, cancel_editor!,
         open_editor!, set_visible!, settle!, matrix_blocks, editor_blocks)
 end

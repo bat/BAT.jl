@@ -128,8 +128,8 @@ all combinations; it does not request a sparse set of pair plots. Indices are
 one-based. New selections are sorted and deduplicated. Empty input clears the
 selection, including dimensions outside the matrix. Confirm with **✓** or Enter;
 **×** or Escape cancels without changing the plot. Folding preserves unfinished
-edits. The caption reports selections outside the visible matrix and opens the
-same editor.
+edits. The editor includes the full selection, including dimensions outside the
+visible matrix.
 
 The circular-arrow button restores the effective selection from construction,
 its original matrix headers, and matrix mode. It does not reset plot types,

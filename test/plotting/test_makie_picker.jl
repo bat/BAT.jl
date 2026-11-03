@@ -189,7 +189,9 @@ end
             EXT._live_graph_update!(vis; show_stats_diag = true)
             @test picker.state.selection == graph[:idxs][] == [11]
             @test diagonal(checks, 1).checked[] == false
-            @test occursin("outside picker", picker.summary.label[])
+            picker.open_editor!()
+            @test EXT._control_text(picker.editor.box) == "11"
+            picker.cancel_editor!()
         finally
             off(nested)
         end
