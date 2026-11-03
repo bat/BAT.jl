@@ -218,7 +218,8 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
             value_control = _control_textbox(fig, summary_layout[1, 2]; owner = subscription_owner,
                 limit = 48, text = "1:$limit", width = 126, height = 30, fontsize = 18,
                 textpadding = (6, 6, 3, 3),
-                on_submit = () -> commit_range_text!(), on_cancel = () -> begin
+                on_submit = () -> commit_and_apply_range!(),
+                on_blur = () -> commit_range_text!(), on_cancel = () -> begin
                     value_control.replace!("$(draft[][1]):$(draft[][2])")
                     value_control.blur!()
                 end,
@@ -261,6 +262,14 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
                     _apply_sample_window!(graph, draft[]; live_vis = live_vis)
                 finally
                     applying[] = false
+                end
+                return nothing
+            end
+            function commit_and_apply_range!()
+                commit_range_text!() || return nothing
+                if dirty[] || pending[]
+                    pending[] = true
+                    apply_range!()
                 end
                 return nothing
             end
@@ -321,11 +330,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
                 apply.strokecolor[] = active ? RGBAf(accent) : apply_stroke
             end
             _view_on(subscription_owner, apply.clicks) do _
-                commit_range_text!() || return
-                if dirty[] || pending[]
-                    pending[] = true
-                    apply_range!()
-                end
+                commit_and_apply_range!()
             end
             _view_on(subscription_owner, live_drag_button.clicks) do _
                 live_drag[] = !live_drag[]

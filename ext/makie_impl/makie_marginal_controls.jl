@@ -18,27 +18,30 @@ function _build_marginal_controls!(fig, layout, graph, info::PickerInfo, column,
 
     heading = layout[1, column] = GridLayout(; halign = :left)
     title = Label(heading[1, 1], "Marginals"; halign = :left)
-    reset = _control_icon_button(fig, heading[1, 2], :reset,
-        "Restore original marginal selection and headers"; owner)
-    switch = _control_icon_button(fig, heading[1, 3], :menu, "Enter dimensions"; owner)
-    colsize!(heading, 1, Fixed(92))
-    colsize!(heading, 2, Fixed(24))
-    colsize!(heading, 3, Fixed(24))
-    colgap!(heading, 6)
+    reset = _control_icon_button(fig, heading[1, 2], :reset; owner)
+    switch = _control_icon_button(fig, heading[1, 3], :menu; owner)
 
     matrix = layout[2:4, column] = GridLayout(; width = body_size, height = body_size)
     editor_layout = layout[2:4, column] = GridLayout(; width = body_size, height = body_size)
-    editor_title = Label(editor_layout[1, 1:2], "Display dimensions:"; halign = :left, fontsize = 16)
-    preview = Label(editor_layout[3, 1:2], ""; fontsize = 12, tellwidth = false,
+    editor_heading = editor_layout[1, 1] = GridLayout(; halign = :left)
+    editor_title = Label(editor_heading[1, 1:2], "Display dimensions:"; halign = :left,
+        fontsize = 16, tellwidth = false, word_wrap = true, justification = :left)
+    preview = Label(editor_layout[3, 1], ""; fontsize = 12, tellwidth = false,
         word_wrap = true, halign = :left, justification = :left)
     help = Button(editor_layout[4, 1]; label = "Input formats", fontsize = 13,
         height = 26, tellwidth = false)
-    cancel = _control_icon_button(fig, editor_layout[4, 2], :close, "Cancel dimension edits"; owner)
+    cancel = _control_icon_button(fig, editor_heading[1, 3], :close, "Cancel dimension edits"; owner)
+    for row in (heading, editor_heading)
+        colsize!(row, 1, Fixed(92))
+        colsize!(row, 2, Fixed(24))
+        colsize!(row, 3, Fixed(24))
+        colgap!(row, 6)
+    end
     skip_blur() = (notice.clock.active && Point2f(events(fig.scene).mouseposition[]) in notice.bounds[]) ||
         any(b -> _control_hit(b, fig.scene),
             (reset.button, switch.button, cancel.button, collapse_button, notice.close, help))
     reject_input() = notice.show!(_marginal_error("Input is too long", "Enter a shorter dimension list."))
-    editor = _control_textbox(fig, editor_layout[2, 1:2]; owner,
+    editor = _control_textbox(fig, editor_layout[2, 1]; owner,
         limit = _marginal_text_limit(info.N, info.N_max),
         on_submit = () -> commit_editor!(), on_cancel = () -> cancel_editor!(),
         on_blur = () -> nothing, skip_blur, on_reject = reject_input,
@@ -47,11 +50,11 @@ function _build_marginal_controls!(fig, layout, graph, info::PickerInfo, column,
         width = nothing, height = 32, tellwidth = false, fontsize = 15)
     editor_blocks = Any[editor_title, editor.box, preview, help, cancel.button]
     rowgap!(editor_layout, 8)
-    rowsize!(editor_layout, 1, Fixed(28))
+    rowsize!(editor_layout, 1, Fixed(40))
     rowsize!(editor_layout, 2, Fixed(32))
-    rowsize!(editor_layout, 3, Auto())
+    rowsize!(editor_layout, 3, Auto(false))
     rowsize!(editor_layout, 4, Fixed(28))
-    colsize!(editor_layout, 2, Fixed(24))
+    colsize!(editor_layout, 1, Fixed(body_size))
 
     headers = Dict{Tuple{Int,Symbol},Any}()
     checks = Dict{Tuple{Int,Int},Checkbox}()
@@ -143,7 +146,6 @@ function _build_marginal_controls!(fig, layout, graph, info::PickerInfo, column,
     function show_mode!()
         editing = mode[] === :input
         switch.icon[] = editing ? :check : :menu
-        switch.tooltip.text[] = editing ? "Apply dimensions and return to matrix" : "Enter dimensions"
         for block in matrix_blocks
             _set_block_visible!(block, visible[] && !editing)
         end

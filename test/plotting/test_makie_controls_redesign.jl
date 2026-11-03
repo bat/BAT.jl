@@ -174,12 +174,26 @@ end
         @test controls.dirty[]
         @test isnothing(graph[:window_steps][])
         @test controls.apply.buttoncolor[] != initial_color
-        Makie.notify(controls.apply.clicks)
+        controls.value_control.focus!()
+        events(built.fig.scene).keyboardbutton[] = Makie.KeyEvent(Keyboard.enter, Keyboard.press)
+        events(built.fig.scene).keyboardbutton[] = Makie.KeyEvent(Keyboard.enter, Keyboard.release)
         @test graph[:window_steps][] == (3, 17)
         @test !controls.dirty[]
         controls.value_control.replace!("bad")
-        Makie.notify(controls.apply.clicks)
+        events(built.fig.scene).keyboardbutton[] = Makie.KeyEvent(Keyboard.enter, Keyboard.press)
+        events(built.fig.scene).keyboardbutton[] = Makie.KeyEvent(Keyboard.enter, Keyboard.release)
         @test graph[:window_steps][] == (3, 17)
+        controls.value_control.replace!("5:15")
+        events(built.fig.scene).mouseposition[] = (-10.0, -10.0)
+        events(built.fig.scene).mousebutton[] = Makie.MouseButtonEvent(Mouse.left, Mouse.press)
+        events(built.fig.scene).mousebutton[] = Makie.MouseButtonEvent(Mouse.left, Mouse.release)
+        @test graph[:window_steps][] == (3, 17) # Leaving the field still only stages a manual range.
+        @test controls.dirty[]
+        controls.value_control.focus!()
+        events(built.fig.scene).keyboardbutton[] = Makie.KeyEvent(Keyboard.kp_enter, Keyboard.press)
+        events(built.fig.scene).keyboardbutton[] = Makie.KeyEvent(Keyboard.kp_enter, Keyboard.release)
+        @test graph[:window_steps][] == (5, 15)
+        @test !controls.dirty[]
         controls.value_control.replace!("1:20")
         Makie.notify(controls.apply.clicks)
         @test graph[:window_steps][] == (1, 20) # Explicit full range differs from follow-all.

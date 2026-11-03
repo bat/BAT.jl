@@ -10,7 +10,8 @@ _marginal_error(title, message) = (title = title, message = message)
 _marginal_unavailable(N) = _marginal_error("Dimension is unavailable",
     "Use whole-number dimension indices from 1 to $N.")
 _marginal_capacity_error(capacity) = _marginal_error("Selection limit",
-    "Choose at most $capacity distinct dimensions. Pairs count toward the same limit.")
+    "Choose at most $capacity distinct dimensions, including those in pairs. " *
+    "The limit is set when the figure is created.")
 
 struct _MarginalParseResult
     dimensions::Vector{Int}

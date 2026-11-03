@@ -83,11 +83,11 @@ function _control_tooltip!(fig, block, text; owner = fig.scene)
     return tip
 end
 
-function _control_icon_button(fig, position, kind::Symbol, description;
+function _control_icon_button(fig, position, kind::Symbol, description = nothing;
     owner = fig.scene, size = 24.0)
     button = Button(position; label = "", width = size, height = size,
         cornerradius = 4, padding = (0, 0, 0, 0))
     icon = _control_icon!(button, kind; size = 17.0)
-    tooltip = _control_tooltip!(fig, button, description; owner)
+    tooltip = isnothing(description) ? nothing : _control_tooltip!(fig, button, description; owner)
     return (button = button, icon = icon, tooltip = tooltip)
 end

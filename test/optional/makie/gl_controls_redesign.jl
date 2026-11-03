@@ -96,7 +96,7 @@ end
         click!(fig, range.value_entry)
         range.value_control.replace!("3:17")
         @test isnothing(graph[:window_steps][])
-        click!(fig, range.apply)
+        key!(fig, Keyboard.enter)
         @test graph[:window_steps][] == (3, 17)
 
         for size in (controls.minimum_size, controls.minimum_size .+ (180, 100))

@@ -209,7 +209,7 @@ The selected local step range applies independently to every cycle and clips
 weights to the overlap. Bare sample metadata does not certify this timing.
 The same keyword is supported by ordinary Makie `plot(samples; ...)`.
 The slider uses bounded ticks for large ranges; enter exact `start:end` values
-in the range field and click **Apply range** for precise selection. Pending
+in the range field and press Enter or click **Apply range** for precise selection. Pending
 manual edits give that button a quiet tint; they do not change the plot.
 In both static and live figures, **Live drag** is off by default. Enable it to
 apply the current draft and update the plot automatically while moving the
@@ -493,15 +493,16 @@ dwell weights. Initially the view follows all growing data; an applied range
 keeps its endpoints fixed, including a selection of the full current range.
 If timing is unavailable (including ARP weighting), the labelled sample range
 preserves each selected row's weight and elapsed-step traces are unavailable.
-By default, slider movement is a draft until **Apply range** is clicked.
+By default, slider movement creates a draft. Click **Apply range** or press
+Enter in the range field to apply it.
 Enable **Live drag** to apply the current draft and update while moving either
 handle or the whole interval. Updates retain the latest selection, run at most
 about ten times per second during dragging, and finish on mouse release.
 Disabling Live drag keeps the last applied range and restores manual selection.
 For long runs the slider uses bounded ticks; edit `start:end` and press Enter
-to set exact integer endpoints, or click **Apply range** directly after typing.
-This also applies immediately with Live drag
-enabled; otherwise click **Apply range**.
+to apply exact integer endpoints, or click **Apply range** directly after typing.
+With Live drag enabled, valid text edits apply immediately. Otherwise, leaving
+the field stages the range until Enter or **Apply range**.
 `max_buffered` must be at least the batch size (50 with the keyword constructor).
 It is an initial backpressure threshold, not a strict memory limit: a multi-walker
 update may cross it before waiting. With adaptive batching, both thresholds grow
