@@ -161,6 +161,27 @@ end
         events(fig).window_open[] = false
         range_tick!(fig)
         @test graph[:window_steps][] == (30,80)
+        events(fig).window_open[] = true
+        range_tick!(fig)
+        @test c.draft[] == (30,80)
+        @test c.value_entry.displayed_string[] == "30:80"
+        check_handles(c.slider,(30,80))
+
+        # Redisplaying the same figure must also discard unsubmitted text,
+        # including a rejected edit that previously showed an error border.
+        for text in ("40:70","bad")
+            c.value_control.focus!()
+            c.value_control.replace!(text)
+            text == "bad" && range_key!(fig)
+            events(fig).window_open[] = false
+            events(fig).window_open[] = true
+            @test graph[:window_steps][] == (30,80)
+            @test c.draft[] == (30,80)
+            @test c.value_entry.displayed_string[] == "30:80"
+            @test !c.value_entry.focused[]
+            @test c.value_entry.bordercolor[] == EXT._panel_bg_color(fig.scene.backgroundcolor[],0.3)
+            check_handles(c.slider,(30,80))
+        end
     finally
         empty!(fig)
     end

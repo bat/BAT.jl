@@ -31,7 +31,8 @@ completed live figures. It requires GLMakie, a working display and an external
 process deadline, like the other native checks.
 
 `range_events` covers native interval movement, double-click reset ordering,
-notice press/release pairing, cancellation, and displayed-handle recovery.
+notice press/release pairing, cancellation, displayed-handle recovery, and
+restoration of the applied range when redisplaying a closed figure.
 `gl_range_events.jl` runs the same event sequences with GL rendering and rejects
 logged render errors. These scene-event checks do not prove OS focus delivery.
 `lifecycle_range` covers publication during a held gesture, deferred/reentrant

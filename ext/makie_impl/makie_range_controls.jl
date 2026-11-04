@@ -201,9 +201,13 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
         if opened
             seen_open[] = true
             closed[] = false
+            reconcile!()
         elseif seen_open[]
             closed[] = true
             gesture[] = nothing
+            edited[] = false
+            value_control.blur!()
+            value_entry.bordercolor[] = _panel_bg_color(fig.scene.backgroundcolor[], 0.3)
         end
     end
     _view_on(owner, input.tick) do _

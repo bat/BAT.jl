@@ -85,6 +85,17 @@ end
                 range_release!(fig)
                 @test graph[:window_steps][] == (9,40)
                 @test !isempty(Makie.colorbuffer(screen))
+                # Close and redisplay the same static figure through native
+                # screens. No unsubmitted text preview may survive reopening.
+                range_text!(fig,(20,35))
+                @test graph[:window_steps][] == (9,40)
+                close(screen)
+                screen = GLMakie.Screen(;visible=false,start_renderloop=false)
+                display(screen,fig;start_renderloop=false)
+                @test !isempty(Makie.colorbuffer(screen))
+                @test graph[:window_steps][] == (9,40)
+                @test c.draft[] == (9,40)
+                @test c.value_entry.displayed_string[] == "9:40"
             end
         finally
             close(screen)
