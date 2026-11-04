@@ -2,6 +2,7 @@
 module TestMakieScatterAdmission
 using BAT, Makie, Test
 const EXT = Base.get_extension(BAT, :BATMakieExt)
+include("makie_control_testutils.jl")
 const CONFIG = BAT._default_makie_triagonal_config()
 const XY = [0.137 0.473 0.819; 0.211 0.397 0.733]
 const IDS = Int32[1, 1, 2]
@@ -112,12 +113,12 @@ end
             if !ordinary
                 slider = only(filter(x -> x isa IntervalSlider, fig.content))
                 apply = only(filter(x -> x isa Button && x.label[] == "Apply range", fig.content))
-                slider.interval[] = (2, 3)
+                range_text!(fig, (2, 3))
                 check_scatter_sizes(fig, weights)
-                notify(apply.clicks)
+                range_key!(fig)
                 check_scatter_sizes(fig, weights[[2, 3, 5, 6]])
-                slider.interval[] = (first(slider.range[]), last(slider.range[]))
-                notify(apply.clicks)
+                range_text!(fig, (first(slider.range[]), last(slider.range[])))
+                range_key!(fig)
                 check_scatter_sizes(fig, weights)
             end
             @test samples == before

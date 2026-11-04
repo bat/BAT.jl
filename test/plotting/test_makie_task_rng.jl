@@ -6,6 +6,7 @@
 module TestMakieTaskRNG
 using BAT, Makie, Test, Distributions, LinearAlgebra, Logging, Random
 const EXT = Base.get_extension(BAT, :BATMakieExt)
+include("makie_control_testutils.jl")
 const FAILURE = ErrorException("intentional observer task RNG fixture failure")
 
 mutable struct Capture{F} <: AbstractDisplay
@@ -218,6 +219,21 @@ function active_result(live)
             chains=chain_signature.(getfield.(states, :chain_state))))
         if live && !disposed[]
             @test vis.content.lifecycle.phase === :running
+            # The public accessor exposes completed figures only; this fixture
+            # owns the active view, as initialize() does above.
+            figure = vis.content.lifecycle.view.figure
+            @test !isempty(Makie.colorbuffer(figure))
+            controls = EXT._figure_controls(figure).range[]
+            @test !isnothing(controls)
+            unchanged() do
+                range_press!(figure, controls.slider, 0)
+                range_move!(figure, controls.slider, 0.25)
+                @test isnothing(EXT._live_graph(vis)[:window_steps][])
+                expected = controls.slider.interval[]
+                range_release!(figure)
+                @test EXT._live_graph(vis)[:window_steps][] == expected
+                @test first(expected) > 1
+            end
             unchanged() do
                 BAT.dispose_visualizer!(vis)
                 join_release(vis)
@@ -378,11 +394,12 @@ function interaction_failure()
                     throw(FAILURE)
                 end
             end
-            slider = only(filter(x -> x isa Makie.IntervalSlider, figure.content))
-            slider.interval[] = (1, 8)
-            live_drag = only(filter(x -> x isa Makie.Button && x.label[] == "Live drag", figure.content))
+            @test !isempty(Makie.colorbuffer(figure))
+            slider = EXT._figure_controls(figure).range[].slider
+            range_press!(figure, slider, 1 / (last(slider.range[]) - 1))
+            range_move!(figure, slider, 0)
             check_user_effects() do
-                live_drag.clicks[] += 1 # Real guarded BAT live-drag entry point.
+                range_release!(figure)
                 join_release(vis)
                 return work[]
             end
@@ -593,7 +610,7 @@ end
     @testset "Actual serial startup transform failure retains caller effects" begin
         startup_transform_failure()
     end
-    @testset "Real live-drag failure retains callback randomness" begin
+    @testset "Real range-release failure retains callback randomness" begin
         interaction_failure()
     end
     @testset "Real window close retains caller event randomness" begin

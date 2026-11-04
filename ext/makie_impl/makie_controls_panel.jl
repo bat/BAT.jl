@@ -188,7 +188,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
         direction = :up
     )
 
-    # Manual range selection remains a draft until explicitly applied.
+    # The native slider previews a range; the controller commits completed gestures.
     collapse_button = Button(fig, label = "☰", width = 40, halign = :left, valign = :top)
     toggle_row_content[1, 1] = collapse_button
     colsize!(toggle_row_content, 1, Relative(1))
@@ -197,7 +197,10 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     function add_index_slider!()
         limit = graph[:max_step][]
         limit_label.text[] = limit == 0 ? "No samples" : limit == 1 ? "All (single step/sample)" : ""
-        limit > 1 || return nothing
+        if limit <= 1
+            isnothing(range_controls[]) || range_controls[].reconcile!()
+            return nothing
+        end
         if isnothing(range_controls[])
             # A blank placeholder must not report zero as column 2's natural
             # width: the slider needs that column's remaining panel space.
@@ -211,18 +214,13 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
                 graph[:has_step_timing][] ? "Step in cycle:" : "Sample range per walker:")
             slider = IntervalSlider(toggle_row_content[2, 2],
                 range = SampleRangeGrid(limit), startvalues = (1, limit), width = nothing)
-            draft = Observable((Int64(1), limit))
-            syncing = Ref(false)
-            text_editing = Ref(false)
-            touched = Ref(false)
+            controller = Ref{Any}(nothing)
             value_control = _control_textbox(fig, summary_layout[1, 2]; owner = subscription_owner,
                 limit = 48, text = "1:$limit", width = 126, height = 30, fontsize = 18,
                 textpadding = (6, 6, 3, 3),
-                on_submit = () -> commit_and_apply_range!(),
-                on_blur = () -> commit_range_text!(), on_cancel = () -> begin
-                    value_control.replace!("$(draft[][1]):$(draft[][2])")
-                    value_control.blur!()
-                end,
+                on_submit = () -> controller[].commit_text!(),
+                on_blur = () -> controller[].commit_text!(; apply = false, explicit = false),
+                on_cancel = () -> controller[].cancel_text!(),
                 validator = text -> !isnothing(_parse_sample_window(text, graph[:max_step][])))
             value_entry = value_control.box
             # Resolve the native theme through the existing button, preserving
@@ -238,90 +236,9 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
             live_drag = live_drag_toggle.active
             live_drag_button = Button(live_layout[1, 2], label = "Live drag", fontsize = 18,
                 height = 30, padding = (0, 0, 0, 0), buttoncolor = :transparent, strokewidth = 0)
-            dirty = Observable(false)
-            function commit_range_text!()
-                interval = _parse_sample_window(_control_text(value_entry), graph[:max_step][])
-                if isnothing(interval)
-                    value_entry.bordercolor[] = _status_text_color(fig.scene.backgroundcolor[])
-                    return false
-                end
-                value_entry.bordercolor[] = _panel_bg_color(fig.scene.backgroundcolor[], 0.3)
-                touched[] = true
-                draft[] = interval
-                return true
-            end
-            pending = Ref(false)
-            applying = Ref(false)
-            last_apply = Ref(zero(UInt64))
-            function apply_range!()
-                (!pending[] || applying[]) && return nothing
-                pending[] = false
-                applying[] = true
-                last_apply[] = time_ns()
-                try
-                    _apply_sample_window!(graph, draft[]; live_vis = live_vis)
-                finally
-                    applying[] = false
-                end
-                return nothing
-            end
-            function commit_and_apply_range!()
-                commit_range_text!() || return nothing
-                if dirty[] || pending[]
-                    pending[] = true
-                    apply_range!()
-                end
-                return nothing
-            end
-            # Keep only the latest draft; render ticks and release flush it.
-            function apply_drag!(; force = false)
-                live_drag[] || return nothing
-                if force || time_ns() - last_apply[] >= _LIVE_DRAG_INTERVAL_NS
-                    apply_range!()
-                end
-                return nothing
-            end
-            _view_onany(subscription_owner, graph[:window_steps], draft) do applied, pending_range
-                dirty[] = (touched[] || !isnothing(applied)) && applied != pending_range
-            end
-            _view_on(subscription_owner, slider.interval) do interval
-                if !syncing[]
-                    touched[] = true
-                    draft[] = Int64.(interval)
-                end
-            end
-            _view_on(subscription_owner, value_entry.stored_string) do text
-                if !syncing[]
-                    interval = _parse_sample_window(text, graph[:max_step][])
-                    isnothing(interval) || (draft[] = interval)
-                end
-            end
-            _view_on(subscription_owner, draft) do interval
-                syncing[] = true
-                try
-                    set_close_to!(slider, interval...)
-                    text_editing[] || value_control.replace!("$(interval[1]):$(interval[2])"; stored = true)
-                finally
-                    syncing[] = false
-                end
-                if live_drag[]
-                    pending[] = true
-                    apply_drag!(; force = !(Mouse.left in events(fig.scene).mousebuttonstate))
-                end
-            end
-            _view_on(subscription_owner, value_entry.displayed_string) do _
-                syncing[] && return
-                touched[] = true
-                dirty[] = true
-                if live_drag[]
-                    text_editing[] = true
-                    try
-                        commit_range_text!()
-                    finally
-                        text_editing[] = false
-                    end
-                end
-            end
+            controller[] = _range_controls!(fig, graph, slider, value_control, live_drag;
+                owner = subscription_owner, live_vis)
+            dirty = controller[].dirty
             _view_on(subscription_owner, dirty) do needs_apply
                 active = needs_apply && !live_drag[]
                 base = RGB(Makie.to_color(apply_color))
@@ -330,57 +247,27 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
                 apply.strokecolor[] = active ? RGBAf(accent) : apply_stroke
             end
             _view_on(subscription_owner, apply.clicks) do _
-                commit_and_apply_range!()
+                controller[].commit_text!()
             end
             _view_on(subscription_owner, live_drag_button.clicks) do _
                 live_drag[] = !live_drag[]
             end
-            _view_on(subscription_owner, live_drag) do active
+            _view_on(subscription_owner, live_drag) do _
                 Makie.notify(dirty)
-                pending[] = active
-                active && apply_drag!(; force = true)
             end
-            _view_on(subscription_owner, events(fig.scene).tick) do _
-                apply_drag!()
-            end
-            range_controls[] = (slider = slider, draft = draft, syncing = syncing, apply = apply,
-                live_drag = live_drag, live_drag_button = live_drag_button, live_drag_toggle = live_drag_toggle,
-                value_control = value_control, apply_drag! = apply_drag!,
-                dirty = dirty, title = title, value_entry = value_entry)
+            range_controls[] = (; slider, apply, live_drag, live_drag_button, live_drag_toggle,
+                value_control, title, value_entry, controller[]...)
             rowgap!(toggle_row_content, 1, 10)
             colgap!(toggle_row_content, 12)
             colsize!(toggle_row_content, 1, Fixed(40))
             colsize!(toggle_row_content, 2, Auto())
             colsize!(toggle_row_content, 3, Fixed(132))
         end
-        # Growing data must not move the scale under a pressed pointer. Preserve
-        # draft values as well as the applied range.
-        if !(Mouse.left in events(fig.scene).mousebuttonstate)
-            slider = range_controls[].slider
-            if last(slider.range[]) != limit
-                controls = range_controls[]
-                controls.syncing[] = true
-                try
-                    slider.range[] = SampleRangeGrid(limit)
-                    set_close_to!(slider, controls.draft[]...)
-                finally
-                    controls.syncing[] = false
-                end
-            end
-        end
+        range_controls[].reconcile!()
         return nothing
     end
     _view_on(subscription_owner, graph[:max_step]) do _
         add_index_slider!()
-    end
-    # Observe release before widgets consume it (native mouse handlers use 1).
-    # Makie's button-state tracker has already removed the released button.
-    _view_on(subscription_owner, events(fig.scene).mousebutton; priority = 2) do event
-        if event.button == Mouse.left && event.action == Mouse.release
-            isnothing(range_controls[]) || range_controls[].apply_drag!(; force = true)
-            add_index_slider!()
-        end
-        return Consume(false)
     end
 
     notice = _control_notice(fig, toggle_box; owner = subscription_owner, duration = message_duration)

@@ -3,6 +3,7 @@ module TestMakieStaticResult
 using BAT, Test, Makie, CairoMakie
 
 const EXT = Base.get_extension(BAT, :BATMakieExt)
+include("makie_control_testutils.jl")
 const RECIPES = (upper=Hist2D, diagonal=Hist1D, lower=Hist2D)
 const DISPLAY_FAILURE = ErrorException("intentional static display failure")
 
@@ -116,14 +117,14 @@ end
         # two changes the visible density, while the second figure is untouched.
         slider = only(filter(x -> x isa IntervalSlider, deferred.content))
         apply = only(filter(x -> x isa Button && x.label[] == "Apply range", deferred.content))
-        slider.interval[] = (2, 2)
+        range_text!(deferred, (2, 2))
         @test check_histogram(deferred, values, weights) == original_points
-        Makie.notify(apply.clicks)
+        range_key!(deferred)
         check_histogram(deferred, values[2:2], weights[2:2])
         @test check_histogram(displayed, values, weights) == original_points
         @test !isempty(Makie.colorbuffer(displayed))
-        slider.interval[] = (first(slider.range[]), last(slider.range[]))
-        Makie.notify(apply.clicks)
+        range_text!(deferred, (first(slider.range[]), last(slider.range[])))
+        range_key!(deferred)
         @test check_histogram(deferred, values, weights) == original_points
 
         # Errors retain their identity and do not leak BAT's scoped theme.

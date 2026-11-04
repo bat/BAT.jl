@@ -131,9 +131,18 @@ function _control_notice(fig, anchor; owner = fig.scene, duration::Real = 3.0)
     _view_on(owner, close.button.clicks) do _
         dismiss!(; restore_focus = true)
     end
+    # Own complete press/release pairs, including when a close press hides us.
+    # Outside-origin drags must reach native dragstop even when released here.
+    pressed = Set{Mouse.Button}()
     _view_on(owner, events(fig.scene).mousebutton; priority = 85) do event
+        if event.action == Mouse.release
+            consumed = event.button in pressed
+            delete!(pressed, event.button)
+            return Consume(consumed)
+        end
         inside = clock.active && Point2f(events(fig.scene).mouseposition[]) in bounds[]
         inside || return Consume(false)
+        push!(pressed, event.button)
         if event.button == Mouse.left && event.action == Mouse.press && _control_hit(close.button, fig.scene)
             dismiss!(; restore_focus = true)
         end

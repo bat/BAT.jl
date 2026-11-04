@@ -6,6 +6,7 @@
 module TestMakieLifecycle
 using BAT, Test, Makie, Distributions, LinearAlgebra, Random
 const EXT = Base.get_extension(BAT, :BATMakieExt)
+include("makie_control_testutils.jl")
 const FAILURE = ErrorException("intentional lifecycle regression failure")
 
 mutable struct Capture <: AbstractDisplay
@@ -1044,13 +1045,92 @@ function grid_case()
     end
 end
 
+function range_case()
+    vis,state,outputs,target = fixture(; backend=config(limit=1000))
+    observer = nothing
+    try
+        fig = initialize(vis,state,outputs,target)
+        state = BAT.mcmc_iterate!!(outputs,state;max_nsteps=16,update_visualizer=true)
+        g = EXT._live_graph(vis)
+        @test g[:has_step_timing][]
+        # Like grid_case, allow bounded cold compilation of the first live
+        # publication without changing the visualizer's failure deadline.
+        waitfor(() -> g[:max_step][] >= 16; seconds=120.0)
+        c = EXT._figure_controls(fig).range[]
+        @test !isnothing(c)
+        @test !isempty(Makie.colorbuffer(fig))
+        held_limit = last(c.slider.range[])
+        range_press!(fig,c.slider,0)
+        range_move!(fig,c.slider,0.25)
+        held_interval = c.slider.interval[]
+        state = BAT.mcmc_iterate!!(outputs,state;max_nsteps=16,update_visualizer=true)
+        waitfor(() -> g[:max_step][] > held_limit)
+        @test last(c.slider.range[]) == held_limit
+        @test isnothing(g[:window_steps][])
+        range_release!(fig)
+        @test g[:window_steps][] == held_interval
+        @test last(c.slider.range[]) == g[:max_step][]
+        BAT.finish_visualizer!(vis;success=true)
+        @test BAT.visualizer_figure(vis) === fig
+        a, b = (Int64(2),Int64(8)), (Int64(3),Int64(9))
+        EXT._apply_sample_window!(g,a;live_vis=vis)
+        range_text!(fig,a)
+        observer = on(g[:show_stats_upper]) do enabled
+            enabled || return
+            EXT._apply_sample_window!(g,b;live_vis=vis)
+            @test g[:window_steps][] == a # B is deferred by the existing live owner.
+            range_key!(fig) # A is a fresh intent even though the graph still shows A.
+        end
+        EXT._live_graph_update!(vis;show_stats_upper=true)
+        @test g[:window_steps][] == a
+        @test c.draft[] == a
+        @test c.value_entry.displayed_string[] == "2:8"
+        off(observer)
+
+        # An older submission must not overwrite a newer reentrant text request.
+        observer = on(g[:window_steps]) do selected
+            if selected == b
+                range_text!(fig,(4,7);submit=true)
+            end
+        end
+        range_text!(fig,b;submit=true)
+        @test g[:window_steps][] == (4,7)
+        @test c.draft[] == (4,7)
+        @test c.value_entry.displayed_string[] == "4:7"
+        off(observer)
+        observer = nothing
+        c.value_control.blur!()
+        EXT._apply_sample_window!(g,a;live_vis=vis)
+        @test c.value_entry.displayed_string[] == "2:8"
+
+        # Native release reaches the same guarded failure boundary as other UI.
+        observer = on(g[:window_steps]) do _
+            throw(FAILURE)
+        end
+        limit = last(c.slider.range[])
+        range_press!(fig,c.slider,1/(limit-1))
+        range_move!(fig,c.slider,4/(limit-1))
+        range_release!(fig)
+        waitfor(() -> BAT.visualizer_status(vis).history_released)
+        status = BAT.visualizer_status(vis)
+        @test status.outcome === :complete && status.data_complete
+        @test !status.presentation_valid
+        @test status.error.message == FAILURE.msg
+        @test status.quiesced && !status.cleanup_pending
+        @test isempty(fig.content)
+    finally
+        isnothing(observer) || off(observer)
+        cleanup(vis)
+    end
+end
+
 const CASES=Dict("healthy"=>healthy,"owner"=>owner_interruption,"callback"=>(() -> computational_failure(:callback)),
     "convergence"=>(() -> computational_failure(:convergence)),"sampler"=>(() -> computational_failure(:sampler)),
     "producer"=>producer,"snapshot"=>(() -> producer(snapshot_failure=true)),
     "listener"=>listener,"timeout"=>timeout_case,
     "transform"=>transform_failure,"publication"=>publication,"stop_publication"=>stop_publication,
     "startup"=>startup,"view"=>view_case,"interactive_interrupt"=>interactive_interrupt,
-    "figure"=>figure_case,"grid"=>grid_case)
+    "figure"=>figure_case,"grid"=>grid_case,"range"=>range_case)
 case=get(ENV,"BAT_MAKIE_LIFECYCLE_CASE","")
 haskey(CASES,case) || error("Run this file through test/optional/makie/runtests.jl")
 @testset "Makie lifecycle: $case" begin

@@ -13,8 +13,7 @@ function _drive_figure_widgets!(fig)
 
     range_controls = _figure_controls(fig).range[]
     for t in filter(x -> x isa Toggle, fig.content)
-        # Live drag is exercised with explicit range requests below. Activating
-        # it here would also apply the untouched full range as a separate edit.
+        # Live drag is exercised with explicit range requests below.
         t === range_controls.live_drag_toggle && continue
         t.active[] = true
         t.active[] = false
@@ -42,15 +41,31 @@ function _drive_figure_widgets!(fig)
     resize!(fig, _figure_controls(fig).minimum_size...)
 
     # Exercise manual and live range application through the actual controls.
-    slider = only(filter(x -> x isa IntervalSlider, fig.content))
+    slider = range_controls.slider
     r = slider.range[]
-    slider.interval[] = (max(first(r), fld(last(r), 4)), max(first(r), fld(last(r), 2)))
-    apply = only(filter(x -> x isa Button && x.label[] == "Apply range", fig.content))
-    live_drag = only(filter(x -> x isa Button && x.label[] == "Live drag", fig.content))
-    notify(apply.clicks)
-    slider.interval[] = (first(r), last(r))
-    notify(live_drag.clicks)
-    notify(live_drag.clicks)
+    text = range_controls.value_control
+    text.focus!()
+    text.replace!("$(max(first(r), fld(last(r), 4))):$(max(first(r), fld(last(r), 2)))")
+    events(fig).keyboardbutton[] = Makie.KeyEvent(Keyboard.enter, Keyboard.press)
+    events(fig).keyboardbutton[] = Makie.KeyEvent(Keyboard.enter, Keyboard.release)
+    # A native no-op gesture must preserve that exact submission. Drive both
+    # dispatch and the post-release tick without requiring a GL screen.
+    input = events(fig)
+    box = slider.layoutobservables.computedbbox[]
+    fraction = (first(slider.interval[]) - 1) / (last(r) - 1)
+    point = box.origin + Vec2f(box.widths[2]/2 + fraction *
+        (box.widths[1] - box.widths[2]), box.widths[2]/2)
+    input.mouseposition[] = (-10.0, -10.0)
+    input.mouseposition[] = Tuple(Float64.(point + Vec2f(0, 1)))
+    input.mouseposition[] = Tuple(Float64.(point))
+    input.mousebutton[] = Makie.MouseButtonEvent(Mouse.left, Mouse.press)
+    input.mousebutton[] = Makie.MouseButtonEvent(Mouse.left, Mouse.release)
+    tick = input.tick[]
+    input.tick[] = Makie.Tick(Makie.RegularRenderTick, tick.count + 1, tick.time + 0.3, 0.3)
+    text.focus!()
+    range_controls.live_drag[] = true
+    text.replace!("$(first(r)):$(last(r))")
+    range_controls.live_drag[] = false
     return nothing
 end
 

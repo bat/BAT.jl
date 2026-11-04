@@ -2,6 +2,7 @@
 module TestMakieWindows
 using BAT, Test, Makie, Distributions, LinearAlgebra, Random
 const EXT = Base.get_extension(BAT, :BATMakieExt)
+include("makie_control_testutils.jl")
 const RECIPES = (upper=Hist2D, diagonal=Hist1D, lower=Hist2D)
 function fixture(; steps=[1,101], weights=[100,1], cycles=ones(Int,length(steps)), chains=ones(Int,length(steps)), walkers=ones(Int,length(steps)))
     n = length(steps)
@@ -163,13 +164,12 @@ end
         @test !BAT.capture_visualizer_init(vis)
         @test !BAT.capture_visualizer_init(BATVisualizer())
     end
-    @testset "Manual range controls do not recompute on draft changes" begin
+    @testset "Exact text drafts do not recompute before submission" begin
         s,timing = fixture(steps=[1,11], weights=[10,10])
         g = graph(s; timing)
         built = EXT._build_fig(g,EXT._init_gridlayout!(g,2),nothing;has_chain_info=true,has_trace_info=true)
         controls = built.range_controls[]
         @test !controls.live_drag[]
-        @test controls.apply.label[] == "Apply range"
         @test !any(x -> x isa Button && x.label[] == "All", built.fig.content)
         computations = Ref(0)
         observer = on(g[:flat_samples]) do _
@@ -177,93 +177,165 @@ end
         end
         try
             for i in 2:9
-                controls.slider.interval[] = (i,15)
+                range_text!(built.fig, (i,15))
             end
             @test computations[] == 0
             @test isnothing(g[:window_steps][])
-            Makie.notify(controls.apply.clicks)
+            range_key!(built.fig)
             @test computations[] == 1
             @test g[:window_steps][] == (9,15)
             @test sum(g[:flat_weights][]) == 7
             @test !controls.dirty[]
-            Makie.notify(controls.apply.clicks)
+            range_key!(built.fig)
             @test computations[] == 1
-            controls.slider.interval[] = (1, 20)
-            Makie.notify(controls.apply.clicks)
+            range_text!(built.fig, (1,20); submit=true)
             @test computations[] == 2
-            @test g[:window_steps][] == (1, 20)
+            @test g[:window_steps][] == (1,20)
             @test sum(g[:flat_weights][]) == 20
             @test EXT._apply_sample_window!(g,nothing)
             @test !EXT._apply_sample_window!(g,nothing)
             @test_throws ArgumentError EXT._apply_sample_window!(g,(2,1))
         finally
             off(observer)
+            empty!(built.fig)
         end
     end
-    @testset "Live dragging, pending ranges and figure cleanup" begin
+    @testset "Release applies native gestures and preserves follow-all" begin
         s,timing = fixture(steps=[1,11], weights=[10,10])
         g = graph(s; timing)
         built = EXT._build_fig(g,EXT._init_gridlayout!(g,2),nothing;has_chain_info=true,has_trace_info=true)
-        controls = built.range_controls[]
-        events = Makie.events(built.fig)
+        fig, controls = built.fig, built.range_controls[]
+        slider = controls.slider
+        changes = Any[]
+        watcher = on(value -> push!(changes,value), g[:window_steps])
         try
-            controls.slider.interval[] = (4,12)
-            @test isnothing(g[:window_steps][])
-            Makie.notify(controls.live_drag_button.clicks)
-            @test controls.live_drag[]
-            @test controls.live_drag_toggle.active[]
-            @test g[:window_steps][] == (4,12)
-            controls.slider.interval[] = (5,9)
-            @test g[:window_steps][] == (5,9)
+            @test !isempty(Makie.colorbuffer(fig))
+            range_press!(fig,slider,0)
+            range_move!(fig,slider,4/19)
+            range_move!(fig,slider,8/19)
+            @test controls.draft[] == (9,20)
+            @test isempty(changes)
+            range_release!(fig; tick=false)
+            @test isempty(changes)
+            range_tick!(fig)
+            @test changes == [(9,20)]
+            @test sum(g[:flat_weights][]) == 12
+            range_tick!(fig)
+            @test length(changes) == 1
+
+            # A second press before a tick settles the preceding release first.
+            range_press!(fig,slider,1)
+            range_move!(fig,slider,14/19)
+            range_release!(fig; tick=false)
+            @test length(changes) == 1
+            range_press!(fig,slider,8/19; advance=false)
+            @test changes == [(9,20),(9,15)]
+            range_move!(fig,slider,10/19)
+            range_release!(fig)
+            @test changes[end] == (11,15)
             @test sum(g[:flat_weights][]) == 5
 
-            # Pointer-held changes are coalesced; a render tick flushes the latest draft.
-            push!(events.mousebuttonstate, Mouse.left)
-            controls.slider.interval[] = (6,10)
-            controls.slider.interval[] = (7,11)
-            @test timedwait(() -> begin
-                Makie.notify(events.tick)
-                g[:window_steps][] == (7,11)
-            end, 5.0; pollint=0.02) == :ok
-            controls.slider.interval[] = (8,12)
-            events.mousebutton[] = Makie.MouseButtonEvent(Mouse.left,Mouse.release)
-            @test g[:window_steps][] == (8,12)
+            EXT._apply_sample_window!(g,nothing)
+            empty!(changes)
+            controls.live_drag[] = true
+            controls.live_drag[] = false
+            range_press!(fig,slider,0)
+            range_release!(fig)
+            range_press!(fig,slider,0)
+            range_move!(fig,slider,5/19)
+            range_move!(fig,slider,0)
+            range_release!(fig)
+            @test isempty(changes)
+            @test isnothing(g[:window_steps][])
 
-            # Disabling cancels unpublished drag work and restores manual selection.
-            push!(events.mousebuttonstate, Mouse.left)
-            controls.slider.interval[] = (9,13)
-            Makie.notify(controls.live_drag_button.clicks)
-            applied = g[:window_steps][]
-            controls.slider.interval[] = (2,6)
-            events.mousebutton[] = Makie.MouseButtonEvent(Mouse.left,Mouse.release)
-            Makie.notify(events.tick)
-            @test !controls.live_drag[]
-            @test !controls.live_drag_toggle.active[]
-            @test g[:window_steps][] == applied
-            Makie.notify(controls.apply.clicks)
-            @test g[:window_steps][] == (2,6)
-
-            Makie.notify(controls.live_drag_button.clicks)
-            push!(events.mousebuttonstate, Mouse.left)
-            controls.slider.interval[] = (3,7)
+            # Data growth leaves the active scale fixed through native release.
+            range_press!(fig,slider,0)
+            range_move!(fig,slider,2/19)
             s2,timing2 = fixture(steps=[1,26],weights=[25,25])
             g2 = graph(s2; timing=timing2)
             Makie.update!(g; samples=g2[:samples][], current_idxs=g2[:current_idxs][],
                 sample_timing=g2[:sample_timing][])
-            @test last(controls.slider.range[]) == 20
-            events.mousebutton[] = Makie.MouseButtonEvent(Mouse.left,Mouse.release)
-            @test last(controls.slider.range[]) == 50
-            @test controls.draft[] == (3,7)
-            @test g[:window_steps][] == (3,7)
+            @test last(slider.range[]) == 20
+            @test isempty(changes)
+            range_release!(fig; tick=false)
+            @test last(slider.range[]) == 20
+            range_tick!(fig)
+            @test g[:window_steps][] == (3,20)
+            @test last(slider.range[]) == 50
+            @test controls.draft[] == (3,20)
+            @test sum(g[:flat_weights][]) == 18
 
-            empty!(built.fig)
-            controls.slider.interval[] = (8,12)
-            Makie.notify(events.tick)
-            Makie.notify(controls.apply.clicks)
-            @test g[:window_steps][] == (3,7)
+            # A release elsewhere still finishes the owned gesture.
+            range_press!(fig,slider,2/49)
+            range_move!(fig,slider,4/49)
+            range_pointer!(fig,range_point(slider,4/49) + Vec2f(0,50))
+            selected = slider.interval[]
+            range_release!(fig)
+            @test g[:window_steps][] == selected
+            before = copy(changes)
+            range_release!(fig)
+            @test changes == before
         finally
-            delete!(events.mousebuttonstate, Mouse.left)
-            empty!(built.fig)
+            off(watcher)
+            empty!(fig)
+        end
+    end
+    @testset "Live drag, focus cancellation, and figure cleanup" begin
+        s,timing = fixture(steps=[1,11], weights=[10,10])
+        g = graph(s; timing)
+        built = EXT._build_fig(g,EXT._init_gridlayout!(g,2),nothing;has_chain_info=true,has_trace_info=true)
+        fig, controls = built.fig, built.range_controls[]
+        slider = controls.slider
+        input = events(fig)
+        try
+            @test !isempty(Makie.colorbuffer(fig))
+            controls.live_drag[] = true
+            @test isnothing(g[:window_steps][])
+            range_text!(fig,(4,12))
+            @test g[:window_steps][] == (4,12)
+            @test sum(g[:flat_weights][]) == 9
+            range_press!(fig,slider,3/19)
+            range_move!(fig,slider,5/19)
+            @test timedwait(() -> begin
+                range_tick!(fig)
+                g[:window_steps][] == (6,12)
+            end, 5; pollint=0.02) == :ok
+            range_move!(fig,slider,6/19)
+            controls.live_drag[] = false
+            range_release!(fig)
+            @test g[:window_steps][] == (7,12)
+            @test sum(g[:flat_weights][]) == 6
+
+            # Focus loss cancels unsubmitted work, then native release ends drag.
+            input.hasfocus[] = true
+            range_press!(fig,slider,6/19)
+            range_move!(fig,slider,8/19)
+            input.hasfocus[] = false
+            @test g[:window_steps][] == (7,12)
+            range_release!(fig)
+            @test g[:window_steps][] == (7,12)
+            @test controls.draft[] == (7,12)
+            @test slider.interval[] == (7,12)
+            range_move!(fig,slider,10/19)
+            @test slider.interval[] == (7,12)
+
+            input.hasfocus[] = true
+            range_press!(fig,slider,6/19)
+            range_move!(fig,slider,8/19)
+            range_release!(fig; tick=false)
+            input.hasfocus[] = false
+            range_tick!(fig)
+            @test g[:window_steps][] == (9,12) # Already released work survives focus loss.
+
+            range_press!(fig,slider,8/19)
+            range_move!(fig,slider,9/19)
+            empty!(fig)
+            range_release!(fig)
+            range_key!(fig)
+            @test g[:window_steps][] == (9,12)
+            @test isempty(Makie.Observables.listeners(input.hasfocus))
+        finally
+            empty!(fig)
         end
     end
     @testset "Initialization failure discards timing before UI startup" begin
@@ -301,19 +373,26 @@ end
         built = EXT._build_fig(g,EXT._init_gridlayout!(g,2),nothing;has_chain_info=true,has_trace_info=true)
         controls = built.range_controls[]
         @test length(controls.slider.range[]) == 10_001
-        Makie.set!(controls.value_entry,"$(limit-1):$limit")
+        range_text!(built.fig,(limit-1,limit))
         @test controls.draft[] == (limit-1,limit)
         @test isnothing(g[:window_steps][])
-        Makie.notify(controls.apply.clicks)
+        range_key!(built.fig)
         @test g[:window_steps][] == (limit-1,limit)
         @test g[:flat_weights][] == [2]
-        Makie.set!(controls.value_entry,"1:$limit")
-        Makie.notify(controls.apply.clicks)
+        @test !isempty(Makie.colorbuffer(built.fig))
+        range_press!(built.fig,controls.slider,1)
+        range_release!(built.fig)
+        @test g[:window_steps][] == (limit-1,limit)
+        @test controls.draft[] == (limit-1,limit)
+        @test controls.value_entry.displayed_string[] == "$(limit-1):$limit"
+        range_text!(built.fig,(1,limit))
+        range_key!(built.fig)
         @test g[:flat_weights][] == [3]
         Makie.notify(controls.live_drag_button.clicks)
-        Makie.set!(controls.value_entry,"$(limit-1):$limit")
+        range_text!(built.fig,(limit-1,limit))
         @test g[:window_steps][] == (limit-1,limit)
         @test g[:flat_weights][] == [2]
+        empty!(built.fig)
     end
 end
 end

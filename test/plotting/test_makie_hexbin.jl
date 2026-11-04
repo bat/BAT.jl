@@ -3,6 +3,7 @@
 module TestMakieHexbin
 using BAT, Test, Makie, CairoMakie, Random
 const EXT = Base.get_extension(BAT, :BATMakieExt)
+include("makie_control_testutils.jl")
 const CONFIG = merge(BAT._default_makie_triagonal_config(), (nbins=(5, 5), colormap=:viridis))
 const XY = [0.0 0.5 1.0; 0.0 0.8 1.0]
 
@@ -279,8 +280,8 @@ end
                 if !ordinary
                     slider = only(filter(x -> x isa IntervalSlider, fig.content))
                     button = only(filter(x -> x isa Button && x.label[] == "Apply range", fig.content))
-                    slider.interval[] = (2, 3)
-                    Makie.notify(button.clicks)
+                    range_text!(fig, (2, 3))
+                    range_key!(fig)
                     @test all(h -> sort(h.plots[1].count_hex[]) == [2, 3], descendants(fig, EXT.BATCheckedHexbin))
                     @test !isempty(Makie.colorbuffer(fig))
                 end

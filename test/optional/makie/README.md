@@ -25,10 +25,19 @@ after those assertions. The `core` case includes the backend-neutral owner and
 RNG/sample-preservation tests. Real process-SIGINT tests are separately bounded
 by [the optional MCMC owner runner](../mcmc_owner/README.md).
 
-`gl_range_controls.jl` checks manual range application and Live drag with native
+`gl_range_controls.jl` checks application on release and Live drag with native
 pointer events for individual handles and the whole interval, on static and
 completed live figures. It requires GLMakie, a working display and an external
 process deadline, like the other native checks.
+
+`range_events` covers native interval movement, double-click reset ordering,
+notice press/release pairing, cancellation, and displayed-handle recovery.
+`gl_range_events.jl` runs the same event sequences with GL rendering and rejects
+logged render errors. These scene-event checks do not prove OS focus delivery.
+`lifecycle_range` covers publication during a held gesture, deferred/reentrant
+range requests, and autonomous cleanup after a release callback fails. The
+fixed-work `task_rng` comparison also exercises a successful range release
+before disposal, preserving sample, callback, and RNG parity checks.
 
 `gl_range_highlight.jl` renders the pending range highlight before Apply and
 after Apply/Live drag transitions. It rejects logged render errors and compares

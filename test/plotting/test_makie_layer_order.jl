@@ -2,6 +2,7 @@
 module TestMakieLayerOrder
 using BAT, Makie, Test
 const EXT = Base.get_extension(BAT, :BATMakieExt)
+include("makie_control_testutils.jl")
 
 axis(fig) = only(filter(x -> x isa Axis, fig.content))
 snapshot(fig) = [(typeof(p), deepcopy(p.converted[])) for p in axis(fig).scene.plots]
@@ -31,8 +32,8 @@ snapshot(fig) = [(typeof(p), deepcopy(p.converted[])) for p in axis(fig).scene.p
         # Nested polygon counts change enough for Makie to replace only the fill
         # while reusing the overlay. Exercise both shrinking and growing windows.
         for rows in (6:8, 1:8, 6:8)
-            textbox.stored_string[] = "$(first(rows)):$(last(rows))"
-            Makie.notify(apply.clicks)
+            range_text!(fig, (first(rows), last(rows)))
+            range_key!(fig)
             @test axis(fig) === held_axis
             @test held_axis.title[] == "retained axis"
             plots = held_axis.scene.plots

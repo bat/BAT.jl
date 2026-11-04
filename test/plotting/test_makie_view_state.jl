@@ -2,6 +2,7 @@
 module TestMakieViewState
 using BAT, Test, Makie, CairoMakie
 const EXT=Base.get_extension(BAT,:BATMakieExt)
+include("makie_control_testutils.jl")
 const RECIPES=(upper=Hist2D,diagonal=Hist1D,lower=Hist2D)
 
 cell(fig,i,j)=only(filter(x -> x isa Axis,contents(fig[1,1][i,j])))
@@ -128,7 +129,7 @@ end
 
         # Draft state survives recipe changes; Apply changes data, not pair
         # domains. A changed diagonal height resets the entire diagonal view.
-        slider.interval[]=(2,4)
+        range_text!(fig, (2,4))
         select!(diag_menu,KDE1D)
         select!(diag_menu,Hist1D)
         @test slider.interval[]==(2,4)
@@ -136,7 +137,7 @@ end
         @test histogram(diagonal1,v2,weights)==initial_hist
         old_diagonal=manual_limits!(diagonal1)
         pair_target=pan!(upper)
-        Makie.notify(apply.clicks)
+        range_key!(fig)
         histogram(diagonal1,v2[2:4],weights[2:4])
         @test diagonal1.targetlimits[] != old_diagonal.target
         @test upper.targetlimits[]==pair_target
@@ -145,8 +146,8 @@ end
         @test slider.interval[]==(2,4) && apply.label[]=="Apply range"
         @test toggles[1].active[]
         select!(upper_menu,Hist2D)
-        slider.interval[] = (first(slider.range[]), last(slider.range[]))
-        Makie.notify(apply.clicks)
+        range_text!(fig, (first(slider.range[]), last(slider.range[])))
+        range_key!(fig)
         @test histogram(diagonal1,v2,weights)==initial_hist
         toggles[1].active[]=false
 

@@ -197,6 +197,13 @@ end
         controls.value_control.replace!("1:20")
         Makie.notify(controls.apply.clicks)
         @test graph[:window_steps][] == (1, 20) # Explicit full range differs from follow-all.
+        controls.live_drag[] = true
+        controls.value_control.replace!("bad")
+        @test graph[:window_steps][] == (1, 20)
+        @test controls.value_entry.bordercolor[] == EXT._status_text_color(built.fig.scene.backgroundcolor[])
+        controls.value_control.replace!("4:14")
+        @test graph[:window_steps][] == (4, 14)
+        @test controls.value_entry.bordercolor[] == EXT._panel_bg_color(built.fig.scene.backgroundcolor[], 0.3)
     finally
         empty!(built.fig)
     end

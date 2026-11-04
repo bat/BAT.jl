@@ -5,6 +5,7 @@ module TestMakieWeights
 using BAT, Test, Makie, CairoMakie, LinearAlgebra
 
 const EXT = Base.get_extension(BAT, :BATMakieExt)
+include("makie_control_testutils.jl")
 const DIAG = merge(BAT._default_makie_diagonal_config(), (nbins=4,))
 const PAIR = merge(BAT._default_makie_triagonal_config(), (nbins=(4, 3),))
 const RECIPES = (upper=Hist2D, diagonal=Hist1D, lower=Hist2D)
@@ -264,8 +265,8 @@ end
                 if !ordinary
                     slider = only(filter(item -> item isa IntervalSlider, fig.content))
                     apply = only(filter(item -> item isa Button && item.label[] == "Apply range", fig.content))
-                    slider.interval[] = (2, 3)
-                    Makie.notify(apply.clicks)
+                    range_text!(fig, (2, 3))
+                    range_key!(fig)
                     check_public_figure(fig, values[2:3], w[2:3])
                 end
             finally

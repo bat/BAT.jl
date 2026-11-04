@@ -1,6 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 # Run separately with an external deadline and a working native GL display.
 using BAT, GLMakie, Makie, Logging, Test
+include("../../plotting/makie_control_testutils.jl")
 
 const EXT = Base.get_extension(BAT, :BATMakieExt)
 @test realpath(pkgdir(BAT)) == realpath(joinpath(@__DIR__, "../../.."))
@@ -39,7 +40,7 @@ end
                 events(fig.scene).mouseposition[] = (-10.0, -10.0)
                 initial = button_pixels(screen, range.apply)
                 @test Makie.to_color(range.apply.strokecolor[]) == Makie.to_color(controls.collapse.strokecolor[])
-                set_close_to!(range.slider, 20, 80)
+                range_text!(fig, (20,80))
                 @test isnothing(graph[:window_steps][])
                 @test count(button_pixels(screen, range.apply) .!= initial) > 20
                 Makie.notify(range.apply.clicks)
@@ -53,16 +54,17 @@ end
                 @test graph[:window_steps][] == (3, 70)
                 @test button_pixels(screen, range.apply) == initial
 
-                set_close_to!(range.slider, 5, 60)
+                range_text!(fig, (5,60))
                 @test count(button_pixels(screen, range.apply) .!= initial) > 20
                 range.live_drag[] = true
+                range_key!(fig)
                 @test graph[:window_steps][] == (5, 60)
                 @test button_pixels(screen, range.apply) == initial
-                set_close_to!(range.slider, 7, 50)
+                range_text!(fig, (7,50))
                 @test graph[:window_steps][] == (7, 50)
                 @test button_pixels(screen, range.apply) == initial
                 range.live_drag[] = false
-                set_close_to!(range.slider, 9, 40)
+                range_text!(fig, (9,40))
                 @test graph[:window_steps][] == (7, 50)
                 @test count(button_pixels(screen, range.apply) .!= initial) > 20
                 Makie.notify(range.apply.clicks)

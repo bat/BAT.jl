@@ -2,6 +2,7 @@
 
 # Run with a native display and an external process deadline.
 using BAT, GLMakie, Makie, Distributions, Test
+include("../../plotting/makie_control_testutils.jl")
 const EXT = Base.get_extension(BAT, :BATMakieExt)
 @test realpath(pkgdir(BAT)) == realpath(joinpath(@__DIR__, "../../.."))
 GLMakie.activate!(visible = false)
@@ -39,7 +40,6 @@ release!(fig) = (events(fig).mousebutton[] = Makie.MouseButtonEvent(Mouse.left, 
 
 function check_controls(fig, graph)
     slider = only(filter(x -> x isa IntervalSlider, fig.content))
-    apply = only(filter(x -> x isa Button && x.label[] == "Apply range", fig.content))
     live_drag = only(filter(x -> x isa Button && x.label[] == "Live drag", fig.content))
     @test !any(x -> x isa Button && x.label[] == "All", fig.content)
     @test !isempty(Makie.colorbuffer(fig))
@@ -49,20 +49,18 @@ function check_controls(fig, graph)
     @test first(slider.interval[]) > 1
     @test graph[:window_steps][] == initial
     release!(fig)
-    @test graph[:window_steps][] == initial
-    click!(fig, apply)
-    @test graph[:window_steps][] == slider.interval[]
+    @test timedwait(() -> graph[:window_steps][] == slider.interval[], 5; pollint=0.02) == :ok
 
     click!(fig, live_drag)
     @test live_drag.label[] == "Live drag"
     n = last(slider.range[])
-    set_close_to!(slider, round(Int, 0.2n), round(Int, 0.6n))
+    range_text!(fig, (round(Int, 0.2n), round(Int, 0.6n)); submit=true)
     before = slider.interval[]
     drag!(fig, slider, (first(before) - 1) / (n - 1), 0.3)
     @test timedwait(() -> graph[:window_steps][] == slider.interval[], 5; pollint = 0.02) == :ok
     @test first(graph[:window_steps][]) > first(before)
     release!(fig)
-    @test graph[:window_steps][] == slider.interval[]
+    @test timedwait(() -> graph[:window_steps][] == slider.interval[], 5; pollint=0.02) == :ok
 
     before = slider.interval[]
     drag!(fig, slider, (last(before) - 1) / (n - 1), 0.7)
@@ -70,7 +68,7 @@ function check_controls(fig, graph)
     @test last(graph[:window_steps][]) > last(before)
     @test first(graph[:window_steps][]) == first(before)
     release!(fig)
-    @test graph[:window_steps][] == slider.interval[]
+    @test timedwait(() -> graph[:window_steps][] == slider.interval[], 5; pollint=0.02) == :ok
 
     before = slider.interval[]
     middle = (sum(before) / 2 - 1) / (n - 1)
@@ -79,7 +77,7 @@ function check_controls(fig, graph)
     @test first(graph[:window_steps][]) > first(before)
     @test last(graph[:window_steps][]) - first(graph[:window_steps][]) == last(before) - first(before)
     release!(fig)
-    @test graph[:window_steps][] == slider.interval[]
+    @test timedwait(() -> graph[:window_steps][] == slider.interval[], 5; pollint=0.02) == :ok
     if haskey(ENV, "BAT_LIVE_DRAG_SCREENSHOT")
         save(ENV["BAT_LIVE_DRAG_SCREENSHOT"], fig)
     end
@@ -87,13 +85,13 @@ function check_controls(fig, graph)
     click!(fig, live_drag)
     @test live_drag.label[] == "Live drag"
     applied = graph[:window_steps][]
-    set_close_to!(slider, 2, 3)
+    range_text!(fig, (2,3))
     @test graph[:window_steps][] == applied
-    click!(fig, apply)
+    range_key!(fig)
     @test graph[:window_steps][] == (2, 3)
 end
 
-@testset "Native manual and live dragging" begin
+@testset "Native release application and live dragging" begin
     samples = DensitySampleVector(v=[[Float64(i), sin(i)] for i in 1:100], logd=zeros(100))
     recipes = (upper=Hist2D, diagonal=Hist1D, lower=Hist2D)
     graph = first(EXT._setup_static_graph(samples, recipes, [1,2], 2,
