@@ -116,7 +116,6 @@ end
         # Drive the actual returned figure's range controls. Selecting row
         # two changes the visible density, while the second figure is untouched.
         slider = only(filter(x -> x isa IntervalSlider, deferred.content))
-        apply = only(filter(x -> x isa Button && x.label[] == "Apply range", deferred.content))
         range_text!(deferred, (2, 2))
         @test check_histogram(deferred, values, weights) == original_points
         range_key!(deferred)

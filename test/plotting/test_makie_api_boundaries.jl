@@ -2,6 +2,7 @@
 module TestMakieAPIBoundaries
 using BAT, Makie, Test
 const EXT=Base.get_extension(BAT,:BATMakieExt)
+include("makie_control_testutils.jl")
 const RECIPES=(upper=Hist2D,diagonal=Hist1D,lower=Hist2D)
 fixture(;weights=ones(Int,5))=DensitySampleVector(
     v=[[i+0.1d for d in 1:4] for i in eachindex(weights)],
@@ -39,7 +40,10 @@ cell(fig,i,j)=only(filter(x->x isa Axis,contents(fig[1,1][i,j])))
         @test isempty(Makie.Observables.listeners(max_step))
         @test isempty(Makie.Observables.listeners(window))
         controls.draft[]=(Int64(2),Int64(3))
-        Makie.notify(controls.apply.clicks)
+        controls.value_control.focus!()
+        controls.value_control.replace!("2:3")
+        range_key!(built.fig)
+        range_release!(built.fig)
         @test isnothing(g[:window_steps][])
         @test isempty(built.fig.content)
     end

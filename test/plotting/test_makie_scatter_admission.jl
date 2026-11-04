@@ -112,7 +112,6 @@ end
             check_scatter_sizes(fig, weights)
             if !ordinary
                 slider = only(filter(x -> x isa IntervalSlider, fig.content))
-                apply = only(filter(x -> x isa Button && x.label[] == "Apply range", fig.content))
                 range_text!(fig, (2, 3))
                 check_scatter_sizes(fig, weights)
                 range_key!(fig)

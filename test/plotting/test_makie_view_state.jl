@@ -74,7 +74,6 @@ end
         lower_menu,diag_menu,upper_menu=filter(x -> x isa Menu,fig.content)
         toggles=filter(x -> x isa Toggle,fig.content)
         slider=only(filter(x -> x isa IntervalSlider,fig.content))
-        apply=only(filter(x -> x isa Button && x.label[]=="Apply range",fig.content))
         initial_hist=histogram(diagonal1,v2,weights)
         initial_upper,initial_lower=heat(upper),heat(lower)
         @test isequal(initial_upper.z, permutedims(initial_lower.z))
@@ -127,7 +126,7 @@ end
         @test upper.targetlimits[]==target
         @test !isempty(descendants(upper,Makie.LineSegments))
 
-        # Draft state survives recipe changes; Apply changes data, not pair
+        # Draft state survives recipe changes; submission changes data, not pair
         # domains. A changed diagonal height resets the entire diagonal view.
         range_text!(fig, (2,4))
         select!(diag_menu,KDE1D)
@@ -141,9 +140,8 @@ end
         histogram(diagonal1,v2[2:4],weights[2:4])
         @test diagonal1.targetlimits[] != old_diagonal.target
         @test upper.targetlimits[]==pair_target
-        @test apply.label[]=="Apply range"
         select!(upper_menu,KDE2D)
-        @test slider.interval[]==(2,4) && apply.label[]=="Apply range"
+        @test slider.interval[]==(2,4)
         @test toggles[1].active[]
         select!(upper_menu,Hist2D)
         range_text!(fig, (first(slider.range[]), last(slider.range[])))

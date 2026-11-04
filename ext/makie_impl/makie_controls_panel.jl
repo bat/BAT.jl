@@ -219,18 +219,11 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
                 limit = 48, text = "1:$limit", width = 126, height = 30, fontsize = 18,
                 textpadding = (6, 6, 3, 3),
                 on_submit = () -> controller[].commit_text!(),
-                on_blur = () -> controller[].commit_text!(; apply = false, explicit = false),
+                on_blur = () -> controller[].commit_text!(; explicit = false),
                 on_cancel = () -> controller[].cancel_text!(),
                 validator = text -> !isnothing(_parse_sample_window(text, graph[:max_step][])))
             value_entry = value_control.box
-            # Resolve the native theme through the existing button, preserving
-            # alpha. The border must have one concrete color type from creation:
-            # Makie's cached Poly computation cannot switch from Symbol to RGB.
-            apply_stroke = RGBAf(Makie.to_color(collapse_button.strokecolor[]))
-            apply = Button(toggle_row_content[1, 3], label = "Apply range", height = 30,
-                width = 132, strokecolor = apply_stroke)
-            apply_color = apply.buttoncolor[]
-            live_layout = toggle_row_content[2, 3] = GridLayout()
+            live_layout = toggle_row_content[1:2, 3] = GridLayout(; height = Auto(), valign = :center)
             colgap!(live_layout, 6)
             live_drag_toggle = Toggle(live_layout[1, 1]; active = false, length = 27, markersize = 13)
             live_drag = live_drag_toggle.active
@@ -238,24 +231,10 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
                 height = 30, padding = (0, 0, 0, 0), buttoncolor = :transparent, strokewidth = 0)
             controller[] = _range_controls!(fig, graph, slider, value_control, live_drag;
                 owner = subscription_owner, live_vis)
-            dirty = controller[].dirty
-            _view_on(subscription_owner, dirty) do needs_apply
-                active = needs_apply && !live_drag[]
-                base = RGB(Makie.to_color(apply_color))
-                accent = RGB(Makie.to_color(slider.color_active[]))
-                apply.buttoncolor[] = active ? 0.82base + 0.18accent : apply_color
-                apply.strokecolor[] = active ? RGBAf(accent) : apply_stroke
-            end
-            _view_on(subscription_owner, apply.clicks) do _
-                controller[].commit_text!()
-            end
             _view_on(subscription_owner, live_drag_button.clicks) do _
                 live_drag[] = !live_drag[]
             end
-            _view_on(subscription_owner, live_drag) do _
-                Makie.notify(dirty)
-            end
-            range_controls[] = (; slider, apply, live_drag, live_drag_button, live_drag_toggle,
+            range_controls[] = (; slider, live_drag, live_drag_button, live_drag_toggle,
                 value_control, title, value_entry, controller[]...)
             rowgap!(toggle_row_content, 1, 10)
             colgap!(toggle_row_content, 12)

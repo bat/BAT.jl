@@ -185,7 +185,6 @@ end
             @test computations[] == 1
             @test g[:window_steps][] == (9,15)
             @test sum(g[:flat_weights][]) == 7
-            @test !controls.dirty[]
             range_key!(built.fig)
             @test computations[] == 1
             range_text!(built.fig, (1,20); submit=true)
@@ -391,6 +390,21 @@ end
         Makie.notify(controls.live_drag_button.clicks)
         range_text!(built.fig,(limit-1,limit))
         @test g[:window_steps][] == (limit-1,limit)
+        @test g[:flat_weights][] == [2]
+        # The coarse native endpoint represents both limit and limit-1. Returning
+        # to it after an applied live preview must restore the exact typed value.
+        range_text!(built.fig,(1,limit-1))
+        range_press!(built.fig,controls.slider,1)
+        range_move!(built.fig,controls.slider,0.9)
+        @test timedwait(() -> begin
+            range_tick!(built.fig)
+            g[:window_steps][] == controls.slider.interval[]
+        end,5;pollint=0.02) == :ok
+        @test last(g[:window_steps][]) < limit-1
+        range_move!(built.fig,controls.slider,1)
+        range_release!(built.fig)
+        @test g[:window_steps][] == (1,limit-1)
+        @test controls.value_entry.displayed_string[] == "1:$(limit-1)"
         @test g[:flat_weights][] == [2]
         empty!(built.fig)
     end

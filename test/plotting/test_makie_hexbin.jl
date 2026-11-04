@@ -264,7 +264,7 @@ end
         @test !isempty(Makie.colorbuffer(fresh))
         empty!(fresh)
     end
-    @testset "Public figures, Apply and color themes" begin
+    @testset "Public figures, range submission and color themes" begin
         recipes = (upper=Hexbin2D, lower=Hexbin2D, diagonal=Hist1D)
         source = DensitySampleVector(v=[collect(v) for v in eachcol(XY)], logd=zeros(3), weight=[1.0, 2.0, 3.0])
         before = deepcopy(source)
@@ -279,7 +279,6 @@ end
                 @test !isempty(Makie.colorbuffer(fig))
                 if !ordinary
                     slider = only(filter(x -> x isa IntervalSlider, fig.content))
-                    button = only(filter(x -> x isa Button && x.label[] == "Apply range", fig.content))
                     range_text!(fig, (2, 3))
                     range_key!(fig)
                     @test all(h -> sort(h.plots[1].count_hex[]) == [2, 3], descendants(fig, EXT.BATCheckedHexbin))

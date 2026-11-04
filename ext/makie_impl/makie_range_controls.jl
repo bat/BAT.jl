@@ -18,7 +18,6 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
     syncing = Ref(false)
     edited = Ref(false)
     text_updates = Ref(0)
-    dirty = Observable(false)
     gesture = Ref{Union{Nothing,_RangeGesture}}(nothing)
     last_apply = Ref(zero(UInt64))
     closed = Ref(false)
@@ -54,7 +53,6 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
         if !edited[] && limit > 0
             interval = something(graph[:window_steps][], (Int64(1), limit))
             paint!(interval; text = !value_entry.focused[] && text_updates[] == 0)
-            dirty[] = false
         end
         return nothing
     end
@@ -67,7 +65,7 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
         isnothing(live_vis) && reconcile!()
         return nothing
     end
-    function commit_text!(; apply = true, explicit = true)
+    function commit_text!(; explicit = true)
         closed[] && return nothing
         !explicit && !edited[] && return reconcile!()
         interval = _parse_sample_window(_control_text(value_entry), graph[:max_step][])
@@ -77,10 +75,9 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
         end
         value_entry.bordercolor[] = _panel_bg_color(fig.scene.backgroundcolor[], 0.3)
 
-        edited[] = !apply
-        dirty[] = !apply
+        edited[] = false
         paint!(interval)
-        apply && submit!(interval)
+        submit!(interval)
         return nothing
     end
     function cancel_text!()
@@ -120,7 +117,6 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
 
         if !cancelled && (changed || !isnothing(active.submitted))
             edited[] = false
-            dirty[] = false
             paint!(interval)
             submit!(interval)
         else
@@ -137,7 +133,6 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
             edited[] = false
             value_entry.bordercolor[] = _panel_bg_color(fig.scene.backgroundcolor[], 0.3)
             paint!(next)
-            dirty[] = true
         end
         apply_drag!()
     end
@@ -145,7 +140,6 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
         (closed[] || syncing[]) && return
 
         edited[] = true
-        dirty[] = true
         interval = _parse_sample_window(_control_text(value_entry), graph[:max_step][])
         if isnothing(interval)
             live_drag[] && (value_entry.bordercolor[] = _status_text_color(fig.scene.backgroundcolor[]))
@@ -155,7 +149,6 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
             if live_drag[]
                 # Preserve native text/cursor while each valid edit is applied.
                 edited[] = false
-                dirty[] = false
                 text_updates[] += 1
                 try
                     submit!(interval)
@@ -229,5 +222,5 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
             reconcile!()
         end
     end
-    return (; draft, syncing, dirty, reconcile!, commit_text!, cancel_text!)
+    return (; draft, syncing, reconcile!, commit_text!, cancel_text!)
 end

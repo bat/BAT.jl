@@ -209,11 +209,10 @@ The selected local step range applies independently to every cycle and clips
 weights to the overlap. Bare sample metadata does not certify this timing.
 The same keyword is supported by ordinary Makie `plot(samples; ...)`.
 The slider uses bounded ticks for large ranges; enter exact `start:end` values
-in the range field and press Enter or click **Apply range** for precise selection. Pending
-manual edits give that button a quiet tint; they do not change the plot.
-In both static and live figures, **Live drag** is off by default. Enable it to
-apply the current draft and update the plot automatically while moving the
-slider handles or the whole interval.
+in the range field and press Enter or click outside the field for precise selection.
+In both static and live figures, **Live drag** is off by default: moving a slider
+handle or the whole interval previews the range and applies it once on mouse
+release. Enable Live drag for throttled updates during the gesture as well.
 
 Elapsed-step traces require explicit timing. ARP and other statistical weights
 are not interpreted as dwell durations; use the stored-sample range instead.
@@ -493,16 +492,22 @@ dwell weights. Initially the view follows all growing data; an applied range
 keeps its endpoints fixed, including a selection of the full current range.
 If timing is unavailable (including ARP weighting), the labelled sample range
 preserves each selected row's weight and elapsed-step traces are unavailable.
-By default, slider movement creates a draft. Click **Apply range** or press
-Enter in the range field to apply it.
-Enable **Live drag** to apply the current draft and update while moving either
-handle or the whole interval. Updates retain the latest selection, run at most
-about ten times per second during dragging, and finish on mouse release.
-Disabling Live drag keeps the last applied range and restores manual selection.
-For long runs the slider uses bounded ticks; edit `start:end` and press Enter
-to apply exact integer endpoints, or click **Apply range** directly after typing.
-With Live drag enabled, valid text edits apply immediately. Otherwise, leaving
-the field stages the range until Enter or **Apply range**.
+By default, slider movement previews a range without recomputing the plots.
+Releasing the mouse applies the final changed range, including a release outside
+the slider. Enable **Live drag** for intermediate updates at most about ten times
+per second; release still applies the final selection. Toggling Live drag alone
+does not change the selected range. An unchanged click or a drag that
+returns to its starting point without an intermediate update keeps follow-all.
+During a gesture, incoming samples do not move the slider's scale; after release,
+the controls adopt the latest extent while the selected endpoints stay fixed.
+Losing window focus during a held gesture cancels its unsubmitted preview;
+already applied live updates remain. Closing the view cancels pending work.
+
+For long runs the slider uses bounded ticks. Edit `start:end` and press Enter
+(or keypad Enter), or click outside the field, to apply exact integer endpoints.
+With Live drag enabled, valid text edits apply immediately. Invalid or incomplete
+text leaves the plot unchanged; Escape restores the accepted range. Focusing and
+leaving an unchanged field does not freeze a view that follows growing data.
 `max_buffered` must be at least the batch size (50 with the keyword constructor).
 It is an initial backpressure threshold, not a strict memory limit: a multi-walker
 update may cross it before waiting. With adaptive batching, both thresholds grow

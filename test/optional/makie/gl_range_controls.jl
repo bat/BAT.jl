@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 # Run with a native display and an external process deadline.
-using BAT, GLMakie, Makie, Distributions, Test
+using BAT, GLMakie, Makie, Distributions, Test, Logging
 include("../../plotting/makie_control_testutils.jl")
 const EXT = Base.get_extension(BAT, :BATMakieExt)
 @test realpath(pkgdir(BAT)) == realpath(joinpath(@__DIR__, "../../.."))
@@ -48,6 +48,10 @@ function check_controls(fig, graph)
     drag!(fig, slider, 0.0, 0.2)
     @test first(slider.interval[]) > 1
     @test graph[:window_steps][] == initial
+    # Let the on-demand renderer settle while held. Release must finish even
+    # without another motion event or a test-injected render tick.
+    sleep(0.3)
+    @test graph[:window_steps][] == initial
     release!(fig)
     @test timedwait(() -> graph[:window_steps][] == slider.interval[], 5; pollint=0.02) == :ok
 
@@ -91,7 +95,7 @@ function check_controls(fig, graph)
     @test graph[:window_steps][] == (2, 3)
 end
 
-@testset "Native release application and live dragging" begin
+@test_logs min_level=Logging.Warn @testset "Native release application and live dragging" begin
     samples = DensitySampleVector(v=[[Float64(i), sin(i)] for i in 1:100], logd=zeros(100))
     recipes = (upper=Hist2D, diagonal=Hist1D, lower=Hist2D)
     graph = first(EXT._setup_static_graph(samples, recipes, [1,2], 2,

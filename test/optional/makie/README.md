@@ -39,11 +39,10 @@ range requests, and autonomous cleanup after a release callback fails. The
 fixed-work `task_rng` comparison also exercises a successful range release
 before disposal, preserving sample, callback, and RNG parity checks.
 
-`gl_range_highlight.jl` renders the pending range highlight before Apply and
-after Apply/Live drag transitions. It rejects logged render errors and compares
-the button pixels across repeated transitions in light, dark and translucent
-border themes. It uses stopped native screens and the same external deadline
-and display requirements.
+`gl_range_rendering.jl` checks release/text transitions and folded/expanded
+range layout at the minimum and a larger size, in light, dark and translucent
+border themes. It rejects logged render errors using stopped native screens;
+it has the same external deadline and display requirements.
 
 `gl_controls_redesign.jl` exercises native text entry, linked headers, editor
 confirmation/cancellation, reset, glyph visibility, minimum-window resizing,

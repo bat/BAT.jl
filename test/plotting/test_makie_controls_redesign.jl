@@ -5,6 +5,7 @@ module TestMakieControlsRedesign
 using BAT, CairoMakie, Makie, Test
 
 const EXT = Base.get_extension(BAT, :BATMakieExt)
+include("makie_control_testutils.jl")
 const RECIPES = (upper = Hist2D, diagonal = Hist1D, lower = Hist2D)
 
 function fixture(; n = 12, selection = [11, 2], capacity = 3, dark = false)
@@ -161,51 +162,84 @@ end
     @test clock.active
 end
 
-@testset "Exact range input and quiet pending feedback" begin
-    built, graph, samples = fixture(n = 2, selection = [1, 2], capacity = 2)
+function blur_range!(fig)
+    range_pointer!(fig, (-10,-10))
+    events(fig).mousebutton[] = Makie.MouseButtonEvent(Mouse.left,Mouse.press)
+    range_release!(fig)
+end
+
+@testset "Exact range submission, blur, cancellation, and live edits" begin
+    built, graph, samples = fixture(n=2, selection=[1,2], capacity=2)
+    fig, controls = built.fig, built.range_controls[]
+    changes = Any[]
+    watcher = on(value -> push!(changes,value),graph[:window_steps])
     try
-        @test_throws ArgumentError bat_makie_plot(samples; display = false, message_duration = 0)
-        @test_throws ArgumentError bat_makie_plot(samples; display = false, message_duration = Inf)
-        controls = built.range_controls[]
-        @test !controls.dirty[]
+        @test_throws ArgumentError bat_makie_plot(samples; display=false, message_duration=0)
+        @test_throws ArgumentError bat_makie_plot(samples; display=false, message_duration=Inf)
+        @test !any(x -> x isa Button && x.label[] == "Apply range",fig.content)
         @test controls.title.text[] == "Sample range per walker:"
-        initial_color = controls.apply.buttoncolor[]
-        controls.value_control.replace!("3:17")
-        @test controls.dirty[]
+        @test !isempty(Makie.colorbuffer(fig))
+        controls.value_control.focus!()
+        blur_range!(fig)
+        @test isempty(changes)
         @test isnothing(graph[:window_steps][])
-        @test controls.apply.buttoncolor[] != initial_color
+
+        range_text!(fig,(3,17))
+        @test isempty(changes)
+        range_key!(fig)
+        @test changes == [(3,17)]
+        blur_range!(fig)
+        @test changes == [(3,17)]
+        range_text!(fig,(5,15))
+        blur_range!(fig)
+        @test changes == [(3,17),(5,15)]
         controls.value_control.focus!()
-        events(built.fig.scene).keyboardbutton[] = Makie.KeyEvent(Keyboard.enter, Keyboard.press)
-        events(built.fig.scene).keyboardbutton[] = Makie.KeyEvent(Keyboard.enter, Keyboard.release)
-        @test graph[:window_steps][] == (3, 17)
-        @test !controls.dirty[]
-        controls.value_control.replace!("bad")
-        events(built.fig.scene).keyboardbutton[] = Makie.KeyEvent(Keyboard.enter, Keyboard.press)
-        events(built.fig.scene).keyboardbutton[] = Makie.KeyEvent(Keyboard.enter, Keyboard.release)
-        @test graph[:window_steps][] == (3, 17)
-        controls.value_control.replace!("5:15")
-        events(built.fig.scene).mouseposition[] = (-10.0, -10.0)
-        events(built.fig.scene).mousebutton[] = Makie.MouseButtonEvent(Mouse.left, Mouse.press)
-        events(built.fig.scene).mousebutton[] = Makie.MouseButtonEvent(Mouse.left, Mouse.release)
-        @test graph[:window_steps][] == (3, 17) # Leaving the field still only stages a manual range.
-        @test controls.dirty[]
+        blur_range!(fig)
+        @test length(changes) == 2
+
+        range_text!(fig,(6,14))
+        range_key!(fig,Keyboard.kp_enter)
+        @test graph[:window_steps][] == (6,14)
+        controls.value_control.replace!("7:")
+        range_key!(fig)
+        @test graph[:window_steps][] == (6,14)
+        @test controls.value_entry.bordercolor[] == EXT._status_text_color(fig.scene.backgroundcolor[])
+        blur_range!(fig)
+        @test graph[:window_steps][] == (6,14)
         controls.value_control.focus!()
-        events(built.fig.scene).keyboardbutton[] = Makie.KeyEvent(Keyboard.kp_enter, Keyboard.press)
-        events(built.fig.scene).keyboardbutton[] = Makie.KeyEvent(Keyboard.kp_enter, Keyboard.release)
-        @test graph[:window_steps][] == (5, 15)
-        @test !controls.dirty[]
-        controls.value_control.replace!("1:20")
-        Makie.notify(controls.apply.clicks)
-        @test graph[:window_steps][] == (1, 20) # Explicit full range differs from follow-all.
+        range_key!(fig,Keyboard.escape)
+        @test controls.value_entry.displayed_string[] == "6:14"
+        @test !controls.value_entry.focused[]
+        @test !controls.value_control.replace!(repeat("1",49))
+        @test controls.value_entry.displayed_string[] == "6:14"
+
+        # Text blur settles before the next slider gesture takes its baseline.
+        range_text!(fig,(10,18))
+        range_press!(fig,controls.slider,9/19)
+        @test graph[:window_steps][] == (10,18)
+        range_move!(fig,controls.slider,11/19)
+        @test graph[:window_steps][] == (10,18)
+        range_release!(fig)
+        @test graph[:window_steps][] == (12,18)
+        @test sum(graph[:flat_weights][]) == 7
+        range_text!(fig,(1,20);submit=true)
+        @test graph[:window_steps][] == (1,20) # Explicit full extent is fixed.
+
         controls.live_drag[] = true
+        range_text!(fig,(4,14))
+        @test graph[:window_steps][] == (4,14)
         controls.value_control.replace!("bad")
-        @test graph[:window_steps][] == (1, 20)
-        @test controls.value_entry.bordercolor[] == EXT._status_text_color(built.fig.scene.backgroundcolor[])
-        controls.value_control.replace!("4:14")
-        @test graph[:window_steps][] == (4, 14)
-        @test controls.value_entry.bordercolor[] == EXT._panel_bg_color(built.fig.scene.backgroundcolor[], 0.3)
+        @test graph[:window_steps][] == (4,14)
+        @test controls.value_entry.bordercolor[] == EXT._status_text_color(fig.scene.backgroundcolor[])
+        controls.value_control.replace!("7:12")
+        @test graph[:window_steps][] == (7,12)
+        @test controls.value_entry.bordercolor[] == EXT._panel_bg_color(fig.scene.backgroundcolor[],0.3)
+        before = copy(changes)
+        blur_range!(fig)
+        @test changes == before
     finally
-        empty!(built.fig)
+        off(watcher)
+        empty!(fig)
     end
 end
 

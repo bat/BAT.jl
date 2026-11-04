@@ -22,7 +22,6 @@ snapshot(fig) = [(typeof(p), deepcopy(p.converted[])) for p in axis(fig).scene.p
         upper_stats, stats = filter(x -> x isa Toggle, fig.content)[1:2]
         stats.active[] = true
         textbox = EXT._figure_controls(fig).range[].value_entry
-        apply = only(filter(x -> x isa Button && x.label[] == "Apply range", fig.content))
         if native
             screen = backend.Screen(; visible = false, start_renderloop = false)
             display(screen, fig; start_renderloop = false)
