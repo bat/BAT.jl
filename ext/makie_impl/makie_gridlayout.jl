@@ -198,8 +198,17 @@ function _bind_interactive_grid!(fig::Figure, gridlayout; live_vis = nothing)
     layout = fig[1, 1] = GridLayout(initial.size...;
         rowsizes = copy(initial.rowsizes), colsizes = copy(initial.colsizes),
         addedrowgaps = copy(initial.rowgaps), addedcolgaps = copy(initial.colgaps),
-        alignmode = initial.alignmode, tellwidth = initial.tellwidth,
-        tellheight = initial.tellheight, halign = initial.halign, valign = initial.valign)
+        alignmode = initial.alignmode, tellwidth = false,
+        tellheight = false, halign = initial.halign, valign = initial.valign)
+    # Fit a square into the allocated row in both directions. A parent Aspect
+    # column only follows height and can push plots outside a narrow window.
+    # Do not report this fitted size back to the parent allocation.
+    owner = isnothing(live_vis) ? fig.scene : live_vis
+    _view_on(owner, layout.layoutobservables.suggestedbbox; update = true) do bbox
+        side = max(0f0, min(bbox.widths...))
+        layout.width[] == side || (layout.width[] = side)
+        layout.height[] == side || (layout.height[] = side)
+    end
     axes = [Axis(layout[position...]; spec.kwargs...) for (position, spec) in initial.content]
     plots = [Observable(PlotSpec[]) for _ in axes]
     # Use Makie's scene updater: the 0.24.15 PlotList wrapper fails automatic bounds queries

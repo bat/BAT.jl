@@ -10,6 +10,8 @@ const _UI_PANEL_PADDING = 12.0
 const _UI_DIVIDER_WIDTH = 1.0
 const _UI_LAYOUT_COL_GAP = 12.0
 const _UI_LAYOUT_ROW_GAP = 12.0
+const _UI_MIN_GRID_CELL = 160
+const _UI_MIN_GRID_PADDING = 80
 const _LIVE_DRAG_INTERVAL_NS = UInt64(100_000_000)
 
 function _picker_body_size(N::Integer)
@@ -102,7 +104,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
 
     _bind_interactive_grid!(fig, gridlayout; live_vis = live_vis)
 
-    colsize!(fig.layout, 1, Aspect(1, 1))
+    colsize!(fig.layout, 1, Auto(false))
     # Auto assigns the plot grid the space left by the two control rows.
     rowsize!(fig.layout, 1, Auto())
 
@@ -191,9 +193,11 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     # The native slider previews a range; the controller commits completed gestures.
     collapse_button = Button(fig, label = "☰", width = 40, halign = :left, valign = :top)
     toggle_row_content[1, 1] = collapse_button
-    colsize!(toggle_row_content, 1, Relative(1))
+    colsize!(toggle_row_content, 1, Fixed(40))
     range_controls = Ref{Any}(nothing)
     limit_label = Label(toggle_row_content[1, 2], "All")
+    # Without a slider, the status label uses the space after the menu button.
+    colsize!(toggle_row_content, 2, Auto(false))
     function add_index_slider!()
         limit = graph[:max_step][]
         limit_label.text[] = limit == 0 ? "No samples" : limit == 1 ? "All (single step/sample)" : ""
@@ -341,7 +345,11 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     end
     isnothing(picker_info) || colsize!(ui_layout, divider_column + 1, Fixed(body_size))
     controls_visible = Observable(false)
-    minimum_size = (ceil(Int, panel_width) + 40, ceil(Int, body_size) + 430 + (isnothing(live_vis) ? 0 : 48))
+    # Budget plot space for the full constructed capacity, including axis labels
+    # and gaps, so opening controls or selecting more dimensions cannot crush it.
+    grid_side = _UI_MIN_GRID_PADDING + _UI_MIN_GRID_CELL * size(graph[:live_map][], 1)
+    minimum_size = (ceil(Int, max(panel_width, grid_side)) + 40,
+        grid_side + ceil(Int, body_size) + 200 + (isnothing(live_vis) ? 0 : 48))
     controls = _FigureControls(range_controls, picker, controls_visible, collapse_button, notice, minimum_size)
     _FIGURE_CONTROLS[fig.scene] = WeakRef(controls)
     _view_on(subscription_owner, controls_visible; update = true) do vis
