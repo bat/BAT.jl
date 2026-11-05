@@ -22,14 +22,14 @@ function _build_marginal_controls!(fig, layout, graph, info::PickerInfo, column,
     switch = _control_icon_button(fig, heading[1, 3], :menu; owner)
 
     matrix = layout[2:4, column] = GridLayout(; width = body_size, height = body_size)
-    editor_layout = layout[2:4, column] = GridLayout(; width = body_size, height = body_size)
+    editor_layout = layout[2:4, column] = GridLayout(4, 1; width = body_size, height = body_size)
     editor_heading = editor_layout[1, 1] = GridLayout(; halign = :left)
     editor_title = Label(editor_heading[1, 1:2], "Display dimensions:"; halign = :left,
         fontsize = 16, tellwidth = false, word_wrap = true, justification = :left)
     preview = Label(editor_layout[3, 1], ""; fontsize = 12, tellwidth = false,
         word_wrap = true, halign = :left, justification = :left)
-    help = Button(editor_layout[4, 1]; label = "Input formats", fontsize = 13,
-        height = 26, tellwidth = false)
+    help = Ref{Union{Nothing,Button}}(nothing)
+    help_requests = Observable(0)
     cancel = _control_icon_button(fig, editor_heading[1, 3], :close, "Cancel dimension edits"; owner)
     for row in (heading, editor_heading)
         colsize!(row, 1, Fixed(92))
@@ -39,7 +39,8 @@ function _build_marginal_controls!(fig, layout, graph, info::PickerInfo, column,
     end
     skip_blur() = (notice.clock.active && Point2f(events(fig.scene).mouseposition[]) in notice.bounds[]) ||
         any(b -> _control_hit(b, fig.scene),
-            (reset.button, switch.button, cancel.button, collapse_button, notice.close, help))
+            (reset.button, switch.button, cancel.button, collapse_button, notice.close)) ||
+        (!isnothing(help[]) && _control_hit(help[], fig.scene))
     reject_input() = notice.show!(_marginal_error("Input is too long", "Enter a shorter dimension list."))
     editor = _control_textbox(fig, editor_layout[2, 1]; owner,
         limit = _marginal_text_limit(info.N, info.N_max),
@@ -48,7 +49,7 @@ function _build_marginal_controls!(fig, layout, graph, info::PickerInfo, column,
         on_focus = () -> isnothing(editor_error[]) || notice.show!(editor_error[]),
         validator = text -> isnothing(_parse_marginal_dimensions(text, state.N, state.capacity).error),
         width = nothing, height = 32, tellwidth = false, fontsize = 15)
-    editor_blocks = Any[editor_title, editor.box, preview, help, cancel.button]
+    editor_blocks = Any[editor_title, editor.box, preview, cancel.button]
     rowgap!(editor_layout, 8)
     rowsize!(editor_layout, 1, Fixed(40))
     rowsize!(editor_layout, 2, Fixed(32))
@@ -143,8 +144,27 @@ function _build_marginal_controls!(fig, layout, graph, info::PickerInfo, column,
         end
         return nothing
     end
+    function show_help!(shown)
+        # Native Button hit-testing ignores scene visibility and accepts even a
+        # zero-height bounding box. Remove this overlapping control while hidden.
+        if shown && isnothing(help[])
+            button = Button(editor_layout[4, 1]; label = "Input formats", fontsize = 13,
+                height = 26, tellwidth = false)
+            help[] = button
+            # Keep one view-owned action subscription. The transient button owns
+            # this bridge, so delete! also releases it on every editor exit/fold.
+            on(button.blockscene, button.clicks) do _
+                help_requests[] += 1
+            end
+        elseif !shown && !isnothing(help[])
+            delete!(help[])
+            help[] = nothing
+        end
+        return nothing
+    end
     function show_mode!()
         editing = mode[] === :input
+        show_help!(visible[] && editing)
         switch.icon[] = editing ? :check : :menu
         for block in matrix_blocks
             _set_block_visible!(block, visible[] && !editing)
@@ -290,7 +310,7 @@ function _build_marginal_controls!(fig, layout, graph, info::PickerInfo, column,
         state.revision += 1
         update_preview!()
     end
-    _view_on(owner, help.clicks) do _
+    _view_on(owner, help_requests) do _
         notice.show!(_marginal_error("Input formats",
             "Lists: 2, 7, 8 or [2, 7, 8]. Ranges: 2:4. Pairs: (2,8); (7,8). " *
             "Pairs select their dimensions and all combinations. Empty input clears the selection.");
