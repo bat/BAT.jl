@@ -53,8 +53,9 @@ function _drive_figure_widgets!(fig)
     input = events(fig)
     box = slider.layoutobservables.computedbbox[]
     fraction = (first(slider.interval[]) - 1) / (last(r) - 1)
-    point = box.origin + Vec2f(box.widths[2]/2 + fraction *
-        (box.widths[1] - box.widths[2]), box.widths[2]/2)
+    point = box.origin + Vec2f(
+        box.widths[2] / 2 + fraction * (box.widths[1] - box.widths[2]), box.widths[2] / 2
+    )
     input.mouseposition[] = (-10.0, -10.0)
     input.mouseposition[] = Tuple(Float64.(point + Vec2f(0, 1)))
     input.mouseposition[] = Tuple(Float64.(point))

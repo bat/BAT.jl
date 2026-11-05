@@ -8,10 +8,12 @@ mutable struct _RangeGesture
     submitted::Union{Nothing,Tuple{Int64,Int64}}
 end
 
-# Native widgets own pointer geometry and editing. This controller owns only
-# draft/commit policy; all applied windows still pass through the view owner.
-function _range_controls!(fig, graph, slider, value_control, live_drag;
-    owner = fig.scene, live_vis = nothing)
+
+# Native widgets own dragging and editing; the view owner applies committed ranges.
+function _range_controls!(
+    fig, graph, slider, value_control, live_drag;
+    owner = fig.scene, live_vis = nothing
+)
     value_entry = value_control.box
     input = events(fig.scene)
     draft = Observable(something(graph[:window_steps][], (Int64(1), graph[:max_step][])))
@@ -34,12 +36,14 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
         end
         return nothing
     end
+
     function reconcile!()
         closed[] && return nothing
         limit = graph[:max_step][]
         if !isnothing(gesture[])
+            # Keep the slider scale fixed until the gesture ends.
             limit <= 1 && (gesture[].phase = :cancelling)
-            return nothing # Neither growth nor settlement may change a held scale.
+            return nothing
         end
         if limit > 1 && last(slider.range[]) != limit
             syncing[] = true
@@ -56,6 +60,7 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
         end
         return nothing
     end
+
     function submit!(interval)
         closed[] && return nothing
         last_apply[] = time_ns()
@@ -65,6 +70,7 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
         isnothing(live_vis) && reconcile!()
         return nothing
     end
+
     function commit_text!(; explicit = true)
         closed[] && return nothing
         !explicit && !edited[] && return reconcile!()
@@ -80,6 +86,7 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
         submit!(interval)
         return nothing
     end
+
     function cancel_text!()
         closed[] && return nothing
 
@@ -89,10 +96,12 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
         reconcile!()
         return nothing
     end
+
     function preview(active)
         native = Int64.(slider.interval[])
         return native == active.native_start ? active.exact_start : native
     end
+
     function apply_drag!()
         active = gesture[]
         (closed[] || !live_drag[] || isnothing(active) || active.phase !== :dragging) && return nothing
@@ -104,16 +113,19 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
         submit!(interval)
         return nothing
     end
+
     function finish!()
         active = gesture[]
         (closed[] || isnothing(active)) && return nothing
         # Tick/input boundaries follow native dispatch. GLFW supplies releases
         # after focus loss; restoration must wait for native dragstop as well.
-        Mouse.left in input.mousebuttonstate && active.phase in (:dragging, :cancelling) && return nothing
+        Mouse.left in input.mousebuttonstate && active.phase in (:dragging, :cancelling) &&
+            return nothing
         cancelled = active.phase in (:cancelling, :cancelled)
         interval = preview(active)
         changed = Int64.(slider.interval[]) != active.native_start
-        gesture[] = nothing # Claim this completion before any reentrant callback.
+        # Claim completion before any reentrant callback.
+        gesture[] = nothing
 
         if !cancelled && (changed || !isnothing(active.submitted))
             edited[] = false
@@ -127,7 +139,8 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
 
     _view_on(owner, slider.interval) do interval
         active = gesture[]
-        (closed[] || syncing[] || isnothing(active) || !(active.phase in (:dragging, :released))) && return
+        (closed[] || syncing[] || isnothing(active) || !(active.phase in (:dragging, :released))) &&
+            return
         next = preview(active)
         if Int64.(interval) != active.native_start || next != draft[]
             edited[] = false
@@ -158,8 +171,9 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
             end
         end
     end
-    # This observer only completes previous gestures or records release. It
-    # precedes textbox blur (100) and the notice (85) and never consumes input.
+
+    # Finish prior gestures and record release before textbox blur (100) and
+    # notice handling (85), without consuming native input.
     _view_on(owner, input.mousebutton; priority = 101) do event
         closed[] && return Consume(false)
         if event.action == Mouse.press
@@ -179,8 +193,8 @@ function _range_controls!(fig, graph, slider, value_control, live_drag;
     end
     _view_on(owner, input.mousebutton; priority = 2) do event
         if !closed[] && event.button == Mouse.left && event.action == Mouse.press &&
-                length(input.mousebuttonstate) == 1 && graph[:max_step][] > 1 && _control_hit(slider, fig.scene)
-
+                length(input.mousebuttonstate) == 1 && graph[:max_step][] > 1 &&
+                _control_hit(slider, fig.scene)
             gesture[] = _RangeGesture(:dragging, Int64.(slider.interval[]), draft[], nothing)
         end
         return Consume(false)

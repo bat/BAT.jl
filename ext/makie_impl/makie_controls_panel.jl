@@ -1,7 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-# Stable native layout: reserve a minimum figure size instead of clipping or scrolling.
+# Keep panel dimensions stable across folding and selection changes.
 const _LBL_ROW_WIDTH = 28.0
 const _LBL_STATS_WIDTH = 98.0
 const _LBL_TRACE_WIDTH = 92.0
@@ -14,13 +14,17 @@ const _UI_MIN_GRID_CELL = 160
 const _UI_MIN_GRID_PADDING = 80
 const _LIVE_DRAG_INTERVAL_NS = UInt64(100_000_000)
 
+
 function _picker_body_size(N::Integer)
     slots = _marginal_slot_count(N)
     return Float64(max(N > 5 ? 220 : 156, (slots + 1) * max(26, 7 * ndigits(N) + 10) + slots * 4))
 end
 
-function _controls_panel_dimensions(picker_info::Union{PickerInfo,Nothing}, padding::Real;
-    has_trace_col::Bool = true)
+
+function _controls_panel_dimensions(
+    picker_info::Union{PickerInfo,Nothing}, padding::Real;
+    has_trace_col::Bool = true
+)
     settings = _LBL_ROW_WIDTH + _UI_COL2_MENU_WIDTH + _LBL_STATS_WIDTH +
         (has_trace_col ? _LBL_TRACE_WIDTH : 0)
     columns = 3 + has_trace_col + 2 * !isnothing(picker_info)
@@ -32,6 +36,7 @@ function _controls_panel_dimensions(picker_info::Union{PickerInfo,Nothing}, padd
     return (; width, menu_width = _UI_COL2_MENU_WIDTH + width - natural_width)
 end
 
+
 mutable struct _FigureControls
     range::Base.RefValue{Any}
     picker::Any
@@ -41,12 +46,15 @@ mutable struct _FigureControls
     minimum_size::Tuple{Int,Int}
 end
 
-# Weak keys AND values: the figure's callbacks own its controls, never this test/debug lookup.
+
+# Keep both keys and values weak; figure callbacks own the controls.
 const _FIGURE_CONTROLS = WeakKeyDict{Scene,WeakRef}()
 _figure_controls(fig::Figure) = get(_FIGURE_CONTROLS, fig.scene, WeakRef(nothing)).value
 
+
 # Fixed widths keep panel sizing independent of the grid's aspect ratio.
 _fix_panel_size!(x, panel_width::Real) = (x.width[] = Fixed(panel_width); x.halign[] = :center)
+
 
 function _default_recipe_label(options::Vector, current_recipe)
     idx = findfirst(x -> x[2] == current_recipe, options)
@@ -86,8 +94,10 @@ function _build_fig(
     fig_w = max(min(665 + grid_growth, 1600), ceil(Int, panel_width) + 40)
     fig = Figure(size = (fig_w, min(850 + grid_growth, 1785)))
     try
-        return _populate_fig!(fig, graph, gridlayout, picker_info, ui_box_pad, panel_width;
-            has_chain_info, has_trace_info, live_vis, message_duration, menu_width = dimensions.menu_width)
+        return _populate_fig!(
+            fig, graph, gridlayout, picker_info, ui_box_pad, panel_width;
+            has_chain_info, has_trace_info, live_vis, message_duration, menu_width = dimensions.menu_width
+        )
     catch
         # Live startup already has a lifecycle owner that disposes its view.
         isnothing(live_vis) && _empty_failed_static_figure!(fig)
@@ -96,9 +106,11 @@ function _build_fig(
 end
 
 
-function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
+function _populate_fig!(
+    fig::Figure, graph::ComputeGraph, gridlayout,
     picker_info::Union{PickerInfo,Nothing}, ui_box_pad, panel_width;
-    has_chain_info::Bool, has_trace_info::Bool, live_vis, message_duration, menu_width)
+    has_chain_info::Bool, has_trace_info::Bool, live_vis, message_duration, menu_width
+)
     subscription_owner = isnothing(live_vis) ? fig.scene : live_vis
     isnothing(live_vis) || _attach_live_view!(live_vis, fig)
 
@@ -137,7 +149,6 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     # Set gaps after assigning content, once all three tracks exist.
     rowgap!(fig.layout, 2, ui_box_pad)
 
-    # Share tracks between labels, menus and the variable picker.
     ui_layout = controls_layout[2, 2] = GridLayout()
 
     # A width of nothing fills the assigned cell; Auto would size to content.
@@ -169,8 +180,8 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     default_diag = _default_recipe_label(options1D, graph[:diagonal_recipe][])
     default_lower = _default_recipe_label(options2D, graph[:lower_recipe][])
 
-    # Construct upward-opening menus bottom-first so an open list receives clicks before the
-    # menus it covers. Equal-priority handlers run in registration order.
+    # Build menus bottom-first so open lists receive clicks before covered menus;
+    # equal-priority handlers run in registration order.
     menu_lower = Menu(
         fig,
         options = options2D,
@@ -190,7 +201,6 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
         direction = :up
     )
 
-    # The native slider previews a range; the controller commits completed gestures.
     collapse_button = Button(fig, label = "☰", width = 40, halign = :left, valign = :top)
     toggle_row_content[1, 1] = collapse_button
     colsize!(toggle_row_content, 1, Fixed(40))
@@ -198,6 +208,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     limit_label = Label(toggle_row_content[1, 2], "All")
     # Without a slider, the status label uses the space after the menu button.
     colsize!(toggle_row_content, 2, Auto(false))
+
     function add_index_slider!()
         limit = graph[:max_step][]
         limit_label.text[] = limit == 0 ? "No samples" : limit == 1 ? "All (single step/sample)" : ""
@@ -206,8 +217,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
             return nothing
         end
         if isnothing(range_controls[])
-            # A blank placeholder must not report zero as column 2's natural
-            # width: the slider needs that column's remaining panel space.
+            # A blank placeholder must not shrink the slider's column to zero.
             limit_label.tellwidth[] = false
             colsize!(toggle_row_content, 1, Auto())
             collapse_button.height[] = Relative(1)
@@ -219,13 +229,15 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
             slider = IntervalSlider(toggle_row_content[2, 2],
                 range = SampleRangeGrid(limit), startvalues = (1, limit), width = nothing)
             controller = Ref{Any}(nothing)
-            value_control = _control_textbox(fig, summary_layout[1, 2]; owner = subscription_owner,
+            value_control = _control_textbox(
+                fig, summary_layout[1, 2]; owner = subscription_owner,
                 limit = 48, text = "1:$limit", width = 126, height = 30, fontsize = 18,
                 textpadding = (6, 6, 3, 3),
                 on_submit = () -> controller[].commit_text!(),
                 on_blur = () -> controller[].commit_text!(; explicit = false),
                 on_cancel = () -> controller[].cancel_text!(),
-                validator = text -> !isnothing(_parse_sample_window(text, graph[:max_step][])))
+                validator = text -> !isnothing(_parse_sample_window(text, graph[:max_step][]))
+            )
             value_entry = value_control.box
             live_layout = toggle_row_content[1:2, 3] = GridLayout(; height = Auto(), valign = :center)
             colgap!(live_layout, 6)
@@ -238,8 +250,10 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
             _view_on(subscription_owner, live_drag_button.clicks) do _
                 live_drag[] = !live_drag[]
             end
-            range_controls[] = (; slider, live_drag, live_drag_button, live_drag_toggle,
-                value_control, title, value_entry, controller[]...)
+            range_controls[] = (;
+                slider, live_drag, live_drag_button, live_drag_toggle,
+                value_control, title, value_entry, controller[]...
+            )
             rowgap!(toggle_row_content, 1, 10)
             colgap!(toggle_row_content, 12)
             colsize!(toggle_row_content, 1, Fixed(40))
@@ -249,6 +263,7 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
         range_controls[].reconcile!()
         return nothing
     end
+
     _view_on(subscription_owner, graph[:max_step]) do _
         add_index_slider!()
     end
@@ -260,7 +275,9 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     _control_icon!(lbl_upper, :upper; filled = true)
     _control_icon!(lbl_diag, :diagonal)
     _control_icon!(lbl_lower, :lower; filled = true)
-    for (block, text) in ((lbl_upper, "Upper triangle"), (lbl_diag, "Diagonal"), (lbl_lower, "Lower triangle"))
+    for (block, text) in (
+        (lbl_upper, "Upper triangle"), (lbl_diag, "Diagonal"), (lbl_lower, "Lower triangle")
+    )
         _control_tooltip!(fig, block, text; owner = subscription_owner)
     end
 
@@ -328,9 +345,11 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
 
     divider_column = has_trace_info ? 5 : 4
     if !isnothing(picker_info)
-        divider = Box(ui_layout[1:4, divider_column]; width = _UI_DIVIDER_WIDTH,
+        divider = Box(
+            ui_layout[1:4, divider_column]; width = _UI_DIVIDER_WIDTH,
             height = nothing, tellheight = false, strokewidth = 0,
-            color = _panel_bg_color(fig.scene.backgroundcolor[], 0.3))
+            color = _panel_bg_color(fig.scene.backgroundcolor[], 0.3)
+        )
         push!(ui_blocks, divider)
         colsize!(ui_layout, divider_column, Fixed(_UI_DIVIDER_WIDTH))
     end
@@ -345,12 +364,16 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     end
     isnothing(picker_info) || colsize!(ui_layout, divider_column + 1, Fixed(body_size))
     controls_visible = Observable(false)
-    # Budget plot space for the full constructed capacity, including axis labels
-    # and gaps, so opening controls or selecting more dimensions cannot crush it.
+    # Reserve space for the full capacity, labels and gaps so expansion and
+    # selection changes cannot shrink plots below the minimum cell size.
     grid_side = _UI_MIN_GRID_PADDING + _UI_MIN_GRID_CELL * size(graph[:live_map][], 1)
-    minimum_size = (ceil(Int, max(panel_width, grid_side)) + 40,
-        grid_side + ceil(Int, body_size) + 200 + (isnothing(live_vis) ? 0 : 48))
-    controls = _FigureControls(range_controls, picker, controls_visible, collapse_button, notice, minimum_size)
+    minimum_size = (
+        ceil(Int, max(panel_width, grid_side)) + 40,
+        grid_side + ceil(Int, body_size) + 200 + (isnothing(live_vis) ? 0 : 48)
+    )
+    controls = _FigureControls(
+        range_controls, picker, controls_visible, collapse_button, notice, minimum_size
+    )
     _FIGURE_CONTROLS[fig.scene] = WeakRef(controls)
     _view_on(subscription_owner, controls_visible; update = true) do vis
         rowsize!(fig.layout, 3, vis ? Auto() : Fixed(0))
@@ -375,7 +398,9 @@ function _populate_fig!(fig::Figure, graph::ComputeGraph, gridlayout,
     add_index_slider!()
     guarded_slider! = isnothing(live_vis) ? add_index_slider! :
         () -> _with_live_view(add_index_slider!, live_vis)
-    return (fig = fig, add_index_slider! = guarded_slider!, range_controls = range_controls, controls = controls)
+    return (
+        fig = fig, add_index_slider! = guarded_slider!, range_controls = range_controls, controls = controls
+    )
 end
 
 
@@ -414,12 +439,13 @@ end
 _checkbox_should_be_checked(active_vars::Set{<:Integer}, i::Integer, j::Integer) =
     (i in active_vars) && (j in active_vars)
 
-# A Fixed(0) cell alone does not disable geometric hit-testing: hidden blocks
-# need zero width and height. Restore each block's desired dimensions; using
-# Auto() would shrink-wrap a Menu whose default width is nothing.
+
+# Collapsed cells do not disable native hit-testing; also hide and resize blocks.
+# Preserve their original dimensions: Auto() would shrink a Menu with width nothing.
 const _BLOCK_NATURAL_SIZE = WeakKeyDict{Any,Tuple{Any,Any}}()
 _natural_size!(b) = get!(() -> (b.width[], b.height[]), _BLOCK_NATURAL_SIZE, b)
 const _BLOCK_VISIBILITY = WeakKeyDict{Any,Bool}()
+
 
 function _set_block_geometry!(b, width, height)
     _BLOCK_NATURAL_SIZE[b] = (width, height)
@@ -430,23 +456,25 @@ function _set_block_geometry!(b, width, height)
     return nothing
 end
 
-# Batch attribute writes without notification; the last write must notify to trigger relayout.
+
+# Suppress intermediate layout updates; the final write must notify.
 _silent_set!(observable, val) = setexcludinghandlers!(observe(observable), val)
+
 
 function _set_block_visible!(b, v::Bool)
     _BLOCK_VISIBILITY[b] = v
     _silent_set!(b.blockscene.visible, v)
     w, h = _natural_size!(b)
     _silent_set!(b.width, v ? w : 0)
-    b.height[] = v ? h : 0 # final, notifying write
+    b.height[] = v ? h : 0
     return nothing
 end
 
 
 _set_block_visible!(b::Union{Label,Box}, v::Bool) = (b.visible[] = v)
 
-# Checkbox hit testing uses size independently of its bounding box. Capture the widget weakly
-# when hiding/restoring both.
+
+# Checkbox hit-testing uses size independently of its bounding box; restore both.
 const _CHECKBOX_NATURAL_SIZE = WeakKeyDict{Checkbox,Float64}()
 function _set_block_visible!(b::Checkbox, v::Bool)
     _BLOCK_VISIBILITY[b] = v
@@ -455,10 +483,10 @@ function _set_block_visible!(b::Checkbox, v::Bool)
     _silent_set!(b.width, v ? w : 0)
     _silent_set!(b.height, v ? h : 0)
     if v
-        b.size[] = get(_CHECKBOX_NATURAL_SIZE, b, b.size[]) # final, notifying write
+        b.size[] = get(_CHECKBOX_NATURAL_SIZE, b, b.size[])
     else
         haskey(_CHECKBOX_NATURAL_SIZE, b) || (_CHECKBOX_NATURAL_SIZE[b] = b.size[])
-        b.size[] = 0 # final, notifying write
+        b.size[] = 0
     end
     return nothing
 end
@@ -468,6 +496,7 @@ function _install_controls_minimum!(fig, minimum_size; owner = fig.scene)
     size = Tuple(Makie.viewport(fig.scene)[].widths)
     enlarged = max.(size, minimum_size)
     size == enlarged || Makie.resize!(fig, enlarged...)
+
     function apply_native_minimum!()
         screen = Makie.getscreen(fig.scene)
         isnothing(screen) && return nothing
@@ -479,9 +508,9 @@ function _install_controls_minimum!(fig, minimum_size; owner = fig.scene)
         current == target || Makie.resize!(fig, target...)
         return nothing
     end
-    # Clamp through Makie's scale-aware resize path after native resize events.
-    # Persistent GLFW limits would leak into another figure when GLMakie reuses
-    # its screen/window. These callbacks instead end with this figure's owner.
+
+    # Use Makie's scale-aware resize path. Native GLFW limits would persist when
+    # GLMakie reuses the window; these callbacks end with the figure's owner.
     _view_on(owner, events(fig.scene).window_open) do _
         apply_native_minimum!()
     end

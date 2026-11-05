@@ -16,6 +16,7 @@ function _rounded_control_triangle(vertices; radius = 3.0f0)
     return points
 end
 
+
 function _control_icon_points(kind::Symbol)
     if kind === :upper
         return _rounded_control_triangle(Point2f[(4, 20), (20, 20), (20, 4)])
@@ -24,19 +25,24 @@ function _control_icon_points(kind::Symbol)
     elseif kind === :diagonal
         return Point2f[(5, 19), (19, 5)]
     elseif kind === :menu
-        return Point2f[(5, 18), (19, 18), (NaN, NaN), (5, 12), (19, 12),
-            (NaN, NaN), (5, 6), (19, 6)]
+        return Point2f[
+            (5, 18), (19, 18), (NaN, NaN), (5, 12), (19, 12),
+            (NaN, NaN), (5, 6), (19, 6)
+        ]
     elseif kind === :check
         return Point2f[(5, 12), (10, 7), (19, 18)]
     elseif kind === :close
         return Point2f[(6, 6), (18, 18), (NaN, NaN), (6, 18), (18, 6)]
     elseif kind === :reset
-        arc = Point2f[Point2f(12, 12) + 8 * Point2f(cos(t), sin(t))
-            for t in range(0.8pi, -0.85pi; length = 40)]
+        arc = Point2f[
+            Point2f(12, 12) + 8 * Point2f(cos(t), sin(t))
+            for t in range(0.8pi, -0.85pi; length = 40)
+        ]
         return vcat(arc, Point2f[(NaN, NaN), (4, 21), (4, 15), (10, 15)])
     end
     throw(ArgumentError("Unknown control icon: $kind"))
 end
+
 
 function _control_icon!(block, kind; filled = false, size = 20.0)
     icon = kind isa Observable ? kind : Observable(kind)
@@ -52,20 +58,22 @@ function _control_icon!(block, kind; filled = false, size = 20.0)
         lines!(block.blockscene, points; color, visible, linewidth = 1.8, linecap = :round,
             joinstyle = :round, inspectable = false)
     end
-    # Native Buttons draw their background in a child scene. Match their text's
-    # explicit foreground depth so glyphs cannot disappear behind that background.
+    # Match native text depth so icons stay above the Button's child-scene background.
     translate!(plot, 0, 0, 2)
     return icon
 end
+
 
 function _control_tooltip!(fig, block, text; owner = fig.scene)
     position = lift(block.blockscene, block.layoutobservables.computedbbox) do bounds
         Point2f(bounds.origin + Vec2f(bounds.widths[1] / 2, bounds.widths[2]))
     end
-    tip = tooltip!(fig.scene, position; text, visible = false, fontsize = 13,
+    tip = tooltip!(
+        fig.scene, position; text, visible = false, fontsize = 13,
         placement = :above, inspectable = false,
         backgroundcolor = _panel_bg_color(fig.scene.backgroundcolor[]),
-        outline_color = _panel_bg_color(fig.scene.backgroundcolor[], 0.35))
+        outline_color = _panel_bg_color(fig.scene.backgroundcolor[], 0.35)
+    )
     _view_on(owner, events(fig.scene).mouseposition) do _
         alignment = position[][1] > Makie.viewport(fig.scene)[].widths[1] / 2 ? 1.0 : 0.0
         tip.align[] == alignment || (tip.align[] = alignment)
@@ -83,8 +91,11 @@ function _control_tooltip!(fig, block, text; owner = fig.scene)
     return tip
 end
 
-function _control_icon_button(fig, position, kind::Symbol, description = nothing;
-    owner = fig.scene, size = 24.0)
+
+function _control_icon_button(
+    fig, position, kind::Symbol, description = nothing;
+    owner = fig.scene, size = 24.0
+)
     button = Button(position; label = "", width = size, height = size,
         cornerradius = 4, padding = (0, 0, 0, 0))
     icon = _control_icon!(button, kind; size = 17.0)

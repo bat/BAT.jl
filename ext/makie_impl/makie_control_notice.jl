@@ -11,12 +11,13 @@ end
 
 _ControlNoticeClock(duration::Real) = _ControlNoticeClock(duration, 0.0, 0, false, false)
 
-# Cairo snapshots do not necessarily emit render ticks. This figure-owned presenter
-# updates expiry at the standard pre-display boundary as well as during interaction.
+
+# Cairo snapshots may not emit ticks; also expire notices before display.
 struct _ControlPresentation
     update!::Function
 end
 Makie.update_state_before_display!(presentation::_ControlPresentation) = presentation.update!()
+
 
 function _start_notice!(clock::_ControlNoticeClock, now::UInt64 = time_ns())
     clock.remaining = clock.duration
@@ -25,6 +26,7 @@ function _start_notice!(clock::_ControlNoticeClock, now::UInt64 = time_ns())
     clock.active = true
     return nothing
 end
+
 
 function _advance_notice!(clock::_ControlNoticeClock, paused::Bool, now::UInt64 = time_ns())
     clock.active || return nothing
@@ -37,15 +39,18 @@ function _advance_notice!(clock::_ControlNoticeClock, paused::Bool, now::UInt64 
     return nothing
 end
 
-# Overlay geometry belongs to the root figure, outside every control cell. The
-# minimum supported figure height reserves space above the range strip for it.
+
+# Position notices outside control cells, in the space reserved above the range strip.
 function _control_notice(fig, anchor; owner = fig.scene, duration::Real = 3.0)
     clock = _ControlNoticeClock(duration)
     tile_height = Ref(88.0)
     return_focus = Ref(WeakRef(nothing))
     bounds = Observable(Rect2f(0, 0, 340, 88))
-    background = Box(fig; bbox = bounds, color = _panel_bg_color(fig.scene.backgroundcolor[], 0.04),
-        cornerradius = 8, strokewidth = 1, strokecolor = _panel_bg_color(fig.scene.backgroundcolor[], 0.3))
+    background = Box(
+        fig; bbox = bounds, color = _panel_bg_color(fig.scene.backgroundcolor[], 0.04),
+        cornerradius = 8, strokewidth = 1,
+        strokecolor = _panel_bg_color(fig.scene.backgroundcolor[], 0.3)
+    )
     title_bounds = lift(fig.scene, bounds) do b
         Rect2f(b.origin + Vec2f(12, b.widths[2] - 36), Vec2f(280, 28))
     end
@@ -70,6 +75,7 @@ function _control_notice(fig, anchor; owner = fig.scene, duration::Real = 3.0)
     blocks = (background, title, body, close.button, bar)
     kind = Ref(:info)
     shown = Ref(true)
+
     function visible!(value)
         shown[] == value && return nothing
         shown[] = value
@@ -78,6 +84,7 @@ function _control_notice(fig, anchor; owner = fig.scene, duration::Real = 3.0)
         end
         return nothing
     end
+
     function dismiss!(; restore_focus = false)
         clock.active = false
         visible!(false)
@@ -87,6 +94,7 @@ function _control_notice(fig, anchor; owner = fig.scene, duration::Real = 3.0)
         end
         return nothing
     end
+
     function paint!()
         if !clock.active
             visible!(false)
@@ -103,6 +111,7 @@ function _control_notice(fig, anchor; owner = fig.scene, duration::Real = 3.0)
         bar_bounds[] = Rect2f(x + 340 - remaining_width, y, remaining_width, 3)
         return nothing
     end
+
     function show!(error; severity = :error, force = false, focus = nothing)
         clock.active && kind[] === :error && severity === :info && !force && return nothing
         kind[] = severity
@@ -121,6 +130,7 @@ function _control_notice(fig, anchor; owner = fig.scene, duration::Real = 3.0)
         visible!(true)
         return nothing
     end
+
     function advance!()
         !clock.active && !shown[] && return nothing
         paused = clock.active && Point2f(events(fig.scene).mouseposition[]) in bounds[]
@@ -128,6 +138,7 @@ function _control_notice(fig, anchor; owner = fig.scene, duration::Real = 3.0)
         paint!()
         return nothing
     end
+
     _view_on(owner, close.button.clicks) do _
         dismiss!(; restore_focus = true)
     end
@@ -169,11 +180,13 @@ function _control_notice(fig, anchor; owner = fig.scene, duration::Real = 3.0)
     end
     refresh! = owner isa Scene ? advance! : () -> _with_live_view(advance!, owner)
     push!(fig.content, _ControlPresentation(refresh!))
-    # Give the tile its own drawing layer; no surrounding layout participates.
+    # Draw above the surrounding controls and plots.
     for block in blocks
         translate!(block.blockscene, 0, 0, 1000)
     end
     visible!(false)
-    return (show! = show!, dismiss! = dismiss!, advance! = advance!, clock = clock,
-        bounds = bounds, close = close.button, blocks = blocks)
+    return (
+        show! = show!, dismiss! = dismiss!, advance! = advance!, clock = clock,
+        bounds = bounds, close = close.button, blocks = blocks
+    )
 end

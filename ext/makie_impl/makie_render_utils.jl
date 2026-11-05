@@ -220,9 +220,9 @@ function _close_gl_screen!(screen, backend)
             finally
                 while true
                     try
-                        # Julia 1.12.7/1.13.3 can retain removed scenes in pooled GLMakie
-                        # vector storage. GLMakie's workaround is sizehint!(screen.screens, 0)
-                        # after empty!(screen.screens); it is not applied here.
+                        # Julia 1.12.7/1.13.3 can retain pooled GLMakie scenes. The workaround
+                        # is sizehint!(screen.screens, 0) after empty!(screen.screens) in
+                        # GLMakie; it is not applied here.
                         Base.reenable_sigint(() -> close(screen))
                         break
                     catch err

@@ -1,11 +1,12 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-# Keep Makie-version-specific editing details here. BAT owns admission and submit /
-# cancel semantics; native Textbox retains text rendering, cursor movement and selection.
+# Keep version-specific editing here. BAT validates and commits input; native
+# Textbox handles rendering, cursor movement and selection.
 _legacy_control_textbox(box::Textbox) = hasfield(typeof(box), :cursorindex)
 _control_text(box::Textbox) = _legacy_control_textbox(box) && box.displayed_string[] == " " ?
     "" : String(box.displayed_string[])
+
 
 function _control_insert_candidate(box::Textbox, insertion::String)
     text = _control_text(box)
@@ -20,6 +21,7 @@ function _control_insert_candidate(box::Textbox, insertion::String)
     end
 end
 
+
 function _control_cursor!(box::Textbox, cursor)
     if _legacy_control_textbox(box)
         box.cursorindex[] = cursor
@@ -29,6 +31,7 @@ function _control_cursor!(box::Textbox, cursor)
     return nothing
 end
 
+
 function _control_focus!(box::Textbox)
     # Old Makie.focus! starts an unowned animation task. Setting focused first also
     # makes its subsequent native mouse handler a no-op for task creation.
@@ -37,11 +40,13 @@ function _control_focus!(box::Textbox)
     return nothing
 end
 
+
 function _control_blur!(box::Textbox)
     box.focused[] = false
     _legacy_control_textbox(box) && (box.cursorcolor[] = :transparent)
     return nothing
 end
+
 
 function _control_hit(box, scene)
     box.blockscene.visible[] || return false
@@ -51,22 +56,24 @@ function _control_hit(box, scene)
     return Point2f(events(scene).mouseposition[]) in bounds
 end
 
-function _control_textbox(fig, position; owner = fig.scene, limit::Integer,
+
+function _control_textbox(
+    fig, position; owner = fig.scene, limit::Integer,
     text::AbstractString = "", on_submit = () -> nothing, on_cancel = () -> nothing,
     on_blur = on_submit, skip_blur = () -> false, on_reject = () -> nothing,
-    on_focus = () -> nothing,
-    kwargs...)
+    on_focus = () -> nothing, kwargs...
+)
     ncodeunits(text) <= limit || throw(ArgumentError("Initial control text exceeds its input limit"))
     box = Textbox(position; stored_string = String(text), placeholder = "",
         reset_on_defocus = false, defocus_on_submit = false, kwargs...)
+
     function replace!(value; stored = false)
         if ncodeunits(value) > limit
             on_reject()
             return false
         end
-        # Older Textbox skips cursor clamping when the new string is empty.
-        # Reset it before notifying text observers so the next native keystroke
-        # cannot index past the text after clearing or reopening an empty editor.
+        # Older Textbox skips cursor clamping on empty strings. Clamp before
+        # notifying observers so the next keystroke cannot index past the text.
         if _legacy_control_textbox(box)
             cursor = clamp(box.cursorindex[], 0, length(value))
             box.cursorindex[] == cursor || (box.cursorindex[] = cursor)
@@ -75,6 +82,7 @@ function _control_textbox(fig, position; owner = fig.scene, limit::Integer,
         stored && (box.stored_string[] = String(value))
         return true
     end
+
     function insert!(value)
         # Reject before layout or expansion; normalize multiline clipboard lists.
         ncodeunits(value) <= limit || (on_reject(); return false)
@@ -85,6 +93,7 @@ function _control_textbox(fig, position; owner = fig.scene, limit::Integer,
         _control_cursor!(box, cursor)
         return true
     end
+
     _view_on(owner, events(fig.scene).unicode_input; priority = 100) do char
         box.focused[] || return Consume(false)
         # Admission before native Unicode handlers (priority 60).
@@ -133,6 +142,8 @@ function _control_textbox(fig, position; owner = fig.scene, limit::Integer,
         end
         return Consume(false)
     end
-    return (box = box, replace! = replace!, insert! = insert!,
-        focus! = () -> _control_focus!(box), blur! = () -> _control_blur!(box))
+    return (
+        box = box, replace! = replace!, insert! = insert!,
+        focus! = () -> _control_focus!(box), blur! = () -> _control_blur!(box)
+    )
 end
