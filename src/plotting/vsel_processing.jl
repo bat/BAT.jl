@@ -1,13 +1,13 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
-# bring vsel to a normalized shape, i.e.: 
+# bring vsel to a normalized shape, i.e.:
 #
 # AbstractVector{<:Integer} -> AbstractVector{<:Integer}
 # AbstractVector{AbstractUnitRange} -> AbstractVector{AbstractUnitRange}
-# 
+#
 # Expr -> Vector{Union{Symbol,Expr})
-# 
+#
 # Symbol -> Vector{Union{Symbol,Expr})
 
 function _normalize_vsel_unshaped(vsel::Union{AbstractVector{I}, AbstractVector{UnitRange{I}}}) where I <: Integer
@@ -59,7 +59,7 @@ function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Expr)
     return Expr[vsel]
 end
 
-function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Symbol)   
+function _normalize_vsel_shaped(vs::AbstractValueShape, vsel::Symbol)
     return Symbol[vsel]
 end
 
@@ -96,11 +96,11 @@ function marg_idxs_shaped(samples::DensitySampleVector, vsel::AbstractVector{<:I
 end
 
 
-# Encode dim names to preserve indexing information 
+# Encode dim names to preserve indexing information
 #
 # unicode encodings to preserve indexing information:
-# :a⌞2⌟     = : a \llcorner 2 \lrcorner 
-# :a⌞2ː4⌟   = : a \llcorner 2 \lmrk 4 \lrcorner 
+# :a⌞2⌟     = : a \llcorner 2 \lrcorner
+# :a⌞2ː4⌟   = : a \llcorner 2 \lmrk 4 \lrcorner
 # :a⌞1ˌ3ˌ5⌟ = : a \llcorner 1 \verti 3 \verti 5 \lrcorner
 
 function encode_name(name::Union{Expr, String})
@@ -109,7 +109,7 @@ function encode_name(name::Union{Expr, String})
         string(name)," " => ""), "[" => "⌞"), ":" => "ː"), "," => "ˌ"), "]" => "⌟"
     )
     return Symbol(code)
-end 
+end
 
 function encode_name(name::Symbol)
     return name
@@ -119,41 +119,41 @@ end
 #=
 """
     bat_marginalize(
-        samples::DensitySampleVector, 
+        samples::DensitySampleVector,
         vsel::Union{E, S, I, U, AbstractVector{Union{E, S, I, U}}} where E<:Expr where S<:Symbol where I<:Integer where U<:UnitRange
     )
 
-Create a new `DensitySampleVector` containing the selected 
+Create a new `DensitySampleVector` containing the selected
 dimensions `vsel` of the input `samples`.
 
 Returns a NamedTuple `(result = marg_samples::DensitySampleVector)`. If the input is shaped, the new samples
 will have the shape of the selected dimensions.
 
-`samples` may be shaped or unshaped, vsel may be an `Int`, `UnitRange`, 
+`samples` may be shaped or unshaped, vsel may be an `Int`, `UnitRange`,
 `Symbol`, `Expression`, or a Vector of these types.
 
-To select certain elements or whole slices of a multidimensional parameter `a` of 
+To select certain elements or whole slices of a multidimensional parameter `a` of
 `samples` do:
 
 `vsel` = :(a[1]) or `vsel` = :(a[1,2]) or `vsel` = :(a[1,:,:])
 
-with the brackets containing the cartesian index of the selected values. 
+with the brackets containing the cartesian index of the selected values.
 
-To preserve the indexing information of the selection, `vsel` is encoded using 
+To preserve the indexing information of the selection, `vsel` is encoded using
 unicode characters. The new names in the marginalized samples are then `symbol`s
 of these codes:
 
-:(a[2])     => :a⌞2⌟    
-:(a[2:4])   => :a⌞2ː4⌟   
-:(a[1,2,:]) => :a⌞1ˌ2ˌː⌟ 
+:(a[2])     => :a⌞2⌟
+:(a[2:4])   => :a⌞2ː4⌟
+:(a[1,2,:]) => :a⌞1ˌ2ˌː⌟
 
-If `samples` is shaped, and `vsel` is an `Int` `i` or a vector of `Int`s `[i,j,k]`, 
+If `samples` is shaped, and `vsel` is an `Int` `i` or a vector of `Int`s `[i,j,k]`,
 the i-th, j-th, and k-th parameters of `samples` are selected automatically.
 
-If `samples` is unshaped, `vsel` may only be an ``Int` `i` or a vector 
+If `samples` is unshaped, `vsel` may only be an ``Int` `i` or a vector
 of `Int`s `[i,j,k]`. Then the i-th, j-th, and k-th columns of `samples` are selected.
 
-For convenience, `vsel` can be of the shape 
+For convenience, `vsel` can be of the shape
 
 :([a[1,2], a[5:8], c]) instead of [:(a[1,2]), :(a[5:8]), :c]
 
@@ -161,7 +161,7 @@ The logd of the new samples is set to NaN, the info and aux fields of `samples` 
 
 Example:
 
-```julia 
+```julia
 marg_shaped_samples = bat_marginalize(orig_shaped_samples, :(a[1,2,:]))
 
 varshape(marg_samples) == NamedTupleShape{(:a⌞1ˌ2ˌː⌟,), Tuple{ValueAccessor{ArrayShape{Real, 1}}}}((a⌞1ˌ2ˌː⌟ = ValueAccessor{ArrayShape{Real, 1}}(ArrayShape{Real, 1}((3,)), 0, 3),), 3)
@@ -174,7 +174,7 @@ marg_unshaped_samples = bat_marginalize(orig_unshaped_smaples, [1,2,3])
 =#
 
 # ToDo: Turn this into a proper public API:
-function bat_marginalize(samples::DensitySampleVector, 
+function bat_marginalize(samples::DensitySampleVector,
                          vsel
 )
     shaped = isshaped(samples)
@@ -204,7 +204,7 @@ function bat_marginalize(samples::DensitySampleVector,
     flat_orig_data = ValueShapes.flatview(unshaped.(samples).v)
     marg_data = flat_orig_data[(first(axes(flat_orig_data, 1)) - 1) .+ flat_idxs, :]
     marg_data = ndims(marg_data) > 1 ? VectorOfSimilarVectors(marg_data) : marg_data
-   
+
     marg_samples = shaped ? new_shape.(DensitySampleVector(v = marg_data, logd = logd, info = info, aux = aux)) : DensitySampleVector(v = marg_data, logd = logd, info = info, aux = aux)
     return (result = marg_samples,)
 end

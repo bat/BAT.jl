@@ -36,7 +36,7 @@ The error log is disabled by default.
 
 See [`BAT.error_log`](@ref).
 """
-function enable_error_log(enable::Bool = true)
+function enable_error_log(enable::Bool=true)
     if enable
         if isnothing(g_error_log[])
             g_error_log[] = Vector{ErrLogEntry}[]
@@ -89,6 +89,7 @@ const _bat_modules = Set([
     "BATCubaExt",
     "BATFoldsExt",
     "BATHDF5Ext",
+    "BATMakieExt",
     "BATMGVIExt",
     "BATNestedSamplersExt",
     "BATOptimExt",
@@ -103,8 +104,8 @@ const _bat_modules = Set([
 
 Enable/disable debug-level logging for BAT and all BAT package extensions.
 """
-function log_batdebug(enable::Bool = true)
-    enabled_modules = Set(filter(!isempty,strip.(split(get(ENV, "JULIA_DEBUG", ""), ","))))
+function log_batdebug(enable::Bool=true)
+    enabled_modules = Set(filter(!isempty, strip.(split(get(ENV, "JULIA_DEBUG", ""), ","))))
     new_enabled_modules = if enable
         union(enabled_modules, _bat_modules)
     else

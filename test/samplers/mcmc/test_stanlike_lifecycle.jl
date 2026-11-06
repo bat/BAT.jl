@@ -7,7 +7,8 @@ import ForwardDiff
 
 const TARGET = BAT.batmeasure(MvNormal([0.0], ones(1, 1)))
 
-new_context(seed) = BATContext(rng=Philox4x((seed, 2841)), ad=ForwardDiff)
+new_context(seed; visualizer=BATVisualizer()) =
+    BATContext(rng=Philox4x((seed, 2841)), ad=ForwardDiff, visualizer=visualizer)
 
 function algorithm(tuning; kwargs...)
     defaults = (
@@ -86,6 +87,23 @@ function run_chunks(alg, chunks; seed=2810, horizon=12)
     end
     return state, output
 end
+
+struct InitSegmentBackend <: BAT.BATVisBackend end
+BAT.capture_visualizer_init(::BATVisualizer{InitSegmentBackend}) = true
+function BAT.begin_visualizer_init_segment(::BATVisualizer{InitSegmentBackend}, chain, output)
+    (cycle=chain.info.cycle, step=chain.stepno)
+end
+function BAT.end_visualizer_init_segment!(
+    vis::BATVisualizer{InitSegmentBackend}, before, chain, output,
+)
+    lock(vis.content.lock) do
+        push!(vis.content.records, (before=before, cycle=chain.info.cycle,
+            step=chain.stepno, output=deepcopy(output), metric=metric(chain.f_transform)))
+    end
+    return nothing
+end
+segment_visualizer() = BATVisualizer(InitSegmentBackend(),
+    (records=NamedTuple[], lock=ReentrantLock()))
 
 # These specialize only fixture-owned initialization algorithms.
 struct FixedInitialPoint <: InitvalAlgorithm end
@@ -296,13 +314,18 @@ end
         tuning = BAT.StanLikeTuning(init_buffer=10, term_buffer=1, window_size=8)
         alg = algorithm(tuning; init=init, proposal=RandomWalk(proposaldist=Normal(0, 1e-6)))
         target = BAT.batmeasure(product_distribution([Uniform(0, 1)]))
+        vis = segment_visualizer()
         result = with_logger(NullLogger()) do
             BAT.mcmc_init!(alg, target, init, unexpected_init_callback,
-                new_context(2812))
+                new_context(2812; visualizer=vis))
         end
         state, output = only(result.mcmc_states), only(result.outputs)
         tuner = state.trafo_tuner_state
         @test initval.calls == 2
+        @test length(vis.content.records) == 2
+        @test [r.before.step for r in vis.content.records] == [0, 10]
+        @test [r.step for r in vis.content.records] == [10, 20]
+        @test all(r -> r.cycle == r.before.cycle == 1, vis.content.records)
         @test tuner.i == 20
         @test tuner.window_splits == [28]
         @test tuner.stats.param_stats.cov.n == 10
@@ -320,22 +343,31 @@ end
             initval_alg=FixedInitialPoint())
         tuning = BAT.StanLikeTuning(init_buffer=0, term_buffer=1, window_size=12)
         alg = algorithm(tuning; init=init, proposal=RandomWalk(proposaldist=Normal(0, 0.01)))
+        vis = segment_visualizer()
         result = with_logger(NullLogger()) do
             BAT.mcmc_init!(alg, TARGET, init, unexpected_init_callback,
-                new_context(2813))
+                new_context(2813; visualizer=vis))
         end
         state, output = only(result.mcmc_states), only(result.outputs)
         tuner = state.trafo_tuner_state
+        records = vis.content.records
+        @test length(records) == 2
+        @test [r.before.step for r in records] == [0, 0]
+        @test [r.step for r in records] == [10, 32]
+        @test [r.cycle for r in records] == [1, 2]
         @test tuner.window_splits == [30]
         @test tuner.i == 30 && tuner.stats.param_stats.cov.n == 0
         @test state.chain_state.stepno == 32
         rows = repeated_rows(only(output))
         @test length(rows) == 42
+        @test repeated_rows(only(records[1].output)) == rows[1:10]
         @test length(repeated_rows(only(output); cycle=1)) == 10
         @test length(repeated_rows(only(output); cycle=2)) == 32
         expected = batch_covariance(rows[1:30])
         @test only(expected) > 0
+        @test records[1].metric == ones(1, 1)
         @test metric(state.chain_state.f_transform) ≈ expected rtol=1e-8 atol=1e-14
+        @test records[2].metric ≈ expected rtol=1e-8 atol=1e-14
     end
 
     @testset "two real burn-in cycles reset dirty evidence then freeze geometry" begin

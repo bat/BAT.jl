@@ -1,0 +1,454 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
+# Optional Makie regression entry point. Run with Makie available; a loaded
+# rendering backend additionally exercises shader warmup. The application suite
+# runs this file with CairoMakie, without adding Makie to BAT's core test target.
+module TestMakieRNG
+
+using BAT, Test
+using Distributions, LinearAlgebra, Makie, Random, ValueShapes
+using BAT: Philox4x, Threefry4x
+
+const EXT = Base.get_extension(BAT, :BATMakieExt)
+
+mutable struct FigureCapture <: AbstractDisplay
+    count::Int
+end
+Base.displayable(::FigureCapture, ::MIME"image/png") = true
+Base.display(d::FigureCapture, ::Makie.Figure) = (d.count += 1; nothing)
+
+function with_capture(f)
+    capture = FigureCapture(0)
+    old_inline = Makie.ALWAYS_INLINE_PLOTS[]
+    Makie.inline!(true)
+    pushdisplay(capture)
+    try
+        result = f()
+        @test capture.count == 1
+        return result
+    finally
+        popdisplay(capture)
+        Makie.inline!(old_inline)
+    end
+end
+
+function cleanup(vis)
+    # Assert normal shutdown before this fallback; disposal is session-local.
+    BAT.request_visualizer_stop!(vis; reason = :disabled)
+    BAT.finish_visualizer!(vis; success = false)
+    BAT.dispose_visualizer!(vis)
+end
+
+function algorithm(; init = MCMCChainPoolInit(nsteps_init = 30), nwalkers = 1, store_burnin = false, sample_weighting = RepetitionWeighting(), nonzero_weights = true)
+    TransformedMCMC(
+        nchains = 2, nwalkers = nwalkers, nsteps = 120, strict = false,
+        store_burnin = store_burnin, init = init, sample_weighting = sample_weighting, nonzero_weights = nonzero_weights,
+        adaptive_transform = BAT.NoAdaptiveTransform(),
+        transform_tuning = NoMCMCTransformTuning(),
+        convergence = GelmanRubinConvergence(),
+        burnin = MCMCMultiCycleBurnin(nsteps_per_cycle = 30, max_ncycles = 1, nsteps_final = 5),
+    )
+end
+
+const RNGS = (Philox4x((564, 84)), Threefry4x((564, 84, 19, 71)))
+
+# Fail only the visualization's domain source, after consuming private randomness.
+struct FailingDomainTarget end
+struct FailingDomainSource <: ContinuousUnivariateDistribution end
+const DOMAIN_FAILURE = ErrorException("Intentional failure after a private domain draw")
+const FAILED_DRAWS = Ref(0)
+BAT.get_initsrc_from_target(::FailingDomainTarget) = FailingDomainSource()
+function Random.rand(rng::AbstractRNG, ::FailingDomainSource)
+    rand(rng, UInt64)
+    FAILED_DRAWS[] += 1
+    throw(DOMAIN_FAILURE)
+end
+
+# No visualization must not require RNG copying, even for another backend's RNG.
+struct UncopyableRNG <: AbstractRNG end
+Base.copy(::UncopyableRNG) = error("Unexpected RNG copy")
+
+# Numerical snapshots omit the visualization/context ownership graph. These
+# fixtures use acyclic RandomWalk and StanLike state; keep all of their fields,
+# including reset NaNs, rather than comparing mutable wrapper identities.
+stanlike_fields(x) = (nameof(typeof(x)),
+    ntuple(i -> stanlike_value(getfield(x, i)), fieldcount(typeof(x))))
+
+function stanlike_value(x)
+    x isa Union{Number,Symbol,AbstractString,Nothing} && return x
+    x isa Type && return (:type, string(x))
+    x isa AbstractRange && return (:range, first(x), step(x), length(x))
+    x isa AbstractArray && return (:array, size(x), map(stanlike_value, collect(vec(x))))
+    x isa NamedTuple && return NamedTuple{keys(x)}(map(stanlike_value, values(x)))
+    x isa Tuple && return map(stanlike_value, x)
+    return stanlike_fields(x)
+end
+
+# Their array interfaces expose normalized estimates, not accumulator storage.
+stanlike_value(x::Union{BAT.OnlineMvMean,BAT.OnlineMvCov}) = stanlike_fields(x)
+
+stanlike_rng(rng) = (state=stanlike_value(rng), future=rand(copy(rng), UInt64, 16))
+stanlike_samples(samples) = NamedTuple{(:v, :weight, :logd, :info, :aux)}(
+    map(name -> stanlike_value(getproperty(samples, name)), (:v, :weight, :logd, :info, :aux)))
+
+function stanlike_chain(chain)
+    return (
+        info=stanlike_value(chain.info), stepno=chain.stepno,
+        nattempts=copy(chain.nattempts), nsamples=copy(chain.nsamples),
+        accepted=copy(chain.accepted), walker_order=copy(chain.walker_order),
+        current=map(stanlike_samples, chain.current),
+        proposed=map(stanlike_samples, chain.proposed),
+        output=stanlike_samples(chain.output),
+        transform=stanlike_value(chain.f_transform),
+        proposal=stanlike_value(chain.proposal),
+        cycle_rng=stanlike_value(chain.rngpart_cycle),
+        rng=stanlike_rng(BAT.get_rng(chain.context)),
+        walkers=[stanlike_rng(BAT.get_rng(ctx)) for ctx in chain.walker_genctxs],
+    )
+end
+
+function stanlike_default_streams()
+    full = copy(Random.default_rng())
+    parent = rand(copy(full), UInt64, 16)
+    children = Vector{Vector{UInt64}}(undef, 3)
+    @sync for i in eachindex(children)
+        Threads.@spawn children[i] = rand(UInt64, 16)
+    end
+    return (; full, parent, children, parent_after=rand(UInt64, 16))
+end
+
+function stanlike_observed_run(case, context; live=false)
+    events = NamedTuple[]
+    owner = current_task()
+    function callback(::Val{:mcmc_burnin}, states)
+        push!(events, (
+            event=:mcmc_burnin, owner=current_task() === owner,
+            chains=stanlike_chain.(getfield.(states, :chain_state)),
+            tuners=[stanlike_value(s.trafo_tuner_state) for s in states],
+            proposal_tuners=[stanlike_value(s.proposal_tuner_state) for s in states],
+            windows=[(
+                i=s.trafo_tuner_state.i,
+                splits=copy(s.trafo_tuner_state.window_splits),
+                rows=BAT.nsamples(s.trafo_tuner_state.stats),
+            ) for s in states],
+        ))
+        return nothing
+    end
+    alg = TransformedMCMC(
+        nchains=2, nwalkers=case.nwalkers, nsteps=24,
+        proposal=RandomWalk(proposaldist=Normal(0, 0.25)),
+        pretransform=DoNotTransform(), adaptive_transform=BAT.TriangularAffineTransform(),
+        transform_tuning=case.tuning, strict=false, store_burnin=true,
+        init=case.init, convergence=AssumeConvergence(), callback=callback,
+        burnin=MCMCMultiCycleBurnin(
+            nsteps_per_cycle=case.burnin_steps, max_ncycles=1, nsteps_final=3),
+    )
+    target = MvNormal([0.5, -0.7], [1.3 0.2; 0.2 0.8])
+    Random.seed!(0x33ab)
+    result = live ? with_capture(() -> BAT.evalmeasure(target, alg, context)) :
+        BAT.evalmeasure(target, alg, context)
+    # Read default/child streams immediately after the public call, before
+    # cleanup or any test code can introduce additional tasks.
+    streams = stanlike_default_streams()
+    return (
+        samples=stanlike_samples(BAT.samplesof(result)),
+        chains=stanlike_chain.(BAT.samplegenof(result).chain_states),
+        context=stanlike_rng(BAT.get_rng(context)), events=events, streams=streams,
+    )
+end
+
+@testset "Makie RNG isolation" begin
+    @test BAT.init_visualizer!(BATVisualizer(); rng = UncopyableRNG()) === nothing
+
+    @testset "Visualizer construction leaves the default RNG untouched" begin
+        Random.seed!(771)
+        before = copy(Random.default_rng())
+        vis = BATVisualizer(BATMakieVisualization())
+        @test Random.default_rng() == before
+        @test BAT.visualizer_status(vis).phase == :fresh
+        @test rand(UInt64, 16) == rand(before, UInt64, 16)
+    end
+
+    @testset "Explicit domain randomness" begin
+        prior = NamedTupleDist(a = Normal(100, 2), b = Uniform(20, 30))
+        targets = (BAT.BATDistMeasure(Normal(100, 2)), BAT.batmeasure(prior),
+                   BAT.lbqintegral(x -> -abs2(x.a - 100), prior))
+        for base in RNGS, partitioned in (false, true), offset in (0, 1, 3, 9)
+            rng = partitioned ? AbstractRNG(BAT.RNGPartition(copy(base), 1:3), 2) : copy(base)
+            rand(rng, UInt64, offset)
+            before = copy(rng)
+            for target in targets, budget in (17, 201)
+                ndof = totalndof(varshape(target))
+                private = copy(rng)
+                Random.seed!(771)
+                default_before = copy(Random.default_rng())
+                lo, hi = EXT._estimate_prior_domain(private, target, ndof; n_prior_samples = budget)
+                @test rand(UInt64, 16) == rand(default_before, UInt64, 16)
+                @test rng == before
+                @test private != before
+                @test length(lo) == length(hi) == ndof
+                @test all(isfinite, lo) && all(isfinite, hi) && all(lo .< hi)
+                @test lo[1] < 100 < hi[1]
+                ndof == 2 && @test 20 <= lo[2] < hi[2] <= 30
+                Random.seed!(992)
+                @test (lo, hi) == EXT._estimate_prior_domain(copy(rng), target, ndof; n_prior_samples = budget)
+            end
+        end
+    end
+
+    @testset "Initializer copies the supplied RNG" begin
+        for base in RNGS, fail in (false, true)
+            vis = BATVisualizer(BATMakieVisualization(max_buffered = 10^6, adaptive_batching = false))
+            ctx = BATContext(rng = copy(base), visualizer = vis)
+            target = BAT.BATDistMeasure(MvNormal([100.0, 25.0], Matrix{Float64}(I, 2, 2)))
+            state = BAT.MCMCState(algorithm(), target, Int32(1), [[100.0, 25.0]], ctx)
+            state.chain_state.current.x.weight .= 1
+            outputs = BAT._empty_chain_outputs(state)
+            push!(only(outputs), deepcopy(first(state.chain_state.current.x)))
+            rng = BAT.get_rng(ctx)
+            rand(rng, UInt64, 3)
+            before = copy(rng)
+            expected_domain = EXT._estimate_prior_domain(copy(rng), target, 2)
+            Random.seed!(771)
+            default_before = copy(Random.default_rng())
+            try
+                if fail
+                    old_count = FAILED_DRAWS[]
+                    caught = try
+                        BAT.init_visualizer!(vis; rng = rng, mcmc_states = [state], outputs = [outputs],
+                            f_pretransform = identity, target = FailingDomainTarget())
+                        nothing
+                    catch err
+                        err
+                    end
+                    @test caught === DOMAIN_FAILURE
+                    @test FAILED_DRAWS[] == old_count + 1
+                    @test BAT.visualizer_status(vis).quiesced
+                    @test isempty(vis.content.chain_ids)
+                else
+                    with_capture() do
+                        BAT.init_visualizer!(vis; rng = rng, mcmc_states = [state], outputs = [outputs],
+                            f_pretransform = identity, target = target)
+                    end
+                    @test (EXT._live_graph(vis)[:domain_lo][], EXT._live_graph(vis)[:domain_hi][]) == expected_domain
+                    @test BAT.visualizer_status(vis).phase == :running
+                end
+                @test rng == before
+                @test rand(copy(rng), UInt64, 16) == rand(before, UInt64, 16)
+                @test Random.default_rng() == default_before
+                @test rand(UInt64, 16) == rand(default_before, UInt64, 16)
+            finally
+                cleanup(vis)
+            end
+        end
+    end
+
+    @testset "Sampling is identical with visualization" begin
+        target = NamedTupleDist(a = Normal(-2, 0.7), b = Normal(3, 1.1))
+        for base in RNGS, retry in (false, true), retained in (false, true)
+            init = retry ? MCMCRetryInit(nsteps_init = 30) : MCMCChainPoolInit(nsteps_init = 30)
+            alg = algorithm(; init = init, nwalkers = retry ? 2 : 1, store_burnin = retained)
+            # Construct both contexts before resetting the default RNG. Both use
+            # explicit RNGs; the paired runs differ only in visualization.
+            vis = BATVisualizer(BATMakieVisualization(max_buffered = 10^6, adaptive_batching = false))
+            plain_ctx = BATContext(rng = copy(base))
+            live_ctx = BATContext(rng = copy(base), visualizer = vis)
+            Random.seed!(882)
+            expected = BAT.evalmeasure(target, alg, plain_ctx)
+            plain_streams = stanlike_default_streams()
+            default_after_plain = copy(Random.default_rng())
+            Random.seed!(882)
+            try
+                observed = with_capture() do
+                    BAT.evalmeasure(target, alg, live_ctx)
+                end
+                live_streams = stanlike_default_streams()
+                @test live_streams.full == plain_streams.full
+                @test live_streams.children == plain_streams.children
+                @test BAT.visualizer_status(vis).outcome == :complete
+                @test BAT.visualizer_status(vis).data_complete
+                @test BAT.visualizer_status(vis).quiesced
+                @test vis.content.n_buffer_steps[] == 0
+                @test vis.content.step_mode[]
+                @test isempty(vis.content.init_segments)
+                @test isempty(vis.content.invalid_init)
+                data = EXT._live_graph(vis)[:window_data][]
+                mass = zeros(Int, length(data.samples))
+                for group in data.groups, k in eachindex(group.rows)
+                    mass[group.rows[k]] += group.ends[k] - group.starts[k] + 1
+                end
+                @test mass == data.samples.weight
+                @test data.limit == 120
+                @test rand(UInt64, 16) == rand(default_after_plain, UInt64, 16)
+                plain_samples, live_samples = BAT.samplesof(expected), BAT.samplesof(observed)
+                @test !isempty(live_samples)
+                for field in (:v, :weight, :logd, :info)
+                    @test getproperty(live_samples, field) == getproperty(plain_samples, field)
+                end
+                @test BAT.get_rng(live_ctx) == BAT.get_rng(plain_ctx)
+                @test rand(copy(BAT.get_rng(live_ctx)), UInt64, 16) == rand(copy(BAT.get_rng(plain_ctx)), UInt64, 16)
+                plain_chains = BAT.samplegenof(expected).chain_states
+                live_chains = BAT.samplegenof(observed).chain_states
+                @test length(live_chains) == length(plain_chains) == 2
+                for (live, plain) in zip(live_chains, plain_chains)
+                    @test BAT.get_rng(live.context) == BAT.get_rng(plain.context)
+                    @test rand(copy(BAT.get_rng(live.context)), UInt64, 16) == rand(copy(BAT.get_rng(plain.context)), UInt64, 16)
+                    @test length(live.walker_genctxs) == length(plain.walker_genctxs) == alg.nwalkers
+                    for (live_walker, plain_walker) in zip(live.walker_genctxs, plain.walker_genctxs)
+                        @test BAT.get_rng(live_walker) == BAT.get_rng(plain_walker)
+                    end
+                end
+            finally
+                cleanup(vis)
+            end
+        end
+    end
+    @testset "Reweighted transform tuning remains observational" begin
+        target = MvNormal(zeros(2), Matrix{Float64}(I, 2, 2))
+        tunings = (AdaptiveAffineTuning(r=0), AdaptiveAffineTuning(r=0.5),
+            BAT.StanLikeTuning(init_buffer=2, term_buffer=2, window_size=4))
+        for tuning in tunings
+            alg = TransformedMCMC(nchains=2, nsteps=40, strict=false,
+                transform_tuning=tuning, store_burnin=true,
+                init=MCMCChainPoolInit(nsteps_init=20),
+                burnin=MCMCMultiCycleBurnin(nsteps_per_cycle=20, max_ncycles=1, nsteps_final=5))
+            vis = BATVisualizer(BATMakieVisualization(max_buffered=10^6, adaptive_batching=false))
+            plain_ctx = BATContext(rng=copy(first(RNGS)))
+            live_ctx = BATContext(rng=copy(first(RNGS)), visualizer=vis)
+            Random.seed!(882)
+            plain = BAT.evalmeasure(target, alg, plain_ctx)
+            plain_streams = stanlike_default_streams()
+            default_after_plain = copy(Random.default_rng())
+            Random.seed!(882)
+            try
+                live = with_capture() do
+                    BAT.evalmeasure(target, alg, live_ctx)
+                end
+                live_streams = stanlike_default_streams()
+                @test live_streams.full == plain_streams.full
+                @test live_streams.children == plain_streams.children
+                @test BAT.samplesof(live) == BAT.samplesof(plain)
+                @test BAT.get_rng(live_ctx) == BAT.get_rng(plain_ctx)
+                @test rand(UInt64, 16) == rand(default_after_plain, UInt64, 16)
+                for (observed, expected) in zip(BAT.samplegenof(live).chain_states,
+                                              BAT.samplegenof(plain).chain_states)
+                    @test observed.current == expected.current
+                    @test observed.f_transform.A == expected.f_transform.A
+                    @test observed.f_transform.b == expected.f_transform.b
+                    @test BAT.get_rng(observed.context) == BAT.get_rng(expected.context)
+                    @test all(BAT.get_rng(a) == BAT.get_rng(b) for (a,b) in
+                        zip(observed.walker_genctxs, expected.walker_genctxs))
+                end
+                @test BAT.visualizer_status(vis).data_complete
+                @test BAT.visualizer_status(vis).quiesced
+            finally
+                cleanup(vis)
+            end
+        end
+    end
+
+    @testset "Fresh StanLike windows remain observational" begin
+        cases = (
+            # Initialization has no retained split; burn-in starts a fresh
+            # campaign with usable windows. Exercise the actual pool path.
+            (name="inactive pool initialization", nwalkers=1, rng=RNGS[1],
+                tuning=BAT.StanLikeTuning(init_buffer=0, term_buffer=1, window_size=12),
+                init=MCMCChainPoolInit(nsteps_init=8,
+                    init_tries_per_chain=BAT.ClosedInterval(1, 4)),
+                burnin_steps=40, burnin_splits=[12, 38]),
+            # Retry runs one 16-step chunk, before its first split at 25.
+            # Reinit must discard that incomplete multi-walker window.
+            (name="incomplete retry initialization", nwalkers=2, rng=RNGS[2],
+                tuning=BAT.StanLikeTuning(init_buffer=0, term_buffer=1, window_size=25),
+                init=MCMCRetryInit(nsteps_init=80, max_init_tries=1),
+                burnin_steps=64, burnin_splits=[62]),
+            # With one walker, the first width-one window must skip fitting.
+            # The terminal split at 15 is omitted; later steps collect no tail.
+            (name="singleton window and omitted tail", nwalkers=1, rng=RNGS[1],
+                tuning=BAT.StanLikeTuning(init_buffer=0, term_buffer=0, window_size=1),
+                init=MCMCRetryInit(nsteps_init=10, max_init_tries=1),
+                burnin_steps=16, burnin_splits=[1, 3, 7]),
+        )
+        for case in cases
+            @testset "$(case.name)" begin
+                vis = BATVisualizer(BATMakieVisualization(
+                    max_buffered=10^6, adaptive_batching=false))
+                plain_context = BATContext(rng=copy(case.rng))
+                live_context = BATContext(rng=copy(case.rng), visualizer=vis)
+                try
+                    plain = stanlike_observed_run(case, plain_context)
+                    # Matched plain/plain reseeding also checks that the test
+                    # harness itself has not shifted the child-task sequence.
+                    repeated = stanlike_observed_run(case, BATContext(rng=copy(case.rng)))
+                    @test isequal(repeated, plain)
+                    live = stanlike_observed_run(case, live_context; live=true)
+                    @test isequal(live.samples, plain.samples)
+                    @test isequal(live.chains, plain.chains)
+                    @test isequal(live.context, plain.context)
+                    @test isequal(live.events, plain.events)
+                    @test live.streams.parent == plain.streams.parent
+                    @test live.streams.parent_after == plain.streams.parent_after
+                    @test live.streams.full == plain.streams.full
+                    @test live.streams.children == plain.streams.children
+                    @test length(live.events) == 1
+                    event = only(live.events)
+                    @test event.event == :mcmc_burnin && event.owner
+                    @test length(event.chains) == length(event.windows) == 2
+                    @test all(c -> c.stepno == case.burnin_steps, event.chains)
+                    @test all(w -> w.splits == case.burnin_splits &&
+                        w.i == last(case.burnin_splits) && iszero(w.rows), event.windows)
+                    @test all(c -> c.stepno == 24 && length(c.walkers) == case.nwalkers,
+                        live.chains)
+                    status = BAT.visualizer_status(vis)
+                    @test status.outcome == :complete
+                    @test status.data_complete && status.quiesced
+                    @test vis.content.n_buffer_steps[] == 0
+                    @test isempty(vis.content.init_segments) && isempty(vis.content.invalid_init)
+                finally
+                    cleanup(vis)
+                end
+            end
+        end
+    end
+
+    @testset "ARP live sampling retains mass and row semantics" begin
+        target = MvNormal(zeros(2), Matrix{Float64}(I,2,2))
+        for nonzero in (false, true)
+            alg = algorithm(sample_weighting=ARPWeighting(), nonzero_weights=nonzero, store_burnin=true)
+            # ARP can produce positive bins below the numeric heatmap's Float32
+            # color range. Use RGBA regions to test healthy observation and row
+            # semantics; test_makie_weights checks numeric-height rejection.
+            c = BATMakieVisualization(max_buffered=10^6,adaptive_batching=false)
+            vis = BATVisualizer(BATMakieVisualization(
+                (upper=QuantileHist2D, diagonal=Hist1D, lower=QuantileHist2D),
+                c.vsel, c.N_max, c.n_batch, c.max_buffered, c.adaptive_batching,
+                c.batch_growth_rate, c.poll_interval, c.dark,
+                c.triagonal_config, c.diagonal_config, c.observer_timeout))
+            plain_ctx = BATContext(rng=copy(first(RNGS)))
+            live_ctx = BATContext(rng=copy(first(RNGS)),visualizer=vis)
+            plain = BAT.evalmeasure(target,alg,plain_ctx)
+            try
+                live = with_capture() do
+                    BAT.evalmeasure(target,alg,live_ctx)
+                end
+                @test BAT.samplesof(live) == BAT.samplesof(plain)
+                @test BAT.get_rng(live_ctx) == BAT.get_rng(plain_ctx)
+                @test !vis.content.step_mode[]
+                @test isempty(vis.content.init_segments)
+                @test BAT.visualizer_status(vis).quiesced
+                @test BAT.visualizer_status(vis).data_complete
+                g = EXT._live_graph(vis)
+                full = deepcopy(g[:flat_samples][])
+                Makie.update!(g; window_steps=(1,2),show_trace_upper=true)
+                @test isempty(g[:trace_groups][])
+                @test all(w -> w in full.weight,g[:flat_weights][])
+                Makie.update!(g; window_steps=nothing)
+                @test g[:flat_samples][] == full
+            finally
+                cleanup(vis)
+            end
+        end
+    end
+
+end
+end # module

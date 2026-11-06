@@ -3,10 +3,10 @@
 module TestMCMCOwnerParity
 using BAT, Test, Random, Random123, Distributions, LinearAlgebra, Logging
 
-# Frozen success path of the vector implementation at the base revision. This deliberately
+# Frozen success path of the fe77d361 vector implementation. This deliberately
 # calls the real scalar sampler without replacing any BAT method or selecting a
 # production toggle. Its @sync/@spawn task topology is the compatibility oracle.
-function legacy_group(outputs, states; kwargs...)
+function legacy_group(outputs, states; update_visualizer=false, kwargs...)
     isempty(states) && return states
     outs = isnothing(outputs) ? fill(nothing, size(states)...) : outputs
     result = similar(states, BAT.MCMCState)
@@ -14,7 +14,7 @@ function legacy_group(outputs, states; kwargs...)
     @sync for i in eachindex(outs, states)
         Base.Threads.@spawn try
             result[i] = BAT.mcmc_iterate!!(outs[i], states[i];
-                kwargs..., _cancelled=cancelled)
+                kwargs..., _cancelled=cancelled, update_visualizer=update_visualizer)
         catch
             cancelled[] = true
             rethrow()

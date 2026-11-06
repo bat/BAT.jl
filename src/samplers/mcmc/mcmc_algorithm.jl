@@ -248,10 +248,13 @@ end
 
 function Base.show(io::IO, mc_state::MCMCIterator)
     print(io, Base.typename(typeof(mc_state)).name, "(")
-    print(io, "id = "); show(io, mcmc_info(mc_state).id)
-    print(io, ", nsamples = "); show(io, nsamples(mc_state))
-    print(io, ", target = "); show(io, mcmc_target(mc_state))
-    print(io, ")") 
+    print(io, "id = ")
+    show(io, mcmc_info(mc_state).id)
+    print(io, ", nsamples = ")
+    show(io, nsamples(mc_state))
+    print(io, ", target = ")
+    show(io, mcmc_target(mc_state))
+    print(io, ")")
 end
 
 
@@ -404,7 +407,7 @@ function mcmc_trafo_tuning_init!!(
     ::MCMCTransformTunerState,
     ::CS,
     ::Integer
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return nothing
 end
 
@@ -412,7 +415,7 @@ function mcmc_trafo_tuning_reinit!!(
     ::MCMCTransformTunerState,
     ::CS,
     ::Integer
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return nothing
 end
 
@@ -420,7 +423,7 @@ function mcmc_trafo_tuning_postinit!!(
     tuner::MCMCTransformTunerState,
     chain_state::CS,
     samples::AbstractVector{<:DensitySampleVector}
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return nothing
 end
 
@@ -430,7 +433,7 @@ function mcmc_tune_trafo_post_cycle!!(
     chain_state::CS,
     proposal::MCMCProposalState,
     samples::AbstractVector{<:DensitySampleVector}
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return f_transform, tuner, chain_state
 end
 
@@ -438,7 +441,7 @@ function mcmc_trafo_tuning_finalize!!(
     f_transform::Function,
     trafo_tuner_state::MCMCTransformTunerState,
     chain_state::CS
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return f_transform, trafo_tuner_state, chain_state
 end
 
@@ -459,7 +462,7 @@ function mcmc_proposal_tuning_init!!(
     ::MCMCProposalTunerState,
     ::CS,
     ::Integer
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return nothing
 end
 
@@ -467,7 +470,7 @@ function mcmc_proposal_tuning_reinit!!(
     ::MCMCProposalTunerState,
     ::CS,
     ::Integer
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return nothing
 end
 
@@ -475,16 +478,16 @@ function mcmc_proposal_tuning_postinit!!(
     ::MCMCProposalTunerState,
     ::CS,
     ::AbstractVector{<:DensitySampleVector}
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return nothing
 end
 
 function mcmc_tune_proposal_post_cycle!!(
-    proposal::MCMCProposalState, 
-    tuner::MCMCProposalTunerState, 
-    chain_state::CS, 
+    proposal::MCMCProposalState,
+    tuner::MCMCProposalTunerState,
+    chain_state::CS,
     ::AbstractVector{<:DensitySampleVector}
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return proposal, tuner, chain_state
 end
 
@@ -492,7 +495,7 @@ function mcmc_proposal_tuning_finalize!!(
     proposal_state::MCMCProposalState,
     proposal_tuner_state::MCMCProposalTunerState,
     chain_state::CS
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     return proposal_state, proposal_tuner_state, chain_state
 end
 
@@ -513,10 +516,10 @@ end
 
 
 function get_target_acceptance_ratio(proposal::MCMCProposalState)
-   return proposal.target_acceptance
+    return proposal.target_acceptance
 end
 
-function get_target_acceptance_int(proposal::MCMCProposalState) 
+function get_target_acceptance_int(proposal::MCMCProposalState)
     return proposal.target_acceptance_int
 end
 
@@ -543,7 +546,7 @@ function get_proposal_tuning_quality(
     lower, upper = proposal.target_acceptance_int
     target_acceptance = get_target_acceptance_ratio(proposal)
 
-    in_target_interval =  lower < eff_acceptance < upper
+    in_target_interval = lower < eff_acceptance < upper
 
     if in_target_interval
         if eff_acceptance >= target_acceptance
@@ -564,7 +567,7 @@ end
 function get_tuning_success(
     chain_state::CS,
     proposal::MCMCProposalState
-) where CS<:MCMCIterator
+) where {CS<:MCMCIterator}
     α = eff_acceptance_ratio(chain_state)
     α_min, α_max = get_target_acceptance_int(proposal)
     tuning_success = α_min <= α <= α_max
@@ -605,7 +608,7 @@ function update_active_proposal!!(
     proposal::MCMCProposalState,
     active_proposal_new::MCMCProposalState
 )
-    return proposal    
+    return proposal
 end
 
 # TODO: MD, incorporate use of Tempering, so far temperer is not used 
@@ -616,6 +619,8 @@ function mcmc_iterate!!(
     max_time::Real = Inf,
     nonzero_weights::Bool = true,
     _cancelled::Union{Nothing,Base.Threads.Atomic{Bool}} = nothing,
+    update_visualizer::Bool = false,
+    record_visualizer_init::Bool = false,
 )
     @debug "Starting iteration over MCMC chain $(mcmc_state.chain_state.info.id) with $max_nsteps steps in max. $(@sprintf "%.1f s" max_time)"
 
@@ -624,6 +629,9 @@ function mcmc_iterate!!(
     start_nsteps = nsteps(mcmc_state)
     start_nsamples = nsamples(mcmc_state)
     perform_step = true
+    vis = mcmc_state.chain_state.context.visualizer
+    init_segment = record_visualizer_init && !isnothing(output) ?
+        begin_visualizer_init_segment(vis, mcmc_state.chain_state, output) : nothing
 
     while (perform_step && (time() - start_time) < max_time)
         if !isnothing(_cancelled) && _cancelled[]
@@ -633,9 +641,13 @@ function mcmc_iterate!!(
         end
         perform_step = nsteps(mcmc_state) - start_nsteps < max_nsteps
         mcmc_state = perform_step ? mcmc_step!!(mcmc_state) : flush_samples!!(mcmc_state)
+
         if !isnothing(output)
             get_samples!(output, mcmc_state, nonzero_weights)
         end
+
+        chain_state = mcmc_state.chain_state
+        update_visualizer && update_visualizer!(chain_state.context.visualizer; chain_state=chain_state, nonzero_weights=nonzero_weights, is_sampling_step=perform_step)
 
         should_log, log_time, elapsed_time = should_log_progress_now(start_time, log_time)
         if should_log
@@ -646,12 +658,13 @@ function mcmc_iterate!!(
     elapsed_time = time() - start_time
     @debug "Finished iteration over MCMC chain $(mcmc_state.chain_state.info.id), completed $(nsteps(mcmc_state.chain_state) - start_nsteps) steps and produced $(nsamples(mcmc_state.chain_state) - start_nsamples) samples in $(@sprintf "%.1f s" elapsed_time)."
 
+    isnothing(init_segment) || end_visualizer_init_segment!(vis, init_segment, mcmc_state.chain_state, output)
     return mcmc_state
 end
 
 # Owner bookkeeping below runs with SIGINT deferred. Only the short registry,
-# status and cancellation operations stay deferred; waits explicitly
-# reenable it. These helpers do not create tasks or consume RNGs.
+# status and cancellation operations stay deferred; waits and backend hooks
+# explicitly reenable it. These helpers do not create tasks or consume RNGs.
 function _mcmc_scan_tasks(tasks::Vector{Task}, n::Int)
     all_done = true
     first_failed = nothing
@@ -659,7 +672,7 @@ function _mcmc_scan_tasks(tasks::Vector{Task}, n::Int)
         task = tasks[k]
         # Completion is monotone. Classify failure only AFTER observing a
         # terminal task: a failed-first / done-second scan can miss a failure
-        # between the two reads and delay cancellation of the other workers.
+        # between the two reads and omit the observer stop notification.
         if !istaskdone(task)
             all_done = false
         elseif isnothing(first_failed) && istaskfailed(task)
@@ -682,6 +695,37 @@ function _mcmc_wait_tasks(tasks::Vector{Task}, n::Int; unwinding::Bool = false)
                 err isa TaskFailedException && err.task === task && istaskfailed(task) && break
                 unwinding && err isa InterruptException && continue
                 rethrow()
+            end
+        end
+    end
+    return nothing
+end
+
+function _mcmc_stop_visualizers!(visualizers, exception; unwinding::Bool = false)
+    for vis in visualizers
+        while true
+            try
+                Base.reenable_sigint() do
+                    request_visualizer_stop!(vis; reason=:aborted, exception=exception)
+                end
+                break
+            catch err
+                if err isa InterruptException
+                    # An interrupted notification may not have woken anyone.
+                    # During normal failure handling it becomes the owner's
+                    # primary exception; while unwinding, retry the same hook.
+                    unwinding && continue
+                    rethrow()
+                end
+                bt = catch_backtrace()
+                try
+                    Base.reenable_sigint() do
+                        _visualizer_cleanup_diagnostic(:request_stop, (err, bt))
+                    end
+                catch
+                    # Diagnostics cannot skip another session's notification.
+                end
+                break
             end
         end
     end
@@ -723,6 +767,7 @@ end
 function mcmc_iterate!!(
     outputs::Union{AbstractVector{<:AbstractVector{<:DensitySampleVector}},Nothing},
     mcmc_states::AbstractVector{<:MCMCState};
+    update_visualizer::Bool = false,
     kwargs...
 )
     if isempty(mcmc_states)
@@ -738,6 +783,19 @@ function mcmc_iterate!!(
     # container must not be bound to the input element type:
     mcmc_states_new = similar(mcmc_states, MCMCState)
     cancelled = Base.Threads.Atomic{Bool}(false)
+    # Gather once, only for groups that can actually emit observations. Chains
+    # supplied by callers need not share a visualizer. Identity avoids invoking
+    # backend equality and ensures each participating session is signalled once.
+    visualizers = if update_visualizer
+        distinct = BATVisualizer[]
+        for state in mcmc_states
+            vis = state.chain_state.context.visualizer
+            any(v -> v === vis, distinct) || push!(distinct, vis)
+        end
+        distinct
+    else
+        ()
+    end
 
     # Validate/materialize iteration before scheduling any child. The ledger
     # uses dense ordinals independently of the input arrays' indexing scheme.
@@ -751,7 +809,7 @@ function mcmc_iterate!!(
                 # @spawn queues the task before returning its handle. Keep that
                 # enqueue, handle store and count update in one deferred region.
                 tasks[k] = Base.Threads.@spawn mcmc_states_new[i] = mcmc_iterate!!(
-                    outs[i], mcmc_states[i]; kwargs..., _cancelled=cancelled)
+                    outs[i], mcmc_states[i]; kwargs..., _cancelled=cancelled, update_visualizer=update_visualizer)
                 enrolled = k
                 Base.reenable_sigint(yield)
             end
@@ -761,6 +819,7 @@ function mcmc_iterate!!(
                     cancelled[] = true
                     # A task can fail before its Julia closure starts. The
                     # owner detects that failure without a child catch/finally.
+                    _mcmc_stop_visualizers!(visualizers, CapturedException(TaskFailedException(failed), Any[]))
                     _mcmc_wait_tasks(tasks, enrolled)
                     break
                 end
@@ -774,9 +833,12 @@ function mcmc_iterate!!(
                 end
             end
             _mcmc_close_timer(timer)
-        catch
+        catch err
             cancelled[] = true
-            # Repeated interrupts cannot abandon a partially launched group.
+            exception = CapturedException(err, catch_backtrace())
+            # Wake observation waits before joining, including partially
+            # launched groups. Repeated interrupts cannot abandon these tasks.
+            _mcmc_stop_visualizers!(visualizers, exception; unwinding=true)
             _mcmc_wait_tasks(tasks, enrolled; unwinding=true)
             _mcmc_close_timer(timer; unwinding=true)
             _mcmc_report_secondary_failures(tasks, enrolled)
@@ -856,12 +918,15 @@ function LazyReports.pushcontent!(rpt::LazyReport, generator::MCMCSampleGenerato
     n_tuned_chain_states = count(c -> c.info.tuned, chain_states)
     n_converged_chain_states = count(c -> c.info.converged, chain_states)
 
-    lazyreport!(rpt, """
-    ### Sample generation
+    lazyreport!(
+        rpt,
+        """
+### Sample generation
 
-    * Algorithm: MCMC, $(nameof(typeof(mcalg)))
-    * MCMC chains: $n_chain_states ($n_tuned_chain_states tuned, $n_converged_chain_states converged)
-    """)
+* Algorithm: MCMC, $(nameof(typeof(mcalg)))
+* MCMC chains: $n_chain_states ($n_tuned_chain_states tuned, $n_converged_chain_states converged)
+"""
+    )
 
     return nothing
 end

@@ -79,7 +79,8 @@ function mcmc_init!(
         mcmc_states = mcmc_iterate!!(
             outputs, mcmc_states;
             max_nsteps = clamp(div(init_alg.nsteps_init, 5), 10, 50),
-            nonzero_weights = nonzero_weights
+            nonzero_weights = nonzero_weights,
+            record_visualizer_init = capture_visualizer_init(context.visualizer)
         )
 
         n_unviable_chains = 0
@@ -106,6 +107,7 @@ function mcmc_init!(
                     bat_initval(target, initval_alg, new_context).result
                 end
                 new_logd = BAT.checked_logdensityof.(mcmc_target(cs), new_v_init)
+                reset_visualizer_init!(context.visualizer, cs, unviable_walkers)
                 foreach(empty!, view(outputs[i], unviable_walkers))
                 cs.current.x.v[unviable_walkers] .= new_v_init
                 cs.current.x.logd[unviable_walkers] .= new_logd
