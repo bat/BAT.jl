@@ -1,6 +1,27 @@
 BAT.jl Release Notes
 ====================
 
+BAT.jl Unreleased
+-----------------
+
+### Bug fixes
+
+* Preserve the allocation-free return of uniform-weight samples during
+  low-weight filtering while validating the weights and filter options.
+
+* Ignore zero-weight coordinates when choosing automatic marginal bins. A
+  zero-weight nonfinite value can no longer replace the domain and silently
+  discard positive probability mass.
+
+* Bound legacy contour smoothing before allocating its kernel or padded input,
+  rejecting excessive requests instead of overflowing dimensions or exhausting
+  resources. Restore the documented `(sigma_x, sigma_y)` smoothing option,
+  including zero on either axis.
+
+* Require EmpiricalDistributions 0.3.9 or later so binned sampling with an
+  explicit RNG uses only that RNG and preserves the default RNG state.
+  Previously affected seeded sampling sequences can change after upgrading.
+
 BAT.jl v5.2.0
 -------------
 
@@ -86,17 +107,6 @@ BAT.jl v5.0.0
 
 * `default_batcontext` supports scoped context overrides inherited by child
   tasks.
-
-### Bug fixes
-
-* Bound legacy contour smoothing before allocating its kernel or padded input,
-  rejecting excessive requests instead of overflowing dimensions or exhausting
-  resources. Restore the documented `(sigma_x, sigma_y)` smoothing option,
-  including zero on either axis.
-
-* Require EmpiricalDistributions 0.3.9 or later so binned sampling with an
-  explicit RNG uses only that RNG and preserves the default RNG state.
-  Previously affected seeded sampling sequences can change after upgrading.
 
 BAT.jl v4.0.0
 -------------

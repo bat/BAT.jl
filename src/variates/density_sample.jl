@@ -435,6 +435,16 @@ Drop `fraction` of the total probability mass from samples to filter out the
 samples with the lowest weight.
 """
 function drop_low_weight_samples(samples::DensitySampleVector, fraction::Real = 10^-5; threshold::Real=10^-2)
+    _plot_validate_filter_options(fraction, threshold)
+    weights = samples.weight
+    isempty(weights) && return samples
+    if allequal(weights)
+        # A uniform population retains the entire cutoff tie without a mask.
+        weight = first(weights)
+        isfinite(weight) && weight >= zero(weight) ||
+            _plot_weight_error("weights must be finite and nonnegative")
+        return samples
+    end
     mask = _plot_low_weight_mask(samples.weight, fraction, threshold)
     return all(mask) ? samples : samples[mask]
 end

@@ -26,8 +26,8 @@ end
 # Use linear edges when StatsBase's edge selection cannot resolve the bins.
 function _safe_edges_fallback(data, nbins::Integer)
     lo, hi = extrema(data)
-    # Keep a placeholder bin for non-finite domains; range rejects their bounds.
-    (isfinite(lo) && isfinite(hi)) || return range(0.0, 1.0, length = 2)
+    (isfinite(lo) && isfinite(hi)) ||
+        _plot_weight_error("automatic histogram edges require finite coordinates")
     if lo == hi
         # Pad constant data so the bin contains samples under either closure.
         # Scale the padding to keep its endpoints distinct at large magnitudes.
@@ -96,8 +96,10 @@ function MarginalDist(
     cols = Tuple(Vector.(eachrow(marg_samples)))
     weights = samples.weight
     _plot_validate_coordinates(cols, weights)
-    if filter
-        mask = _plot_low_weight_mask(weights)
+    if filter || any(iszero, weights)
+        mask = filter ? _plot_low_weight_mask(weights) : trues(length(weights))
+        # Zero-mass coordinates must not determine the marginal's domain.
+        mask .&= .!iszero.(weights)
         cols = map(v -> v[mask], cols)
         weights = view(weights, mask)
     end
