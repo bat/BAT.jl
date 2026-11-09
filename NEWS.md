@@ -1,7 +1,7 @@
 BAT.jl Release Notes
 ====================
 
-BAT.jl v5.2.1
+BAT.jl v5.2.2
 -------------
 
 ### Bug fixes
