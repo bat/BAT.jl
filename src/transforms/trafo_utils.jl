@@ -77,12 +77,12 @@ the log-density values corrected by the log-abs-det Jacobians of `f`.
 """
 function _transport_batch end
 
-_transport_batch(f::TransportFunction, X::AbstractVector) = _own_batch(transports(f, X), f.ν)
+_transport_batch(f::TransportFunction, X::AbstractVector) = _own_batch(transports(f, X), transport_target(f))
 
 function _transport_batch(f::TransportFunction, X::AbstractVector, logd::AbstractVector{<:Real})
     length(eachindex(logd)) == length(eachindex(X)) || throw(DimensionMismatch("Number of variates and log-density values differ"))
     Y, ladjs = transports_with_ladj(f, X)
-    return _own_batch(Y, f.ν), logd .- ladjs
+    return _own_batch(Y, transport_target(f)), logd .- ladjs
 end
 
 

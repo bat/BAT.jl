@@ -176,7 +176,7 @@ _uhc_support_from(known::Bool, ::PushforwardMeasure) = known
 _uhc_support_from(::Missing, m::PushforwardMeasure) = has_uhc_support(m.origin)
 
 _maps_to_uhc(::Any) = false
-_maps_to_uhc(f::TransportFunction) = has_uhc_support(f.ν)
+_maps_to_uhc(f::TransportFunction) = has_uhc_support(transport_target(f))
 _maps_to_uhc(f::FunctionChain) = _chain_maps_to_uhc(fchainfs(f))
 _maps_to_uhc(f::ComposedFunction) = _chain_maps_to_uhc((f.inner, f.outer))
 
@@ -227,7 +227,7 @@ end
 # Modes of structural measures follow their structure:
 
 StatsBase.mode(m::MeasureBase.AbstractProductMeasure) = map(mode, marginals(m))
-StatsBase.mode(m::MeasureBase.Dirac) = m.x
+StatsBase.mode(m::MeasureBase.Dirac) = MeasureBase.atomof(m)
 StatsBase.mode(m::WeightedMeasure) = mode(m.base)
 
 
