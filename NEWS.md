@@ -1,6 +1,14 @@
 BAT.jl Release Notes
 ====================
 
+BAT.jl v5.2.1
+-------------
+
+### Bug fixes
+
+* Fix very slow `bat_read` calls for HDF5 sample files with 32 or more named
+  parameters ([#587](https://github.com/bat/BAT.jl/issues/587)).
+
 BAT.jl v5.2.0
 -------------
 
