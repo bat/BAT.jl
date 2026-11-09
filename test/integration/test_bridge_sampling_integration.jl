@@ -9,6 +9,11 @@ using Random123
 using LinearAlgebra: Diagonal, ones
 import Measurements
 
+# MeasureBase masks densities of distributions by `Distributions.insupport`,
+# which BATTestCases doesn't define for `FunnelDistribution` (it has the
+# support of an MvNormal):
+Distributions.insupport(d::FunnelDistribution, x::AbstractVector) = length(d) == length(x) && all(isfinite, x)
+
 
 @testset "bridge_sampling_integration" begin
     context = BATContext(rng = Philox4x((564, 82)))
