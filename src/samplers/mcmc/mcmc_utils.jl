@@ -35,7 +35,7 @@ end
 # pullback:
 function _target_logdgrad_func(target::AbstractMeasure, f_transform::Function, context::BATContext, proposal_alg, x_dummy::AbstractVector{<:Real})
     adsel = get_valid_adselector(context, proposal_alg)
-    f = checked_logdensityof(MeasureBase.pullback(f_transform, target))
+    f = checked_logdensityof(MeasureBase.pullbck(f_transform, target))
     return valgrad_func(f, adsel)
 end
 

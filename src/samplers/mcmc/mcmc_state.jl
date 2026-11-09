@@ -71,7 +71,7 @@ function MCMCChainState(
     z_init = VectorOfSimilarVectors(f_inv.(x_init))
     ladj_c = _transform_ladj(f)
     logd_z_init = isnothing(ladj_c) ?
-        logdensities(MeasureBase.pullback(f, target_unevaluated), z_init) :
+        logdensities(MeasureBase.pullbck(f, target_unevaluated), z_init) :
         logd_x_init .+ ladj_c
 
     W = mcmc_weight_type(samplingalg.sample_weighting)
