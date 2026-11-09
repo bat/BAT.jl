@@ -4,6 +4,7 @@ using BAT
 using Test
 
 using Distributions, ValueShapes
+using ArraysOfArrays
 
 # Test only on 64-bit, automated installation of HDF5 doesn't seem to work
 # properly on 32-bit on CI system:
@@ -11,6 +12,21 @@ if Int == Int64
     import HDF5
 
     @testset "hdf5" begin
+        @testset "many parameters" begin
+            mktempdir() do tmp_datadir
+                names = ntuple(i -> Symbol("p$i"), 32)
+                shape = NamedTupleShape(NamedTuple{names}(ntuple(_ -> ScalarShape{Real}(), 32)))
+                data = reshape(Float32.(1:32*1024), 32, 1024)
+                samples = DensitySampleVector(v = shape.(VectorOfSimilarVectors(data)),
+                    logd = zeros(1024), weight = ones(Int, 1024))
+                filename = joinpath(tmp_datadir, "many_parameters.hdf5")
+                bat_write(filename, samples)
+                @test bat_read(filename).result == samples
+                # Bound warmed read allocations relative to the parameter data.
+                @test (@allocated bat_read(filename)) < 32 * sizeof(data)
+            end
+        end
+
         mktempdir() do tmp_datadir
             results_filename = joinpath(tmp_datadir, "results.hdf5")
             samples = bat_sample(BAT.example_posterior(), TransformedMCMC(nsteps = 1000, strict = false)).result

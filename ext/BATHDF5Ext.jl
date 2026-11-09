@@ -242,9 +242,21 @@ _h5io_read_postprocess_samples(v::AbstractVector) = v
 
 function _h5io_read_postprocess_samples(v::TypedTables.Table)
     shp = _infer_vs_from_table(v)
-    unshaped_v = convert(VectorOfSimilarVectors, unshaped.(v, Ref(shp)))
-    shp.(unshaped_v)
+    flat = similar(unshaped(first(v), shp), totalndof(shp), length(v))
+    samples = shp.(VectorOfSimilarVectors(flat))
+    _h5io_copy_sample_columns!(samples, v)
 end
+
+function _h5io_copy_sample_columns!(dest::ShapedAsNTArray, src::TypedTables.Table)
+    # Copy columns to avoid reconstructing wide named tuples for every sample.
+    for name in propertynames(src)
+        totalndof(valshape(elshape(dest)[name])) == 0 && continue
+        _h5io_copy_sample_columns!(getproperty(dest, name), getproperty(src, name))
+    end
+    dest
+end
+
+_h5io_copy_sample_columns!(dest::AbstractVector, src::AbstractVector) = copyto!(dest, src)
 
 
 end # module BATHDF5Ext
