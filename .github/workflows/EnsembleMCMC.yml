@@ -1,0 +1,45 @@
+name: EnsembleMCMC adapter
+
+on:
+  push:
+    branches: [main, dev, 'releases/**']
+    tags: '*'
+  pull_request:
+  release:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+jobs:
+  test:
+    name: EnsembleMCMC - Julia ${{ matrix.version }} - ${{ github.event_name }}
+    runs-on: ubuntu-latest
+    env:
+      JULIA_NUM_THREADS: 'auto'
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['1.10', '1']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: ${{ matrix.version }}
+      - uses: julia-actions/cache@v3
+      - name: Run tests
+        run: >-
+          julia --project=test/optional/ensemblemcmc --code-coverage=user -e '
+          using Pkg;
+          Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate();
+          include(joinpath("test", "optional", "ensemblemcmc", "runtests.jl"))'
+      - uses: julia-actions/julia-processcoverage@v1
+      - uses: codecov/codecov-action@v7
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
