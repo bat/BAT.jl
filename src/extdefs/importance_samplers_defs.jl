@@ -12,14 +12,15 @@ BAT applies coordinate transforms and their Jacobians exactly once.
 
 This adapter uses CPU execution. `BATContext` supplies the RNG and AD backend.
 Numerical precision follows the supplied proposal and target. With `threaded=true`,
-sampling and result conversion use Julia's default thread pool. The target,
-coordinate transforms and their data must support concurrent evaluation.
+sampling and general result conversion use Julia's default thread pool.
+Gaussian vector transports use batched linear algebra. The target, coordinate
+transforms and their data must support concurrent evaluation.
 
 `evalmeasure` returns weighted BAT samples and a logarithmic mass estimate.
 `evalinfo(result).result.samples` retains the complete native weighted result,
 including log weights, proposal/round provenance and sampler diagnostics.
-The adapter reevaluates the target once per returned sample to populate BAT's
-log-density column. Native evaluation counts exclude that conversion pass.
+The adapter retains native target values for BAT's log-density column.
+Result conversion does not evaluate the target again.
 No evidence uncertainty or MCMC effective sample size is inferred.
 
 Fields:

@@ -28,6 +28,7 @@ function BAT.evalmeasure_impl(
         ImportanceSamplers.LogTarget(logdensity, ad),
         algorithm.sampler;
         threaded = algorithm.threaded,
+        save_logtargets = true,
     )
 
     values = BAT.VectorOfSimilarVectors(native.samples)
@@ -38,7 +39,7 @@ function BAT.evalmeasure_impl(
     executor = algorithm.threaded ? BAT.MultiThreadedExec() : BAT.SequentialExec()
     transformed_smpls = BAT.DensitySampleVector(
         v = values,
-        logd = BAT.exec_map(logdensity, executor, values),
+        logd = native.logtargets,
         weight = weights,
         info = info,
     )

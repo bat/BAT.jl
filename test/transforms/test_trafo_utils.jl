@@ -74,6 +74,12 @@ using BAT: transform_samples
         f64 = transport_to(batmeasure(Normal(0.4, 1.5)), StdNormal())
         @test transform_samples(f64, scalar, executor).v == transform_samples(f64, scalar).v
 
+        gaussian = transport_to(batmeasure(MvNormal([0.4, -0.7], [2.0 0.6; 0.6 1.0])), StdNormal()^2)
+        points = DensitySampleVector(v = [[-1.0, 0.5], [0.4, 1.0]], logd = [-1.0, -2.0])
+        mapped = transform_samples(gaussian, points, executor)
+        @test isapprox(mapped, transform_samples(gaussian, points))
+        @test isapprox(transform_samples(inverse(gaussian), mapped, executor), points)
+
         f_piecewise(x) = first(x) < 0 ? x : 2 .* x
         ChangesOfVariables.with_logabsdet_jacobian(::typeof(f_piecewise), x) =
             (f_piecewise(x), first(x) < 0 ? 0 : length(x) * log(2))

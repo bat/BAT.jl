@@ -17,9 +17,10 @@ included. Value shapes and `Base.Fix2(unshaped, vs)` convert between flat
 and structured batches. Other functions, also those with a log-abs-det
 Jacobian, are applied variate by variate on the host.
 
-An optional third argument, a `BATExecutor`, evaluates log-abs-det Jacobians
-and transports per variate with that executor. The transform must support
-concurrent calls when using `MultiThreadedExec()`. Results without an inferred
+An optional third argument, a `BATExecutor`, evaluates general transports and
+their log-abs-det Jacobians per variate. Gaussian vector transports retain
+batched matrix operations. Other transforms must support concurrent calls
+when using `MultiThreadedExec()`. Results without an inferred
 concrete element type use serial `map` so that storage can widen as needed.
 """
 function transform_samples end
@@ -58,6 +59,10 @@ function _transform_samples(f::TransportFunction, samples::DensitySampleVector, 
     Y = _own_batch(map(first, ys_ladjs), transport_target(f))
     return _with_new_variates(samples, Y, samples.logd .- map(getsecond, ys_ladjs))
 end
+
+# Gaussian batches use matrix products and triangular solves instead of per-row BLAS calls.
+const _GaussianTransportMeasure = Union{AsMeasure{<:MvNormal},PowerMeasure{StdNormal}}
+_transform_samples(f::TransportFunction{<:_GaussianTransportMeasure,<:_GaussianTransportMeasure}, samples::DensitySampleVector, ::MultiThreadedExec) = _transform_samples(f, samples)
 
 # Reshaping has a zero log-abs-det Jacobian:
 _transform_samples(f::Union{AbstractValueShape,Base.Fix2{typeof(unshaped)}}, samples::DensitySampleVector) =

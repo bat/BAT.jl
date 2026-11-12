@@ -26,6 +26,21 @@ import ImportanceSamplers as IS
     @test mean(samples) ≈ mean(raw)
 end
 
+@testset "Target values without reevaluation" begin
+    calls = Ref(0)
+    likelihood = logfuncdensity(x -> (calls[] += 1; -abs(x[1])))
+    target = PosteriorMeasure(likelihood, MvNormal(zeros(2), [1.0 0.0; 0.0 1.0]))
+    sampler = IS.ImportanceSampling(IS.SphericalGaussian(zeros(2), 1.5); nsamples = 16)
+    algorithm = ImportanceSamplersSampling(;
+        sampler,
+        pretransform = DoNotTransform(),
+        threaded = false,
+    )
+    evaluated = evalmeasure(target, algorithm, BATContext(rng = Xoshiro(46)))
+    @test calls[] == 16
+    @test evalinfo(evaluated).result.samples.logtargets ≈ samplesof(evaluated).logd
+end
+
 @testset "Shapes, Jacobians and target scale" begin
     prior = NamedTupleDist(rate = Gamma(2, 0.5), fraction = Beta(2, 3))
     sampler = IS.ImportanceSampling(IS.SphericalGaussian(zeros(2), 1.0); nsamples = 64)
