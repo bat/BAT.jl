@@ -34,6 +34,7 @@ BridgeSampling
 EllipsoidalNestedSampling
 EllipticalSliceMCMCSampling
 GridSampler
+ImportanceSamplersSampling
 PriorImportanceSampler
 ReactiveNestedSampling
 SliceMCMCSampling

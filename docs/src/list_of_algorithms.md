@@ -86,6 +86,29 @@ Pass any SliceSampling.jl sampler through the `sampler` field. Requires the
 [SliceSampling](https://github.com/TuringLang/SliceSampling.jl) Julia package to be loaded explicitly.
 
 
+### Importance sampling (experimental)
+
+Requires ImportanceSamplers.jl 0.0.2.
+The proposal below lives in BAT's default normal-transformed coordinates:
+
+```julia
+using BAT, DensityInterface, Distributions, ImportanceSamplers, ValueShapes
+
+prior = NamedTupleDist(rate=Gamma(2, 0.5), fraction=Beta(2, 3))
+posterior = PosteriorMeasure(logfuncdensity(θ -> -θ.rate * θ.fraction), prior)
+sampler = ImportanceSampling(SphericalGaussian(zeros(2), 1.5); nsamples=10_000)
+evaluated = evalmeasure(posterior, ImportanceSamplersSampling(; sampler))
+samples = samplesof(evaluated)
+native = evalinfo(evaluated).result.samples
+```
+
+The same wrapper accepts adaptive engine algorithms such as `AMIS` or
+`DeterministicMixturePMC`; they retain their own
+round counts and sample budgets. Gradient methods use the AD backend selected
+in `BATContext`. Execution is CPU-only. BAT retains weighted samples in the
+original parameter shape and the estimated target mass. Native log weights,
+round/proposal IDs and diagnostics remain available through `native`.
+
 ### Sobol Sampler
 BAT sampling algorithm type: [`SobolSampler`](@ref)
 

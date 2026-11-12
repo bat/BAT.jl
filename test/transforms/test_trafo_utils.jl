@@ -59,6 +59,31 @@ using BAT: transform_samples
         @test transform_samples(f32, xs32) isa VectorOfSimilarVectors{Float64}
     end
 
+    @testset "executor preserves sample transforms" begin
+        executor = BAT.MultiThreadedExec()
+        ysv = transform_samples(f_dt, xsv, executor)
+        @test isapprox(ysv, transform_samples(f_dt, xsv))
+        restored = transform_samples(inverse(f_dt), ysv, executor)
+        @test isapprox(restored, xsv) && restored.v.c isa Fill
+        @test transform_samples(identity, xsv, executor) === xsv
+        @test isapprox(transform_samples(f_hasladj, xsv, executor), ysv)
+        @test isapprox(transform_samples(BAT.FunctionChain((f_dt, myidentity)), xsv, executor), ysv)
+        @test all(isnan, transform_samples(f_plain, xsv, executor).logd)
+
+        scalar = DensitySampleVector(v = Float32[-1, 1], logd = Float32[-1, -1])
+        f64 = transport_to(batmeasure(Normal(0.4, 1.5)), StdNormal())
+        @test transform_samples(f64, scalar, executor).v == transform_samples(f64, scalar).v
+
+        f_piecewise(x) = first(x) < 0 ? x : 2 .* x
+        ChangesOfVariables.with_logabsdet_jacobian(::typeof(f_piecewise), x) =
+            (f_piecewise(x), first(x) < 0 ? 0 : length(x) * log(2))
+        mixed = DensitySampleVector(v = [[-1.0], [1.0]], logd = [-1.0, -1.0])
+        @test isapprox(
+            transform_samples(f_piecewise, mixed, executor),
+            transform_samples(f_piecewise, mixed),
+        )
+    end
+
     @testset "functions without log-abs-det Jacobian" begin
         ys = transform_samples(f_plain, xs)
         @test ys isa StructVector && ys.e isa ArrayOfSimilarArrays

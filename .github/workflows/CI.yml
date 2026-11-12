@@ -172,6 +172,21 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
+  test-importancesamplers:
+    name: ImportanceSamplers - ${{ github.event_name }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1.13'
+          arch: x64
+      - uses: julia-actions/cache@v3
+      - name: Run tests
+        run: >-
+          julia --project=test/optional/importancesamplers --threads=4 -e '
+          using Pkg; Pkg.instantiate();
+          include(joinpath("test", "optional", "importancesamplers", "runtests.jl"))'
   docs:
     name: Documentation
     runs-on: ubuntu-latest

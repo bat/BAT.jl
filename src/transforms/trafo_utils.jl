@@ -16,11 +16,18 @@ Transports transform the whole batch at once, log-abs-det Jacobians
 included. Value shapes and `Base.Fix2(unshaped, vs)` convert between flat
 and structured batches. Other functions, also those with a log-abs-det
 Jacobian, are applied variate by variate on the host.
+
+An optional third argument, a `BATExecutor`, evaluates log-abs-det Jacobians
+and transports per variate with that executor. The transform must support
+concurrent calls when using `MultiThreadedExec()`. Results without an inferred
+concrete element type use serial `map` so that storage can widen as needed.
 """
 function transform_samples end
 
 transform_samples(f, X::AbstractVector) = _transform_batch(f, _canonical_batch(X))
 transform_samples(f, samples::DensitySampleVector) = _transform_samples(f, samples)
+transform_samples(f, samples::DensitySampleVector, executor::BATExecutor) = _transform_samples(f, samples, executor)
+transform_samples(f, samples::DensitySampleVector, ::SequentialExec) = _transform_samples(f, samples)
 
 
 _transform_batch(::typeof(identity), X::AbstractVector) = X
@@ -35,28 +42,39 @@ _transform_batch(f, X::AbstractVector) = _canonical_batch(map(f, X))
 
 
 _transform_samples(::typeof(identity), samples::DensitySampleVector) = samples
+_transform_samples(::typeof(identity), samples::DensitySampleVector, ::BATExecutor) = samples
 _transform_samples(f::ComposedFunction, samples::DensitySampleVector) = _transform_samples(f.outer, _transform_samples(f.inner, samples))
 _transform_samples(f::FunctionChain, samples::DensitySampleVector) = foldl((Y, g) -> _transform_samples(g, Y), fchainfs(f), init = samples)
+_transform_samples(f::ComposedFunction, samples::DensitySampleVector, executor::BATExecutor) = _transform_samples(f.outer, _transform_samples(f.inner, samples, executor), executor)
+_transform_samples(f::FunctionChain, samples::DensitySampleVector, executor::BATExecutor) = foldl((Y, g) -> _transform_samples(g, Y, executor), fchainfs(f), init = samples)
 
 function _transform_samples(f::TransportFunction, samples::DensitySampleVector)
     Y, logd_Y = _transport_batch(f, samples.v, samples.logd)
     return _with_new_variates(samples, Y, logd_Y)
 end
 
+function _transform_samples(f::TransportFunction, samples::DensitySampleVector, executor::BATExecutor)
+    ys_ladjs = exec_map(Base.Fix1(with_logabsdet_jacobian, f), executor, samples.v)
+    Y = _own_batch(map(first, ys_ladjs), transport_target(f))
+    return _with_new_variates(samples, Y, samples.logd .- map(getsecond, ys_ladjs))
+end
+
 # Reshaping has a zero log-abs-det Jacobian:
 _transform_samples(f::Union{AbstractValueShape,Base.Fix2{typeof(unshaped)}}, samples::DensitySampleVector) =
     _with_new_variates(samples, _transform_batch(f, samples.v), copy(samples.logd))
+_transform_samples(f::Union{AbstractValueShape,Base.Fix2{typeof(unshaped)}}, samples::DensitySampleVector, ::BATExecutor) = _transform_samples(f, samples)
 
 _transform_samples(f, samples::DensitySampleVector) = _transform_samples_impl(f, samples, _trafo_ladj_available(f, samples.v))
+_transform_samples(f, samples::DensitySampleVector, executor::BATExecutor) = _transform_samples_impl(f, samples, _trafo_ladj_available(f, samples.v), executor)
 
-function _transform_samples_impl(f, samples::DensitySampleVector, ::Val{true})
+function _transform_samples_impl(f, samples::DensitySampleVector, ::Val{true}, executor::BATExecutor = SequentialExec())
     X = samples.v
-    ys_ladjs = [with_logabsdet_jacobian(f, X[i]) for i in eachindex(samples.logd)]
+    ys_ladjs = exec_map(Base.Fix1(with_logabsdet_jacobian, f), executor, X)
     Y = _canonical_batch(map(first, ys_ladjs))
     return _with_new_variates(samples, Y, samples.logd .- map(getsecond, ys_ladjs))
 end
 
-function _transform_samples_impl(f, samples::DensitySampleVector, ::Val{false})
+function _transform_samples_impl(f, samples::DensitySampleVector, ::Val{false}, ::BATExecutor = SequentialExec())
     Y = _transform_batch(f, samples.v)
     return _with_new_variates(samples, Y, Fill(NaN, length(eachindex(samples.logd))))
 end
