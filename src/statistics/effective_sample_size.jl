@@ -356,7 +356,7 @@ function _resample_ac_ess(unshaped_smpls::DensitySampleVector, algorithm::EffSam
     # and invariant under a global rescaling of the weights (which
     # leaves the represented weighted measure unchanged):
     rng_seed = hash(u)
-    resample_context = BATContext(rng = Philox4x((0x0, rng_seed))::Philox4x{UInt64,10})
+    resample_context = BATContext(rng = rootrng(rng_seed))
 
     unweighted_smpls = samplesof(evalmeasure(unshaped_smpls, SystematicResampling(nsamples = n_resample), resample_context))
     resampled_ess = bat_eff_sample_size_impl(unweighted_smpls.v, algorithm, context).result

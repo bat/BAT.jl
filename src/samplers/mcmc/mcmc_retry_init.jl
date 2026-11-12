@@ -59,9 +59,9 @@ function mcmc_init!(
 
     initval_alg = init_alg.initval_alg
 
-    rngpart = RNGPartition(get_rng(context), Base.OneTo(nchains))
+    run_context = _run_context(context)
 
-    mcmc_states = _gen_mcmc_states(samplingalg, target, rngpart, 1:nchains, initval_alg, context)
+    mcmc_states = _gen_mcmc_states(samplingalg, target, 1:nchains, initval_alg, run_context)
     outputs = _empty_chain_outputs.(mcmc_states)
 
     next_cycle!.(mcmc_states)
@@ -95,14 +95,10 @@ function mcmc_init!(
                 cycle >= init_alg.max_init_tries && continue
 
                 @debug "Rerolling starting positions for $(length(unviable_walkers)) walkers in chain $i."
-                retry_rngpart = RNGPartition(
-                    AbstractRNG(rngpart, i), Base.OneTo(init_alg.max_init_tries)
-                )
-                walker_rngpart = RNGPartition(
-                    AbstractRNG(retry_rngpart, cycle), Base.OneTo(samplingalg.nwalkers)
-                )
+                chain_context = get_context(cs)
+                reroll_rng = subrng(get_rng(chain_context), :reroll, cycle)
                 new_v_init = VectorOfSimilarVectors(map(unviable_walkers) do walker
-                    new_context = set_rng(context, AbstractRNG(walker_rngpart, walker))
+                    new_context = set_rng(chain_context, subrng(reroll_rng, walker))
                     bat_initval(target, initval_alg, new_context).result
                 end)
                 new_logd = BAT.checked_logdensities(mcmc_target(cs), new_v_init)

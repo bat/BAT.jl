@@ -18,8 +18,11 @@ BATContext(;
 )
 ```
 
-The default `rng` is seeded from `Random.default_rng()`, so results become
-reproducible via `Random.seed!`.
+The default `rng` is a keyed RNG (see `HeterogeneousComputing.rootrng`)
+seeded from `Random.default_rng()`, so results become reproducible via
+`Random.seed!`. MCMC derives the random streams of its chains, steps and
+walkers from a keyed root drawn from `rng` at the start of each run (see
+`HeterogeneousComputing.subrng`), other algorithms draw from `rng` directly.
 
 See [`get_batcontext`](@ref), [`set_batcontext`](@ref) and
 [`default_batcontext`](@ref).
@@ -40,7 +43,7 @@ end
 
 function BATContext(;
     precision::Type{T} = Float64,
-    rng::AbstractRNG = Philox4x((rand(UInt64), rand(UInt64)))::Philox4x{UInt64,10},
+    rng::AbstractRNG = rootrng(Random.default_rng()),
     cunit::AbstractComputeUnit = CPUnit(),
     ad::Union{ADSelector, Module, Symbol, Val} = NoAutoDiff(),
 ) where T
@@ -118,6 +121,11 @@ Returns a copy of `context` with the random number generator set to `rng`.
 function set_rng(context::BATContext{T}, rng::AbstractRNG) where T
     BATContext{T}(rng, get_compute_unit(context), get_adselector(context))
 end
+
+# Each sampling run derives its chains from a fresh root drawn from the
+# context RNG, so repeated runs on one context differ, while a context built
+# from the same seed reproduces them:
+_run_context(context::BATContext) = set_rng(context, rootrng(get_rng(context)))
 
 
 function Base.show(io::IO, context::BATContext{T}) where T

@@ -180,7 +180,7 @@ function mcmc_proposal_transform_committed!!(
     tuner::HMCStepSizeTunerState,
     chain_state::MCMCChainState
 )
-    rng = get_rng(chain_state.context)
+    rng = _mcmc_stream_rng(_mcmc_step_rng(chain_state), _MCMC_TUNING_PURPOSE, 1)
     zs = chain_state.current.z.v
     stepsize_new = oftype(proposal.step_size, hmc_find_good_stepsize(rng, proposal.target_logdgrad, zs))
     proposal_new = @set proposal.step_size = stepsize_new

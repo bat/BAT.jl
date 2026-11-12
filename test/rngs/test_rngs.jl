@@ -3,5 +3,5 @@
 using Test
 
 Test.@testset "rngs" begin
-    include("test_rng_init.jl")
+    include("test_rng_streams.jl")
 end
