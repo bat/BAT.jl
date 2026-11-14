@@ -14,7 +14,7 @@ ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 [sources]
 BAT = {path = "../../.."}
 HeterogeneousComputing = {rev = "81c0392723ae2cdf4ae4a805dcc9d336752e9eff", url = "https://github.com/oschulz/HeterogeneousComputing.jl"}
-ImportanceSamplers = {rev = "b1183604e6f73cce5f9e6208fa4af930a38f246f", url = "https://github.com/JuliaBayes/ImportanceSamplers.jl"}
+ImportanceSamplers = {rev = "64424c963d3d060b9124863ee22ec49a9fcbf7dc", url = "https://github.com/JuliaBayes/ImportanceSamplers.jl"}
 MeasureBase = {rev = "8d93874af6a19bbd9e64920ba38a988401786f9d", url = "https://github.com/JuliaMath/MeasureBase.jl"}
 ValueShapes = {rev = "572c6f28d55207528866a348dad0d8d121424a6c", url = "https://github.com/oschulz/ValueShapes.jl"}
 
