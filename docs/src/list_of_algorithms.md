@@ -105,9 +105,35 @@ native = evalinfo(evaluated).result.samples
 The same wrapper accepts adaptive engine algorithms such as `AMIS` or
 `DeterministicMixturePMC`; they retain their own
 round counts and sample budgets. Gradient methods use the AD backend selected
-in `BATContext`. Execution is CPU-only. BAT retains weighted samples in the
+in `BATContext`. Its compute unit selects CPU or device execution. BAT retains weighted samples in the
 original parameter shape and the estimated target mass. Native log weights,
 round/proposal IDs and diagnostics remain available through `native`.
+
+For CUDA, choose the device explicitly. This constrained example uses transports
+whose scalar functions compile on CUDA:
+
+```julia
+using CUDA, MLDataDevices, HeterogeneousComputing, Random
+
+device = MLDataDevices.with_eltype(MLDataDevices.CUDADevice(), nothing)
+context = BATContext(cunit=DeviceUnit(device), rng=Xoshiro(42))
+prior = NamedTupleDist(rate=LogNormal(0f0, 0.5f0), fraction=Uniform(0f0, 1f0))
+posterior = PosteriorMeasure(logfuncdensity(θ -> -θ.rate * θ.fraction), prior)
+sampler = ImportanceSampling(SphericalGaussian(zeros(Float32, 2), 1.5f0); nsamples=10_000)
+evaluated = evalmeasure(posterior, ImportanceSamplersSampling(; sampler), context)
+host_samples = MLDataDevices.cpu_device()(samplesof(evaluated))
+```
+
+Sampling, coordinate maps, target values and normalized weights stay on-device.
+The host coordinates rounds and reads aggregate summaries. The target and its
+data must support GPU execution. Use typed density objects with `Adapt` rules
+for data arrays, rather than closures that capture host arrays. GPU support for
+each prior transform depends on its special functions. BAT does not silently
+transfer samples to CPU to evaluate an unsupported target or transform.
+
+For vector-Gaussian priors, load `Enzyme` and set `ad=Enzyme` in the device
+context. Gaussian transforms and prior scores use batched matrix operations.
+The likelihood and its gradient execute on-device.
 
 ### Sobol Sampler
 BAT sampling algorithm type: [`SobolSampler`](@ref)

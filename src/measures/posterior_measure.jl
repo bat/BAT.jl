@@ -77,8 +77,18 @@ _posterior_logvals(likelihood, prior_logval::Real, x) = _posterior_logval(likeli
 
 function _posterior_logvals(likelihood, prior_logvals::AbstractArray{<:Real}, X::AbstractArray{<:Number})
     vs = _variate_slices(X, Val(ndims(X) - ndims(prior_logvals)))
-    map((v, prior_logval) -> _posterior_logval(likelihood, prior_logval, v), vs, prior_logvals)
+    # Array-of-views broadcast styles can force a host loop. Index those
+    # views inside the broadcast selected by the density-value storage.
+    broadcast(_PosteriorLogvalAt(likelihood, vs), prior_logvals, LinearIndices(prior_logvals))
 end
+
+struct _PosteriorLogvalAt{L,V}
+    likelihood::L
+    variates::V
+end
+Adapt.@adapt_structure _PosteriorLogvalAt
+(f::_PosteriorLogvalAt)(prior_logval, i) =
+    _posterior_logval(f.likelihood, prior_logval, f.variates[i])
 
 _variate_slices(X::AbstractArray, ::Val{0}) = X
 _variate_slices(X::AbstractArray, n::Val) = sliced(X, n)
@@ -148,6 +158,7 @@ struct PosteriorMeasure{L,P<:AbstractMeasure} <: AbstractPosteriorMeasure
 
     PosteriorMeasure{L,P}(likelihood, prior) where {L,P<:AbstractMeasure} = new{L,P}(likelihood, prior)
 end
+Adapt.@adapt_structure PosteriorMeasure
 
 export PosteriorMeasure
 

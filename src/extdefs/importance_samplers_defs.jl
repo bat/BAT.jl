@@ -10,11 +10,14 @@ to be loaded. `sampler` supplies the proposal, sample count and adaptation rules
 Its proposal must use flat vectors in the coordinates selected by `pretransform`.
 BAT applies coordinate transforms and their Jacobians exactly once.
 
-This adapter uses CPU execution. `BATContext` supplies the RNG and AD backend.
-Numerical precision follows the supplied proposal and target. With `threaded=true`,
-sampling and general result conversion use Julia's default thread pool.
-Gaussian vector transports use batched linear algebra. The target, coordinate
-transforms and their data must support concurrent evaluation.
+`BATContext` selects the compute device, RNG and AD backend. Numerical precision
+follows the proposal and target. CPU execution uses Julia's default thread pool
+with `threaded=true`. Device execution uses batched densities and transports and
+returns device-resident samples and weights. Targets, transforms and proposals
+must support the selected device, including the AD backend for gradient methods.
+Data-bearing likelihoods need device adaptation
+rules, as in other Julia GPU code. Opaque closures with captured arrays cannot
+be transferred. Device execution requires `threaded=true`.
 
 `evalmeasure` returns weighted BAT samples and a logarithmic mass estimate.
 `evalinfo(result).result.samples` retains the complete native weighted result,

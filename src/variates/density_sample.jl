@@ -170,6 +170,10 @@ function DensitySampleVector(contents::Tuple{PV,TV,WV,RV,QV}) where {
     StructArray{DensitySample{P,T,W,R,Q}}(contents)
 end
 
+# Recompute the sample element type when device transfer changes view types.
+Functors.functor(::Type{<:DensitySampleVector}, samples) =
+    (StructArrays.components(samples), fields -> DensitySampleVector(Tuple(fields)))
+
 
 # Supertype of the per-sample provenance stored in the `info` field of a
 # DensitySample, e.g. BAT.MCMCSampleID:

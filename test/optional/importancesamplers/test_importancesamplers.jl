@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
-using Test, BAT, Distributions, Random, Statistics, ValueShapes
+using Test, BAT, Distributions, Random, Statistics, ValueShapes, LinearAlgebra
 import DensityInterface: logfuncdensity, logdensityof
 import ForwardDiff
 import ImportanceSamplers as IS
@@ -93,4 +93,57 @@ end
     )
     @test raw.samples ≈ expected.samples
     @test raw.logweights ≈ expected.logweights
+end
+
+@testset "Mapped parameter precision and composed-map fallback" begin
+    prior = NamedTupleDist(rate = Gamma(2.0f0, 0.5f0), fraction = Beta(2.0f0, 3.0f0))
+    target = PosteriorMeasure(logfuncdensity(x -> -abs2(x.rate)-abs2(x.fraction)), prior)
+    sampler =
+        IS.ImportanceSampling(IS.SphericalGaussian(zeros(Float32, 2), 1.0f0); nsamples = 64)
+    evaluated = evalmeasure(
+        target,
+        ImportanceSamplersSampling(; sampler),
+        BATContext(rng = Xoshiro(47)),
+    )
+    native = evalinfo(evaluated).result.samples
+    transformed, f =
+        BAT.transform_and_unshape(NormalBased(), BAT.EvaluatedMeasure(target), BATContext())
+    expected =
+        [BAT.with_logabsdet_jacobian(BAT.inverse(f), z) for z in eachcol(native.samples)]
+    samples = samplesof(evaluated)
+    @test (samples.v, typeof(first(samples.v))) ==
+          (first.(expected), typeof(first(expected)[1]))
+    @test (native.retained.logjacobians, eltype(native.retained.logjacobians)) ==
+          (last.(expected), Float32)
+    @test samples.logd ≈ logdensityof.(Ref(target), samples.v) rtol=32eps(Float32)
+
+    scalar = PosteriorMeasure(logfuncdensity(x -> -abs2(x)), Beta(2, 3))
+    sampler = IS.ImportanceSampling(IS.SphericalGaussian([0.0], 1.0); nsamples = 64)
+    evaluated = evalmeasure(
+        scalar,
+        ImportanceSamplersSampling(; sampler),
+        BATContext(rng = Xoshiro(48)),
+    )
+    samples = samplesof(evaluated)
+    @test length(samples) == 64 && all(x -> 0 < x < 1, samples.v)
+    @test samples.logd ≈ logdensityof.(Ref(scalar), samples.v)
+
+    prior = NamedTupleDist(
+        mat = reshape(MvNormal(zeros(4), Matrix{Float64}(I, 4, 4)), 2, 2),
+        rate = Gamma(2, 0.5),
+    )
+    matrix_target = PosteriorMeasure(logfuncdensity(x -> -sum(abs2, x.mat)-x.rate), prior)
+    sampler = IS.ImportanceSampling(IS.SphericalGaussian(zeros(5), 1.0); nsamples = 16)
+    evaluated = evalmeasure(
+        matrix_target,
+        ImportanceSamplersSampling(; sampler),
+        BATContext(rng = Xoshiro(49)),
+    )
+    samples = samplesof(evaluated)
+    @test all(x -> size(x.mat) == (2, 2), samples.v)
+    @test samples.logd ≈ logdensityof.(Ref(matrix_target), samples.v)
+end
+
+if Base.find_package("CUDA") !== nothing
+    include("test_cuda.jl")
 end

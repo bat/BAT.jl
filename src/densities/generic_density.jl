@@ -91,6 +91,7 @@ struct FiniteVariateDensity{D,G} <: BATDensity
     likelihood::D
     f_to_variate::G
 end
+Adapt.@adapt_structure FiniteVariateDensity
 
 function DensityInterface.logdensityof(d::FiniteVariateDensity, v)
     x = d.f_to_variate(v)

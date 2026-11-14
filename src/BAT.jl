@@ -100,7 +100,7 @@ using LazyReports: LazyReport, lazyreport, lazyreport!, lazytable
 
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, AbstractThunk, unthunk
 
-using Functors: fmap
+using Functors: Functors, fmap
 
 using LogarithmicNumbers: ULogarithmic
 
