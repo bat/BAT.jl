@@ -94,7 +94,8 @@ struct HMCProposalState{
     TA<:Real,
     TAI<:Tuple{Vararg{Real}},
     T<:AbstractFloat,
-    FG<:Function
+    FG<:Function,
+    R<:AbstractRNG
 } <: MCMCProposalState
     target_acceptance::TA
     target_acceptance_int::TAI
@@ -104,6 +105,16 @@ struct HMCProposalState{
     max_depth::Int
     max_delta_energy::T
     diagnostics::HMCChainDiagnostics
+    tuning_rng::R
+end
+
+# The step-size probes of an HMC proposal draw from tuning streams of its
+# own. Each probing event, identified by cycle and step number, derives one
+# child per walker, so the probes of a walker depend neither on the storage
+# order of the walkers nor on other proposals:
+function _hmc_probe_rngs(tuning_rng::AbstractRNG, cycle::Integer, stepno::Integer, walker_ids)
+    event_rng = subrng(tuning_rng, cycle, stepno)
+    return [subrng(event_rng, id) for id in walker_ids]
 end
 
 mcmc_mark_warmup_end!(proposal::HMCProposalState) = _mark_warmup_end!(proposal.diagnostics)
@@ -151,9 +162,12 @@ function _create_proposal_state(
     fg = _target_logdgrad_func(target, f_transform, context, proposal, convert(Vector{float(P)}, first(v_init)))
 
     T = float(P)
+    tuning_rng = subrng(rng, :tuning)
     step_size = if isnan(proposal.step_size)
         zs_init = inverse(f_transform).(v_init)
-        T(_hmc_init_stepsize(rng, fg, zs_init, 0.1))
+        # The walkers of a new chain are numbered in storage order:
+        probe_rngs = _hmc_probe_rngs(tuning_rng, 0, 0, 1:length(zs_init))
+        T(_hmc_init_stepsize(probe_rngs, fg, zs_init, 0.1))
     else
         T(proposal.step_size)
     end
@@ -166,24 +180,25 @@ function _create_proposal_state(
         T(proposal.step_jitter),
         Int(proposal.max_depth),
         T(proposal.max_delta_energy),
-        HMCChainDiagnostics()
+        HMCChainDiagnostics(),
+        tuning_rng
     )
 end
 
 # Initial positions may lie outside the target's support or in degenerate
 # regions - MCMC initialization deliberately constructs candidate states
 # first and filters invalid ones afterwards, so a failing step-size search
-# must not abort state construction. Walkers are probed individually, a
-# fallback step size stands in if no probe succeeds (such a state is then
-# discarded by the candidate filtering, or the step size is readapted):
+# must not abort state construction. Walkers are probed individually, each
+# with its own RNG, a fallback step size stands in if no probe succeeds (such
+# a state is then discarded by the candidate filtering, or the step size is
+# readapted):
 function _hmc_init_stepsize(
-    rng::AbstractRNG, fg::Function, zs::AbstractVector{<:AbstractVector{<:Real}}, fallback::Real
+    rngs::AbstractVector{<:AbstractRNG}, fg::Function, zs::AbstractVector{<:AbstractVector{<:Real}}, fallback::Real
 )
     stepsize_min = oftype(float(fallback), Inf)
-    # RNG and fallback require ordered probes.
-    for i in eachindex(zs)
+    for i in eachindex(rngs, zs)
         stepsize = try
-            hmc_find_good_stepsize(rng, fg, zs[i])
+            hmc_find_good_stepsize(rngs[i], fg, zs[i])
         catch err
             err isa Union{ArgumentError,ErrorException} || rethrow()
             continue

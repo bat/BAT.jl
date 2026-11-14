@@ -360,8 +360,7 @@ end
 const _MCMC_PROPOSAL_SELECTION_PURPOSE = 1
 const _MCMC_PROPOSAL_TRANSITION_PURPOSE = 2
 const _MCMC_ACCEPTANCE_PURPOSE = 3
-const _MCMC_TUNING_PURPOSE = 4
-const _MCMC_N_RNG_PURPOSES = 4
+const _MCMC_N_RNG_PURPOSES = 3
 # Purpose blocks are fixed-width so their stream indices cannot overlap;
 # multi-proposal construction and the index helper both enforce this limit.
 const _MCMC_PROPOSALS_PER_PURPOSE = typemax(Int16) - 2

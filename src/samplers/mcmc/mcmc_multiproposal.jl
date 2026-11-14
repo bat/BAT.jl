@@ -239,14 +239,15 @@ function _create_proposal_state(
         "MCMCMultiProposal supports at most $_MCMC_PROPOSALS_PER_PURPOSE proposals, got $nproposals",
     ))
 
-    proposal_states_init = map(multi_proposal.proposals) do proposal
+    # Each component derives its random streams from a child RNG of its own:
+    proposal_states_init = map(multi_proposal.proposals, ntuple(identity, nproposals)) do proposal, i
         _create_proposal_state(
             proposal,
             target,
             context,
             v_init,
             f_transform,
-            rng
+            subrng(rng, :proposal, i)
         )
     end
 

@@ -198,17 +198,17 @@ single-step Metropolis acceptance ratio lies between 1/4 and 3/4 (see
 Setting Path Lengths in Hamiltonian Monte Carlo"
 (2014)](https://jmlr.org/papers/v15/hoffman14a.html), algorithm 4).
 
-Given a vector of positions instead of a single position, probes every
-position and returns the smallest step size found.
+Given a vector of positions and a vector with one RNG per position, probes
+every position with its RNG and returns the smallest step size found.
 """
 function hmc_find_good_stepsize end
 
 function hmc_find_good_stepsize(
-    rng::AbstractRNG, f_logdgrad::Function, qs::AbstractVector{<:AbstractVector{<:Real}};
+    rngs::AbstractVector{<:AbstractRNG}, f_logdgrad::Function, qs::AbstractVector{<:AbstractVector{<:Real}};
     kwargs...
 )
     @argcheck !isempty(qs)
-    return minimum(hmc_find_good_stepsize(rng, f_logdgrad, q; kwargs...) for q in qs)
+    return minimum(i -> hmc_find_good_stepsize(rngs[i], f_logdgrad, qs[i]; kwargs...), eachindex(rngs, qs))
 end
 
 function hmc_find_good_stepsize(
