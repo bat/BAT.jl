@@ -356,9 +356,22 @@ _h5io_read_postprocess_samples(v::AbstractVector) = v
 
 function _h5io_read_postprocess_samples(v::TypedTables.Table)
     shp = _infer_vs_from_table(v)
-    unshaped_v = convert(VectorOfSimilarVectors, unshaped.(v, Ref(shp)))
-    BAT.unflatbatch(shp, flatview(unshaped_v))
+    # Copy by column, constructing wide named tuples for every sample is slow:
+    flat = similar(unshaped(first(v), shp), totalndof(shp), length(v))
+    _h5io_copy_sample_columns!(shp.(VectorOfSimilarVectors(flat)), v)
+    BAT.unflatbatch(shp, flat)
 end
+
+function _h5io_copy_sample_columns!(dest::ShapedAsNTArray, src::TypedTables.Table)
+    # Copy columns to avoid reconstructing wide named tuples for every sample.
+    for name in propertynames(src)
+        totalndof(valshape(elshape(dest)[name])) == 0 && continue
+        _h5io_copy_sample_columns!(getproperty(dest, name), getproperty(src, name))
+    end
+    dest
+end
+
+_h5io_copy_sample_columns!(dest::AbstractVector, src::AbstractVector) = copyto!(dest, src)
 
 
 end # module BATHDF5Ext

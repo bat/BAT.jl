@@ -14,6 +14,34 @@ if Int == Int64
     import HDF5
 
     @testset "hdf5" begin
+        @testset "many parameters" begin
+            mktempdir() do tmp_datadir
+                names = ntuple(i -> Symbol("p$i"), 32)
+                shape = NamedTupleShape(NamedTuple{names}(ntuple(_ -> ScalarShape{Real}(), 32)))
+                data = reshape(Float32.(1:32*1024), 32, 1024)
+                samples = DensitySampleVector(v = shape.(VectorOfSimilarVectors(data)),
+                    logd = zeros(1024), weight = ones(Int, 1024))
+                filename = joinpath(tmp_datadir, "many_parameters.hdf5")
+                bat_write(filename, samples)
+                @test bat_read(filename).result == samples
+                # Bound warmed read allocations relative to the parameter data.
+                @test (@allocated bat_read(filename)) < 32 * sizeof(data)
+
+                # The same samples in the layout of BAT 5.x files:
+                filename5 = joinpath(tmp_datadir, "many_parameters_bat5.hdf5")
+                HDF5.h5open(filename5, "w"; track_order = true) do f
+                    v = HDF5.create_group(f, "v"; track_order = true)
+                    for (i, name) in enumerate(names)
+                        v[string(name)] = data[i, :]
+                    end
+                    f["logd"] = zeros(1024)
+                    f["weight"] = ones(Int, 1024)
+                end
+                @test bat_read(filename5).result == samples
+                @test (@allocated bat_read(filename5)) < 32 * sizeof(data)
+            end
+        end
+
         mktempdir() do tmp_datadir
             function roundtrip(content, name)
                 filename = joinpath(tmp_datadir, name)
