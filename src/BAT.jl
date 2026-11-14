@@ -67,7 +67,7 @@ using OneTwoMany: getsecond
 import HeterogeneousComputing
 using HeterogeneousComputing: AbstractComputeUnit, CPUnit
 using HeterogeneousComputing: GenContext, get_rng, get_precision, get_compute_unit, get_gencontext, allocate_array
-using HeterogeneousComputing: has_rng_streamkey, rootrng, subrng
+using HeterogeneousComputing: has_rng_streamkey, rng_streamkey, rootrng, subrng
 
 import StaticThings
 using StaticThings: IntegerLike, RealLike, asnonstatic

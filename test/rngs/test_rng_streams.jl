@@ -23,6 +23,21 @@ using BAT: NoAdaptiveTransform, NoMCMCProposalTuning, NoMCMCTransformTuning
         @test key1 == key2
     end
 
+    @testset "run roots" begin
+        run_rng(rng) = get_rng(BAT._run_context(BATContext(rng = rng)))
+
+        # A keyed context RNG is the parent of the roots of its runs. It
+        # advances with each run and passes on its kind of generator:
+        keyed = rootrng(5646)
+        root1, root2 = run_rng(keyed), run_rng(keyed)
+        @test typeof(root1) == typeof(keyed)
+        @test allunique(rng_streamkey.([keyed, root1, root2]))
+        @test rng_streamkey(run_rng(rootrng(5646))) == rng_streamkey(root1)
+
+        # An RNG without a stream key only provides the entropy of a root:
+        @test has_rng_streamkey(run_rng(Philox4x((564, 2))))
+    end
+
     target = batmeasure(MvNormal(zeros(2), I))
 
     @testset "MCMC random streams" begin
