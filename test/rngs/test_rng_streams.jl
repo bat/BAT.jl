@@ -65,8 +65,8 @@ using BAT: NoAdaptiveTransform, NoMCMCProposalTuning, NoMCMCTransformTuning
 
         context = BATContext(rng = rootrng(5643))
         reference = chain_path(context)
-        # Steps draw from streams addressed by chain, cycle, step and walker,
-        # not from the state of the keyed context RNG:
+        # Steps draw from streams addressed by chain, cycle and step, not
+        # from the state of the keyed context RNG:
         @test chain_path(context, ctx -> rand(get_rng(ctx), 100)) == reference
         @test chain_path(BATContext(rng = rootrng(5643))) == reference
         @test chain_path(BATContext(rng = rootrng(5644))) != reference

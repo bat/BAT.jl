@@ -214,7 +214,7 @@ function _hmc_init_stepsize(
 end
 
 function mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState,
-    step_rng::AbstractRNG, proposal_idx::Integer)
+    step_rng::AbstractRNG)
     (; f_transform, current, proposed) = chain_state
     n_walkers = nwalkers(chain_state)
     fg = proposal.target_logdgrad
@@ -226,11 +226,11 @@ function mcmc_propose!!(chain_state::MCMCChainState, proposal::HMCProposalState,
     divergent = Vector{Bool}(undef, n_walkers)
     tree_depth = Vector{Int}(undef, n_walkers)
     n_leapfrog = Vector{Int}(undef, n_walkers)
-    proposal_rng = _mcmc_stream_rng(step_rng, _MCMC_PROPOSAL_TRANSITION_PURPOSE, proposal_idx)
 
-    # Each walker draws from its own stream.
+    # The number of draws of a NUTS transition depends on the trajectory, so
+    # each walker draws from its own stream:
     for i in 1:n_walkers
-        rng = _walker_rng(proposal_rng, current.x.info[i])
+        rng = _walker_rng(step_rng, current.x.info[i])
         q = convert(Vector{T}, current.z.v[i])
         z_current = _hmc_phasepoint(fg, q, randn(rng, T, length(q)))
         jittered_step_size = step_size * (1 + step_jitter * (2 * rand(rng, T) - 1))

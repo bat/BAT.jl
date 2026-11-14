@@ -377,9 +377,9 @@ plot!(-4:0.01:4, x -> fit_function(true_par_values, x), color=4, label = "Truth"
 
 mcmcalgo = RandomWalk()
 
-# BAT derives the random streams of all MCMC chains, steps and walkers from
-# a keyed root drawn from the random number generator (RNG) of the context,
-# using the stream keys of HeterogeneousComputing. This way, a single seed
+# BAT derives the random streams of all MCMC chains and steps from a keyed
+# root created from the random number generator (RNG) of the context, using
+# the stream keys of HeterogeneousComputing. This way, a single seed
 # is sufficient for all chains and results are reproducible even under
 # parallel execution. By default, the context RNG is seeded from Julia's
 # default RNG, so `Random.seed!` makes results reproducible. Any RNG can be

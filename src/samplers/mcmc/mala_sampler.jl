@@ -166,10 +166,12 @@ function _mala_log_proposal_ratio(proposal_measure::AbstractMeasure, τ::Real, t
     return logd.(ξ_rev) .- logd.(ξ_fwd)
 end
 
+_draws_batched(::MALAProposalState) = true
+
 function mcmc_propose_transition(
     current_z::ArrayOfSimilarArrays,
     proposal::MALAProposalState,
-    genctxs::AbstractVector,
+    walker_draws,
 )
     # MALA proposal (Roberts & Tweedie 1996), see the MALAProposal docstring.
 
@@ -177,10 +179,10 @@ function mcmc_propose_transition(
     (; target_gradient, τ) = proposal
 
     cache = proposal.grad_cache
-    grads_curr = length(cache.grads_curr) == length(genctxs) ?
+    grads_curr = length(cache.grads_curr) == length(current_z) ?
         cache.grads_curr : last.(target_gradient.(current_z))
 
-    innovations = map(genctx -> rand(genctx, proposal_measure), genctxs)
+    innovations = _walker_variates(walker_draws, proposal_measure)
     transition = τ/2 .* grads_curr .+ sqrt(τ) .* innovations
 
     proposed_z = current_z .+ transition

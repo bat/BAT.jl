@@ -16,7 +16,6 @@ mutable struct MCMCChainState{
     WS<:AbstractMCMCWeightingScheme,
     SVX<:DensitySampleVector,
     SVZ<:DensitySampleVector,
-    GC<:AbstractVector{<:GenContext},
     CTX<:BATContext
 } <: MCMCIterator
     target::M
@@ -28,7 +27,6 @@ mutable struct MCMCChainState{
     output::SVX
     accepted::Vector{Bool}
     walker_order::Vector{Int}
-    walker_genctxs::GC
     info::MCMCChainStateInfo
     step_rngs::SR
     nattempts::Vector{Int64}
@@ -116,9 +114,6 @@ function MCMCChainState(
     walker_order = sortperm(
         eachindex(sample_info_curr); by = i -> sample_info_curr[i].walkerid,
     )
-    walker_genctxs = map(1:n_walkers) do i
-        get_gencontext(set_rng(context, subrng(rng, :walker, i)))
-    end
 
     stepno::Int64 = 0
     cycle::Int32 = 0
@@ -142,7 +137,6 @@ function MCMCChainState(
         output, 
         accepted,
         walker_order,
-        walker_genctxs,
         MCMCChainStateInfo(chainid, cycle, false, false),
         step_rngs,
         nattempts,
@@ -219,11 +213,8 @@ function mcmc_step!!(mcmc_state::MCMCState)
     (;proposal, stepno) = chain_state
 
     step_rng = _mcmc_step_rng(chain_state)
-    proposal_selection_rng = _mcmc_stream_rng(step_rng, _MCMC_PROPOSAL_SELECTION_PURPOSE, 1)
 
-    chain_state.proposal, _ = next_proposal!!(
-        proposal_selection_rng, proposal, stepno,
-    )
+    chain_state.proposal, _ = next_proposal!!(step_rng, proposal, stepno)
     mcmc_state_new, step_info = _mcmc_propose_and_tune!!(mcmc_state, chain_state.proposal, step_rng)
 
     chain_state = mcmc_state_new.chain_state
@@ -309,24 +300,22 @@ _mcmc_propose_and_tune!!(state, proposal::MCMCProposalState, step_rng) =
 
 function _mcmc_propose_and_tune!!(state, proposal, step_rng, i::Val{I}) where {I}
     active = get_active_proposal(proposal, i)
-    chain, active_new, step_info = mcmc_propose!!(state.chain_state, active, step_rng, I)
+    chain, active_new, step_info = mcmc_propose!!(state.chain_state, active, step_rng)
     chain = @set chain.proposal = update_active_proposal!!(proposal, active_new, i)
     state_new = @set state.chain_state = chain
     return mcmc_tune_post_step!!(state_new, active, step_info), step_info
 end
 
 @inline function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP,
-    step_rng::AbstractRNG, proposal_idx::Integer) where {SMP<:SimpleMCMCProposalState}
+    step_rng::AbstractRNG) where {SMP<:SimpleMCMCProposalState}
     (; target, f_transform, current) = chain_state
 
     current_z = current.z.v
     logd_z_current = current.z.logd
 
-    walker_info = current.x.info
-    proposal_rng = _mcmc_stream_rng(step_rng, _MCMC_PROPOSAL_TRANSITION_PURPOSE, proposal_idx)
-    genctxs = _set_walker_rngs!(chain_state.walker_genctxs, proposal_rng, walker_info)
+    walker_draws = _walker_draws(proposal, chain_state, step_rng)
 
-    z_proposed, hastings_correction = mcmc_propose_transition(current_z, proposal, genctxs)
+    z_proposed, hastings_correction = mcmc_propose_transition(current_z, proposal, walker_draws)
 
     x_proposed, ladj = _transform_with_ladj(f_transform, z_proposed)
 
@@ -343,10 +332,7 @@ end
 
     log_accept_ratio = logd_z_proposed - logd_z_current + hastings_correction
     p_accept = @. ifelse(isnan(log_accept_ratio), zero(log_accept_ratio), clamp(exp(log_accept_ratio), 0, 1))
-    acceptance_rng = _mcmc_stream_rng(step_rng, _MCMC_ACCEPTANCE_PURPOSE, proposal_idx)
-    accepted = map(eachindex(p_accept)) do i
-        rand(_walker_rng(acceptance_rng, walker_info[i])) < p_accept[i]
-    end
+    accepted = _walker_uniforms(walker_draws) .< p_accept
 
     chain_state.accepted .= accepted
 
@@ -357,43 +343,60 @@ end
     return chain_state, proposal, step_info
 end
 
-const _MCMC_PROPOSAL_SELECTION_PURPOSE = 1
-const _MCMC_PROPOSAL_TRANSITION_PURPOSE = 2
-const _MCMC_ACCEPTANCE_PURPOSE = 3
-const _MCMC_N_RNG_PURPOSES = 3
-# Purpose blocks are fixed-width so their stream indices cannot overlap;
-# multi-proposal construction and the index helper both enforce this limit.
-const _MCMC_PROPOSALS_PER_PURPOSE = typemax(Int16) - 2
-
-@inline function _mcmc_rng_stream_idx(purpose::Integer, proposal_idx::Integer)
-    1 <= purpose <= _MCMC_N_RNG_PURPOSES || throw(ArgumentError(
-        "MCMC RNG purpose must be between 1 and $_MCMC_N_RNG_PURPOSES, got $purpose"))
-    1 <= proposal_idx <= _MCMC_PROPOSALS_PER_PURPOSE || throw(ArgumentError(
-        "MCMC proposal index must be between 1 and $_MCMC_PROPOSALS_PER_PURPOSE, got $proposal_idx"))
-    return (purpose - 1) * _MCMC_PROPOSALS_PER_PURPOSE + proposal_idx
-end
-
-# The random streams of a step are children of the chain's step stream root,
-# identified by cycle and step number, so the draws of a step depend on the
-# chain's key and the step's position only, not on earlier draws:
+# Each step draws from one child of the chain's step stream root, identified
+# by cycle and step number, so the draws of a step depend on the chain's key
+# and the step's position only, not on earlier draws. The selection of the
+# active proposal draws from it first:
 _mcmc_step_rng(chain_state::MCMCChainState) =
     subrng(chain_state.step_rngs, chain_state.info.cycle, chain_state.stepno)
 
-_mcmc_stream_rng(step_rng::AbstractRNG, purpose::Integer, proposal_idx::Integer) =
-    subrng(step_rng, _mcmc_rng_stream_idx(purpose, proposal_idx))
+# A walker's own child of the step RNG, identified by the walker id:
+_walker_rng(step_rng::AbstractRNG, info::MCMCSampleID) = subrng(step_rng, info.walkerid)
 
-# Each walker draws from its own child of a stream, identified by the walker
-# id, so the draws don't depend on the storage order of the walkers:
-_walker_rng(stream_rng::AbstractRNG, info::MCMCSampleID) = subrng(stream_rng, info.walkerid)
+# The random draws of the walkers within a step. `_walker_variates` and
+# `_walker_uniforms` return one draw per walker, in the storage order of the
+# walkers. A walker gets the same draws wherever it is stored.
 
-function _set_walker_rngs!(genctxs::AbstractVector{<:GenContext}, stream_rng::AbstractRNG, walker_info)
-    for i in eachindex(genctxs, walker_info)
-        genctxs[i] = _with_rng(genctxs[i], _walker_rng(stream_rng, walker_info[i]))
-    end
-    return genctxs
+# Draws for all walkers in one call from the step RNG, the variates of a
+# proposal first, then the acceptance uniforms. Batches are drawn in the
+# order of the walker ids, `walker_rank` is the position of each stored
+# walker in that order:
+struct _BatchedWalkerDraws{C<:GenContext}
+    genctx::C
+    walker_rank::Vector{Int}
 end
 
-_with_rng(ctx::GenContext{T}, rng::AbstractRNG) where T = GenContext{T}(get_compute_unit(ctx), rng)
+# Draws of each walker from its own child of the step RNG:
+struct _PerWalkerDraws{C<:GenContext}
+    genctxs::Vector{C}
+end
+
+# Proposals that draw their random numbers for all walkers at once, as one
+# variate per walker via `_walker_variates`, declare batched draws. Other
+# proposals get one random stream per walker:
+_draws_batched(::MCMCProposalState) = false
+
+function _walker_draws(proposal::MCMCProposalState, chain_state::MCMCChainState, step_rng::AbstractRNG)
+    genctx(rng) = get_gencontext(set_rng(chain_state.context, rng))
+    if _draws_batched(proposal)
+        return _BatchedWalkerDraws(genctx(step_rng), invperm(chain_state.walker_order))
+    else
+        return _PerWalkerDraws([genctx(_walker_rng(step_rng, info)) for info in chain_state.current.x.info])
+    end
+end
+
+function _walker_variates(draws::_BatchedWalkerDraws, μ::AbstractMeasure)
+    X = rand(draws.genctx, μ^length(draws.walker_rank))
+    return X[draws.walker_rank]
+end
+
+_walker_variates(draws::_PerWalkerDraws, μ::AbstractMeasure) =
+    VectorOfSimilarVectors(map(genctx -> rand(genctx, μ), draws.genctxs))
+
+_walker_uniforms(draws::_BatchedWalkerDraws) =
+    rand(draws.genctx, length(draws.walker_rank))[draws.walker_rank]
+
+_walker_uniforms(draws::_PerWalkerDraws) = map(rand, draws.genctxs)
 
 _logical_walker_order(chain_state::MCMCChainState) = chain_state.walker_order
 

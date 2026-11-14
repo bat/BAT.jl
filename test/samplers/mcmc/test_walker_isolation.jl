@@ -68,6 +68,28 @@ end
 end
 
 
+@testset "walker draws" begin
+    positions = [[0.0, 0.0], [4.0, 4.0], [1.0, 2.0]]
+    μ = batmeasure(MvNormal(zeros(2), I))
+
+    # The variate and the acceptance uniform that each walker draws in a step:
+    function draws_by_walker(proposal, positions, walker_ids)
+        chain = walker_state(proposal, positions, walker_ids).chain_state
+        draws = BAT._walker_draws(chain.proposal, chain, BAT._mcmc_step_rng(chain))
+        variates, uniforms = BAT._walker_variates(draws, μ), BAT._walker_uniforms(draws)
+        Dict(walker_ids[i] => (copy(variates[i]), uniforms[i]) for i in eachindex(walker_ids))
+    end
+
+    # RandomWalk declares batched draws, HamiltonianMC doesn't and so gets
+    # one random stream per walker:
+    for proposal in (RandomWalk(), HamiltonianMC(step_size = 0.2))
+        reference = draws_by_walker(proposal, positions, [1, 2, 3])
+        @test draws_by_walker(proposal, positions[[3, 1, 2]], [3, 1, 2]) == reference
+        @test allunique(values(reference))
+    end
+end
+
+
 @testset "HMC step size probes" begin
     positions = [[0.0, 0.0], [4.0, 4.0]]
 

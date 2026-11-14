@@ -118,16 +118,18 @@ function _full_random_walk_proposal(d::TDist, n_dims::Integer)
 end
 
 
+_draws_batched(::RandomWalkProposalState) = true
+
 function mcmc_propose_transition(
     current_z::ArrayOfSimilarArrays,
     proposal::MCMCProposalState,
-    genctxs::AbstractVector,
+    walker_draws,
 )
     proposal_measure = batmeasure(proposal.proposaldist)
 
     # Flat batches of walker positions, so that the proposal measure can
     # evaluate the Hastings terms for all walkers at once:
-    transition = VectorOfSimilarVectors(map(genctx -> rand(genctx, proposal_measure), genctxs))
+    transition = _walker_variates(walker_draws, proposal_measure)
     proposed_z = nestedview(flatview(current_z) .+ flatview(transition))
 
     p_prop_to_curr = checked_logdensities(proposal_measure, nestedview(-flatview(transition)))

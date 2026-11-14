@@ -98,7 +98,7 @@ function mcmc_init!(
                 chain_context = get_context(cs)
                 reroll_rng = subrng(get_rng(chain_context), :reroll, cycle)
                 new_v_init = VectorOfSimilarVectors(map(unviable_walkers) do walker
-                    new_context = set_rng(chain_context, subrng(reroll_rng, walker))
+                    new_context = set_rng(chain_context, _walker_rng(reroll_rng, cs.current.x.info[walker]))
                     bat_initval(target, initval_alg, new_context).result
                 end)
                 new_logd = BAT.checked_logdensities(mcmc_target(cs), new_v_init)

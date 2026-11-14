@@ -79,13 +79,15 @@ function _create_proposal_state(
     )
 end
 
+_draws_batched(::MCMCGlobalProposalProposalState) = true
+
 function mcmc_propose_transition(
     current_z::ArrayOfSimilarArrays,
     proposal::MCMCGlobalProposalProposalState,
-    genctxs::AbstractVector,
+    walker_draws,
 )
     proposal_measure = batmeasure(proposal.global_proposal)
-    proposed_z = VectorOfSimilarVectors(map(genctx -> rand(genctx, proposal_measure), genctxs))
+    proposed_z = _walker_variates(walker_draws, proposal_measure)
 
     hastings_correction = checked_logdensities(proposal_measure, current_z) .- checked_logdensities(proposal_measure, proposed_z)
     return proposed_z, hastings_correction

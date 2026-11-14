@@ -23,12 +23,11 @@ seeded from `Random.default_rng()`, so results become reproducible via
 `Random.seed!`. The algorithm of the default generator is not part of the
 API and may change between BAT versions.
 
-MCMC derives the random streams of its chains, steps and walkers from a
-keyed root created at the start of each run (see
-`HeterogeneousComputing.subrng`). The root is a child of a keyed `rng` and
-uses its kind of generator, an `rng` without a stream key only provides the
-entropy for a root with the default generator. Other algorithms draw from
-`rng` directly.
+MCMC derives the random streams of its chains and steps from a keyed root
+created at the start of each run (see `HeterogeneousComputing.subrng`). The
+root is a child of a keyed `rng` and uses its kind of generator, an `rng`
+without a stream key only provides the entropy for a root with the default
+generator. Other algorithms draw from `rng` directly.
 
 See [`get_batcontext`](@ref), [`set_batcontext`](@ref) and
 [`default_batcontext`](@ref).

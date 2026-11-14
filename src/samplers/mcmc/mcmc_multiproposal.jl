@@ -235,9 +235,6 @@ function _create_proposal_state(
 ) where {P<:Real, PV<:AbstractVector{P}}
 
     nproposals = length(multi_proposal.proposals)
-    nproposals <= _MCMC_PROPOSALS_PER_PURPOSE || throw(ArgumentError(
-        "MCMCMultiProposal supports at most $_MCMC_PROPOSALS_PER_PURPOSE proposals, got $nproposals",
-    ))
 
     # Each component derives its random streams from a child RNG of its own:
     proposal_states_init = map(multi_proposal.proposals, ntuple(identity, nproposals)) do proposal, i
