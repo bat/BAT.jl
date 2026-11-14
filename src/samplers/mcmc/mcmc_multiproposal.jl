@@ -286,9 +286,9 @@ _with_proposal_index(f, proposals::Tuple, idx::Integer) =
 end
 _with_proposal_index(f, ::Tuple{}, idx::Integer) = throw(BoundsError())
 
-function _mcmc_propose_and_tune!!(state, proposal::MultiProposalState, rngpart)
+function _mcmc_propose_and_tune!!(state, proposal::MultiProposalState, step_rng)
     _with_proposal_index(proposal.proposal_states, proposal.active_idx) do i
-        _mcmc_propose_and_tune!!(state, proposal, rngpart, i)
+        _mcmc_propose_and_tune!!(state, proposal, step_rng, i)
     end
 end
 

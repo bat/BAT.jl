@@ -43,8 +43,8 @@ using BAT: MALAProposal, _mala_innovation_dist, _mala_log_proposal_ratio,
             [zeros(2)],
             BATContext(rng = Philox4x((564, 1305)), ad = ForwardDiff),
         )
-        draws = Matrix{Float64}(undef, 2, 3_500)
-        for i in 1:4_000
+        draws = Matrix{Float64}(undef, 2, 100_000)
+        for i in 1:100_500
             state = BAT.mcmc_step!!(state)
             i > 500 && (draws[:, i - 500] = only(state.chain_state.current.x.v))
         end

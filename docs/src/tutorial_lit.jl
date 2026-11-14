@@ -377,16 +377,16 @@ plot!(-4:0.01:4, x -> fit_function(true_par_values, x), color=4, label = "Truth"
 
 mcmcalgo = RandomWalk()
 
-# BAT requires a counter-based random number generator (RNG), since it
-# partitions the RNG space over the MCMC chains. This way, a single RNG seed
+# BAT derives the random streams of all MCMC chains, steps and walkers from
+# a keyed root drawn from the random number generator (RNG) of the context,
+# using the stream keys of HeterogeneousComputing. This way, a single seed
 # is sufficient for all chains and results are reproducible even under
-# parallel execution. By default, BAT uses a Philox4x RNG initialized with a
-# random seed drawn from the
-# [system entropy pool](https://docs.julialang.org/en/v1/stdlib/Random/index.html#Random.RandomDevice):
+# parallel execution. By default, the context RNG is seeded from Julia's
+# default RNG, so `Random.seed!` makes results reproducible. Any RNG can be
+# given explicitly:
 
-using Random123
-rng = Philox4x()
-context = BATContext(rng = Philox4x())
+using Random
+context = BATContext(rng = Xoshiro(42))
 #md nothing # hide
 
 

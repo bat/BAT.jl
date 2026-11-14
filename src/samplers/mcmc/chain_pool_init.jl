@@ -50,7 +50,7 @@ function mcmc_init!(
     min_nviable::Int = minimum(init_alg.init_tries_per_chain) * nchains
     max_ncandidates::Int = maximum(init_alg.init_tries_per_chain) * nchains
 
-    rngpart = RNGPartition(get_rng(context), Base.OneTo(max_ncandidates))
+    run_context = _run_context(context)
 
     ncandidates::Int = 0
 
@@ -73,7 +73,7 @@ function mcmc_init!(
         n = min(min_nviable, max_ncandidates - ncandidates)
         @debug "Generating $n $(cycle > 1 ? "additional " : "")candidate MCMC chain state(s)."
 
-        new_mcmc_states = _gen_mcmc_states(samplingalg, target, rngpart, ncandidates .+ (one(Int64):n), initval_alg, context)
+        new_mcmc_states = _gen_mcmc_states(samplingalg, target, ncandidates .+ (one(Int64):n), initval_alg, run_context)
 
         filter!(isvalidstate, new_mcmc_states)
 

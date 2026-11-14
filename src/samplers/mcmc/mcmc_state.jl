@@ -10,7 +10,7 @@ State of a MCMC chain.
 """
 mutable struct MCMCChainState{
     M<:AbstractMeasure,
-    PR<:RNGPartition,
+    SR<:AbstractRNG,
     FT<:Function,
     P<:MCMCProposalState,
     WS<:AbstractMCMCWeightingScheme,
@@ -30,7 +30,7 @@ mutable struct MCMCChainState{
     walker_order::Vector{Int}
     walker_genctxs::GC
     info::MCMCChainStateInfo
-    rngpart_cycle::PR
+    step_rngs::SR
     nattempts::Vector{Int64}
     nsamples::Vector{Int64}
     stepno::Int64
@@ -60,8 +60,8 @@ function MCMCChainState(
         ))
     end
 
-    rngpart_cycle = RNGPartition(get_rng(context), 0:(typemax(Int16) - 2))
-    rng = get_rng(context)
+    rng = _keyed_rng(get_rng(context))
+    step_rngs = subrng(rng, :step)
 
     f = init_adaptive_transform(samplingalg.adaptive_transform, target, x_init, context)
     f_inv = inverse(f)
@@ -116,8 +116,8 @@ function MCMCChainState(
     walker_order = sortperm(
         eachindex(sample_info_curr); by = i -> sample_info_curr[i].walkerid,
     )
-    walker_genctxs = map(1:n_walkers) do _
-        get_gencontext(set_rng(context, rngpart_createrng(typeof(rng))))
+    walker_genctxs = map(1:n_walkers) do i
+        get_gencontext(set_rng(context, subrng(rng, :walker, i)))
     end
 
     stepno::Int64 = 0
@@ -144,7 +144,7 @@ function MCMCChainState(
         walker_order,
         walker_genctxs,
         MCMCChainStateInfo(chainid, cycle, false, false),
-        rngpart_cycle,
+        step_rngs,
         nattempts,
         nsamples,
         stepno,
@@ -213,23 +213,18 @@ detailed_eff_acceptance_ratio(state::MCMCChainState) = state.nsamples ./ state.n
 
 
 function mcmc_step!!(mcmc_state::MCMCState)
-    reset_rng_counters!(mcmc_state)
-
     chain_state = mcmc_state.chain_state
     chain_state.stepno += 1
 
-    (;proposal, stepno, context) = chain_state
+    (;proposal, stepno) = chain_state
 
-    rng = get_rng(context)
-    n_rng_streams = _MCMC_N_RNG_PURPOSES * _MCMC_PROPOSALS_PER_PURPOSE
-    step_rngpart = RNGPartition(rng, Base.OneTo(n_rng_streams))
-    selection_idx = _mcmc_rng_stream_idx(_MCMC_PROPOSAL_SELECTION_PURPOSE, 1)
-    proposal_selection_rng = AbstractRNG(step_rngpart, selection_idx)
+    step_rng = _mcmc_step_rng(chain_state)
+    proposal_selection_rng = _mcmc_stream_rng(step_rng, _MCMC_PROPOSAL_SELECTION_PURPOSE, 1)
 
     chain_state.proposal, _ = next_proposal!!(
         proposal_selection_rng, proposal, stepno,
     )
-    mcmc_state_new, step_info = _mcmc_propose_and_tune!!(mcmc_state, chain_state.proposal, step_rngpart)
+    mcmc_state_new, step_info = _mcmc_propose_and_tune!!(mcmc_state, chain_state.proposal, step_rng)
 
     chain_state = mcmc_state_new.chain_state
 
@@ -309,33 +304,28 @@ function _transform_with_ladj(f, zs::AbstractVector)
 end
 
 
-_mcmc_propose_and_tune!!(state, proposal::MCMCProposalState, rngpart) =
-    _mcmc_propose_and_tune!!(state, proposal, rngpart, Val(1))
+_mcmc_propose_and_tune!!(state, proposal::MCMCProposalState, step_rng) =
+    _mcmc_propose_and_tune!!(state, proposal, step_rng, Val(1))
 
-function _mcmc_propose_and_tune!!(state, proposal, rngpart, i::Val{I}) where {I}
+function _mcmc_propose_and_tune!!(state, proposal, step_rng, i::Val{I}) where {I}
     active = get_active_proposal(proposal, i)
-    chain, active_new, step_info = mcmc_propose!!(state.chain_state, active, rngpart, I)
+    chain, active_new, step_info = mcmc_propose!!(state.chain_state, active, step_rng, I)
     chain = @set chain.proposal = update_active_proposal!!(proposal, active_new, i)
     state_new = @set state.chain_state = chain
     return mcmc_tune_post_step!!(state_new, active, step_info), step_info
 end
 
 @inline function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP,
-    step_rngpart::RNGPartition, proposal_idx::Integer) where {SMP<:SimpleMCMCProposalState}
+    step_rng::AbstractRNG, proposal_idx::Integer) where {SMP<:SimpleMCMCProposalState}
     (; target, f_transform, current) = chain_state
 
     current_z = current.z.v
     logd_z_current = current.z.logd
 
     walker_info = current.x.info
-    proposal_rngpart = _mcmc_walker_rngpart(
-        step_rngpart, _MCMC_PROPOSAL_TRANSITION_PURPOSE, proposal_idx)
-    genctxs = chain_state.walker_genctxs
-    foreach(genctxs, walker_info) do genctx, info
-        set_rng!(get_rng(genctx), proposal_rngpart, info.walkerid)
-    end
+    proposal_rng = _mcmc_stream_rng(step_rng, _MCMC_PROPOSAL_TRANSITION_PURPOSE, proposal_idx)
+    genctxs = _set_walker_rngs!(chain_state.walker_genctxs, proposal_rng, walker_info)
 
-    # TODO: MD; Make this function ! because it alters genctx?
     z_proposed, hastings_correction = mcmc_propose_transition(current_z, proposal, genctxs)
 
     x_proposed, ladj = _transform_with_ladj(f_transform, z_proposed)
@@ -353,12 +343,9 @@ end
 
     log_accept_ratio = logd_z_proposed - logd_z_current + hastings_correction
     p_accept = @. ifelse(isnan(log_accept_ratio), zero(log_accept_ratio), clamp(exp(log_accept_ratio), 0, 1))
-    acceptance_rngpart = _mcmc_walker_rngpart(
-        step_rngpart, _MCMC_ACCEPTANCE_PURPOSE, proposal_idx)
+    acceptance_rng = _mcmc_stream_rng(step_rng, _MCMC_ACCEPTANCE_PURPOSE, proposal_idx)
     accepted = map(eachindex(p_accept)) do i
-        rng = get_rng(genctxs[i])
-        set_rng!(rng, acceptance_rngpart, walker_info[i].walkerid)
-        rand(rng) < p_accept[i]
+        rand(_walker_rng(acceptance_rng, walker_info[i])) < p_accept[i]
     end
 
     chain_state.accepted .= accepted
@@ -373,7 +360,8 @@ end
 const _MCMC_PROPOSAL_SELECTION_PURPOSE = 1
 const _MCMC_PROPOSAL_TRANSITION_PURPOSE = 2
 const _MCMC_ACCEPTANCE_PURPOSE = 3
-const _MCMC_N_RNG_PURPOSES = 3
+const _MCMC_TUNING_PURPOSE = 4
+const _MCMC_N_RNG_PURPOSES = 4
 # Purpose blocks are fixed-width so their stream indices cannot overlap;
 # multi-proposal construction and the index helper both enforce this limit.
 const _MCMC_PROPOSALS_PER_PURPOSE = typemax(Int16) - 2
@@ -386,11 +374,27 @@ const _MCMC_PROPOSALS_PER_PURPOSE = typemax(Int16) - 2
     return (purpose - 1) * _MCMC_PROPOSALS_PER_PURPOSE + proposal_idx
 end
 
-function _mcmc_walker_rngpart(
-    step_rngpart::RNGPartition, purpose::Integer, proposal_idx::Integer)
-    stream_rng = AbstractRNG(step_rngpart, _mcmc_rng_stream_idx(purpose, proposal_idx))
-    return RNGPartition(stream_rng, Base.OneTo(typemax(Int32) - 2))
+# The random streams of a step are children of the chain's step stream root,
+# identified by cycle and step number, so the draws of a step depend on the
+# chain's key and the step's position only, not on earlier draws:
+_mcmc_step_rng(chain_state::MCMCChainState) =
+    subrng(chain_state.step_rngs, chain_state.info.cycle, chain_state.stepno)
+
+_mcmc_stream_rng(step_rng::AbstractRNG, purpose::Integer, proposal_idx::Integer) =
+    subrng(step_rng, _mcmc_rng_stream_idx(purpose, proposal_idx))
+
+# Each walker draws from its own child of a stream, identified by the walker
+# id, so the draws don't depend on the storage order of the walkers:
+_walker_rng(stream_rng::AbstractRNG, info::MCMCSampleID) = subrng(stream_rng, info.walkerid)
+
+function _set_walker_rngs!(genctxs::AbstractVector{<:GenContext}, stream_rng::AbstractRNG, walker_info)
+    for i in eachindex(genctxs, walker_info)
+        genctxs[i] = _with_rng(genctxs[i], _walker_rng(stream_rng, walker_info[i]))
+    end
+    return genctxs
 end
+
+_with_rng(ctx::GenContext{T}, rng::AbstractRNG) where T = GenContext{T}(get_compute_unit(ctx), rng)
 
 _logical_walker_order(chain_state::MCMCChainState) = chain_state.walker_order
 
@@ -418,18 +422,6 @@ end
 # Proposals that compute z-space log-density gradients report the
 # gradients at the selected (post-accept/reject) states, others nothing:
 _selected_z_grads(::MCMCProposalState, ::AbstractVector{Bool}) = nothing
-
-function reset_rng_counters!(chain_state::MCMCChainState)
-    rng = get_rng(get_context(chain_state))
-    set_rng!(rng, chain_state.rngpart_cycle, chain_state.info.cycle)
-    rngpart_step = RNGPartition(rng, 0:(typemax(Int32) - 2))
-    set_rng!(rng, rngpart_step, chain_state.stepno)
-    nothing
-end
-
-function reset_rng_counters!(mcmc_state::MCMCState)
-    reset_rng_counters!(mcmc_state.chain_state)
-end
 
 function next_cycle!(chain_state::MCMCChainState)
     n_walkers = nwalkers(chain_state)
@@ -468,8 +460,6 @@ function next_cycle!(chain_state::MCMCChainState)
         ) for i in 1:n_walkers]
     chain_state.proposed.x.info .= new_proposed_info_vec
     chain_state.proposed.z.info .= new_proposed_info_vec
-
-    reset_rng_counters!(chain_state)
 
     chain_state
 end
@@ -708,15 +698,16 @@ function mcmc_tuning_finalize!!(mcmc_state::MCMCState)
 end
 
 
+# Chain `id` draws from its own child stream of the run's root RNG, see
+# `_run_context`:
 function _construct_mcmc_state(
     samplingalg::TransformedMCMC,
     target::AbstractMeasure,
-    rngpart::RNGPartition,
     id::Integer,
     initval_alg::InitvalAlgorithm,
-    parent_context::BATContext
+    run_context::BATContext
 )
-    new_context = set_rng(parent_context, AbstractRNG(rngpart, id))
+    new_context = set_rng(run_context, subrng(get_rng(run_context), :chain, id))
     v_init = bat_ensemble_initvals(target, initval_alg, samplingalg.nwalkers, new_context)
     return MCMCState(samplingalg, target, Int32(id), v_init, new_context)
 end
@@ -724,8 +715,7 @@ end
 _gen_mcmc_states(
     samplingalg::TransformedMCMC,
     target::AbstractMeasure,
-    rngpart::RNGPartition,
     ids::AbstractRange{<:Integer},
     initval_alg::InitvalAlgorithm,
-    context::BATContext
-) = [_construct_mcmc_state(samplingalg, target, rngpart, id, initval_alg, context) for id in ids]
+    run_context::BATContext
+) = [_construct_mcmc_state(samplingalg, target, id, initval_alg, run_context) for id in ids]
