@@ -57,16 +57,34 @@ throw. BAT's boundary tweaks (clamping uniform inputs, `-1e38`
 substitutes) are not ported into MeasureBase; the ones adopted there are
 listed in MeasureBase's notes.
 
+## Random streams
+
+MCMC derives its random streams with the stream keys of
+HeterogeneousComputing (`rootrng`, `subrng`). A run starts from a fresh
+keyed root: a child of the context RNG under a drawn nonce if that RNG has
+a stream key, so the run keeps its kind of generator, otherwise a root
+whose entropy is drawn from the context RNG. Chains are children
+`(:chain, id)` of the run root, and each step draws from one child
+`(:step, cycle, stepno)` of its chain. The selection of the active
+proposal draws from the step RNG first. Proposals that declare batched
+draws (random walk, MALA, global proposal) then draw the variates of all
+walkers in one call and the acceptance uniforms in a second one, both in
+the order of the walker ids. All other proposals, like HMC, get one child
+of the step RNG per walker. Tuning has its own namespace: an HMC proposal
+derives a tuning stream root `(:tuning)` from the RNG it is created with,
+which is the chain RNG or, for a component of a multi-proposal, its child
+`(:proposal, i)`. The step-size probes derive one child per probing event
+and walker from that root.
+
+The algorithm of the default generator is not part of the API, since
+PureRNGs.jl is to be supported later. Host loops and device fills only
+give the same numbers once both use a common counter-based generator.
+
 ## Accelerators
 
 The MH sampler with RAM tuning is the first candidate. Known obstacles,
-in order: per-walker mutable Philox RNGs re-seeded every step, `findall`
-plus scatter in the accept step, `PositiveFactorizations` and rank-one
-Cholesky updates in the tuner, `checked_logdensityof`'s `try`/`catch` in
-the hot loop, and no compute-unit plumbing into the tuner states. The RNG
-design needs a decision before this work starts.
-
-## Open questions
-
-- The RNG design for batched device sampling. For now, batches are drawn
-  in one call from the single RNG of the context.
+in order: `findall` plus scatter in the accept step,
+`PositiveFactorizations` and rank-one Cholesky updates in the tuner,
+`checked_logdensityof`'s `try`/`catch` in the hot loop, and no
+compute-unit plumbing into the tuner states. Device chain states must
+take their root from an RNG on the compute unit of the context.
