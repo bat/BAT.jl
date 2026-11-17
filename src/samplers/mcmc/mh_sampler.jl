@@ -49,6 +49,7 @@ struct RandomWalkProposalState{
     target_acceptance::TA
     target_acceptance_int::TAI
     proposaldist::Q
+    symmetric::Bool
 end
 
 bat_default(::Type{TransformedMCMC}, ::Val{:pretransform}, proposal::RandomWalk) = NormalBased()
@@ -73,9 +74,17 @@ function _create_proposal_state(
     return RandomWalkProposalState(
         proposal.target_acceptance,
         proposal.target_acceptance_int,
-        mv_pdist
+        mv_pdist,
+        _has_symmetric_innovations(proposal.proposaldist)
     )
 end
+
+# Whether the innovations `t` and `-t` of a random walk are equally likely.
+# Zero-centered normal and t distributions are symmetric, other innovation
+# measures can't be checked generically:
+_has_symmetric_innovations(::Union{Normal,TDist}) = true
+_has_symmetric_innovations(m::AsMeasure{<:Distribution}) = _has_symmetric_innovations(m.obj)
+_has_symmetric_innovations(::Any) = false
 
 
 function _full_random_walk_proposal(m::AbstractMeasure, n_dims::Integer)
@@ -122,20 +131,24 @@ _draws_batched(::RandomWalkProposalState) = true
 
 function mcmc_propose_transition(
     current_z::ArrayOfSimilarArrays,
-    proposal::MCMCProposalState,
+    proposal::RandomWalkProposalState,
     walker_draws,
 )
     proposal_measure = batmeasure(proposal.proposaldist)
 
-    # Flat batches of walker positions, so that the proposal measure can
-    # evaluate the Hastings terms for all walkers at once:
     transition = _walker_variates(walker_draws, proposal_measure)
     proposed_z = nestedview(flatview(current_z) .+ flatview(transition))
 
-    p_prop_to_curr = checked_logdensities(proposal_measure, nestedview(-flatview(transition)))
-    p_curr_to_prop = checked_logdensities(proposal_measure, transition)
-
-    hastings_correction = p_prop_to_curr .- p_curr_to_prop
+    # The Hastings terms of symmetric innovations cancel exactly:
+    hastings_correction = if proposal.symmetric
+        Fill(false, length(transition))
+    else
+        # Flat batches, so that the proposal measure can evaluate the
+        # Hastings terms for all walkers at once:
+        p_prop_to_curr = checked_logdensities(proposal_measure, nestedview(-flatview(transition)))
+        p_curr_to_prop = checked_logdensities(proposal_measure, transition)
+        p_prop_to_curr .- p_curr_to_prop
+    end
 
     return proposed_z, hastings_correction
 end

@@ -6,6 +6,8 @@ using LinearAlgebra
 using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface, StructArrays
 using MeasureBase
 using Random123
+using Accessors: @set
+using AffineMaps: MulAdd
 
 @testset "RandomWalk" begin
     context = BATContext(rng = Philox4x((564, 38)))
@@ -137,6 +139,34 @@ using Random123
         @test first(samples).info.chaincycle >= 2
         @test samples.v isa StructVector && varshape(samples) == varshape(objective)
         @test smplres.verified
+    end
+
+    @testset "Hastings terms" begin
+        # The Hastings terms of symmetric innovations vanish exactly, so the
+        # random walk doesn't compute them:
+        for proposaldist in (Normal(), TDist(1.0), TDist(3.0))
+            context = BATContext(rng = Philox4x((564, 60)))
+            v_inits = BAT.bat_ensemble_initvals(target, InitFromTarget(), 8, context)
+            algorithm = TransformedMCMC(proposal = RandomWalk(proposaldist = proposaldist), nwalkers = 8)
+            chain = BAT.MCMCState(algorithm, target, 1, unshaped.(v_inits), context).chain_state
+            rw = chain.proposal
+            @test rw.symmetric
+            walker_draws() = BAT._walker_draws(rw, chain, BAT._mcmc_step_rng(chain))
+            z, hastings = BAT.mcmc_propose_transition(chain.current.z.v, rw, walker_draws())
+            z_ref, hastings_ref = BAT.mcmc_propose_transition(chain.current.z.v, (@set rw.symmetric = false), walker_draws())
+            @test z == z_ref
+            @test hastings == hastings_ref
+        end
+
+        # Other innovation measures may be asymmetric and keep them:
+        innovations = pushfwd(MulAdd(Diagonal(fill(0.8, 3)), [0.5, -0.3, 0.2]), StdNormal()^3)
+        @test BAT.sample_and_verify(
+            target,
+            TransformedMCMC(proposal = RandomWalk(proposaldist = innovations), pretransform = DoNotTransform()),
+            unshaped(objective),
+            BATContext(rng = Philox4x((564, 61))),
+            max_retries = 0,
+        ).verified
     end
 
     @testset "MCMC sampling in transformed space" begin
