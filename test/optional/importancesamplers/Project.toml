@@ -6,6 +6,7 @@ ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 HeterogeneousComputing = "2182be2a-124f-4a91-8389-f06db5907a21"
 ImportanceSamplers = "f51d20bd-8e2c-46f0-bdaa-6990265b9f1c"
 MeasureBase = "fa1605e6-acd5-459c-a1e6-7e635759db14"
+PureRNGs = "2ccaadc3-3d9a-45d4-a2ec-95a2424790b7"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
@@ -14,9 +15,11 @@ ValueShapes = "136a8f8c-c49b-4edb-8b98-f3d64d48be8f"
 [sources]
 BAT = {path = "../../.."}
 HeterogeneousComputing = {rev = "81c0392723ae2cdf4ae4a805dcc9d336752e9eff", url = "https://github.com/oschulz/HeterogeneousComputing.jl"}
-ImportanceSamplers = {rev = "64424c963d3d060b9124863ee22ec49a9fcbf7dc", url = "https://github.com/JuliaBayes/ImportanceSamplers.jl"}
+ImportanceSamplers = {rev = "2676bdb038424c375babdb57365ad959fa53cf8f", url = "https://github.com/JuliaBayes/ImportanceSamplers.jl"}
 MeasureBase = {rev = "31fddbe7e9a85c95aa9521a452331ef527f5907a", url = "https://github.com/JuliaMath/MeasureBase.jl"}
+PureRNGs = {rev = "6480dd8d4675208e8242240b7df4a41e5417e787", url = "https://github.com/BJMCox/PureRNGs.jl"}
 ValueShapes = {rev = "572c6f28d55207528866a348dad0d8d121424a6c", url = "https://github.com/oschulz/ValueShapes.jl"}
 
 [compat]
 ImportanceSamplers = "0.0.2"
+PureRNGs = "0.0.2"

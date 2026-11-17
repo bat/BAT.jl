@@ -18,6 +18,8 @@ must support the selected device, including the AD backend for gradient methods.
 Data-bearing likelihoods need device adaptation
 rules, as in other Julia GPU code. Opaque closures with captured arrays cannot
 be transferred. Device execution requires `threaded=true`.
+CPU sampling uses the context RNG directly. Each accelerator call draws one
+`UInt64` seed from that RNG to initialize a Philox stream before device transfer.
 
 `evalmeasure` returns weighted BAT samples and a logarithmic mass estimate.
 `evalinfo(result).result.samples` retains the complete native weighted result,

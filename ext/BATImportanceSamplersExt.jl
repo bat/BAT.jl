@@ -7,8 +7,10 @@ import Adapt
 import BAT
 import ImportanceSamplers
 using ImportanceSamplers.KernelAbstractions: @kernel, @index, get_backend
+using ImportanceSamplers.PureRNGs: Philox4x32
 using HeterogeneousComputing: CPUnit, get_compute_unit, get_rng, on_device
 using InverseFunctions: inverse
+using Random: rand
 
 BAT.pkgext(::Val{:ImportanceSamplers}) = BAT.PackageExtension{:ImportanceSamplers}()
 
@@ -250,8 +252,10 @@ function sample_on_unit(em, algorithm, context)
         batched = BatchedBATTarget(target)
         ImportanceSamplers.LogTarget(batched, ad; batch = batched, retain)
     end
+    context_rng = get_rng(context)
+    rng = cunit isa CPUnit ? context_rng : Philox4x32(rand(context_rng, UInt64))
     prepared = ImportanceSamplers.prepare_sampler(
-        get_rng(context),
+        rng,
         configured,
         algorithm.sampler;
         threaded = algorithm.threaded,

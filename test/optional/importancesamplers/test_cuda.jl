@@ -1,4 +1,5 @@
 using CUDA, MLDataDevices, Adapt, LinearAlgebra
+using PureRNGs: Philox4x32
 import DensityInterface: DensityKind, IsDensity
 
 struct _GPUShiftLikelihood{V}
@@ -26,7 +27,7 @@ if CUDA.functional()
         prior =
             NamedTupleDist(rate = LogNormal(0.0f0, 0.5f0), fraction = Uniform(0.0f0, 1.0f0))
         target = PosteriorMeasure(logfuncdensity(x -> -x.rate - x.fraction), prior)
-        for sampler in (
+        samplers = (
             IS.ImportanceSampling(
                 IS.SphericalGaussian(zeros(Float32, 2), 1.0f0);
                 nsamples = 256,
@@ -39,8 +40,10 @@ if CUDA.functional()
             ),
             IS.DeterministicMixturePMC(bank; rounds = 2, round_size = 128),
         )
+        for (index, sampler) in enumerate(samplers)
+            ctx = context(853)
             result =
-                evalmeasure(target, ImportanceSamplersSampling(; sampler), context(853))
+                evalmeasure(target, ImportanceSamplersSampling(; sampler), ctx)
             gpu = samplesof(result)
             host = MLDataDevices.cpu_device()(gpu)
             raw = MLDataDevices.cpu_device()(evalinfo(result).result.samples)
@@ -50,6 +53,15 @@ if CUDA.functional()
                 x -> x isa CUDA.AnyCuArray,
                 (gpu.v.rate, gpu.v.fraction, gpu.logd, gpu.weight),
             )
+            if index == 1
+                seed_rng = Xoshiro(853)
+                rng = Philox4x32(rand(seed_rng, UInt64))
+                reference = IS.importance_sample!(
+                    device(IS.prepare_sampler(rng, Returns(0.0f0), sampler)),
+                )
+                @test raw.samples == Array(reference.samples)
+                @test rand(ctx.rng, UInt64) == rand(seed_rng, UInt64)
+            end
         end
 
         likelihood = _GPUShiftLikelihood(Float32[0.3, -0.2])
