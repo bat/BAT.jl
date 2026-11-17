@@ -6,6 +6,7 @@ using Test
 using MeasureBase
 using ValueShapes, Distributions, ArraysOfArrays, FillArrays, StructArrays
 using InverseFunctions, ChangesOfVariables
+using AffineMaps, LinearAlgebra
 using MeasureBase: StdNormal, StdUniform, TransportFunction, transport_to
 
 using BAT: transform_samples
@@ -57,6 +58,22 @@ using BAT: transform_samples
         xs32 = VectorOfSimilarVectors(rand(Float32, 2, 20))
         f32 = transport_to(batmeasure(MvNormal([0.4, 0.6], [2.0 1.2; 1.2 3.0])), StdUniform()^2)
         @test transform_samples(f32, xs32) isa VectorOfSimilarVectors{Float64}
+    end
+
+    @testset "affine maps" begin
+        Z = nestedview(randn(3, 5))
+        b = [1.0, -2.0, 0.5]
+        factors = (LowerTriangular([2.0 0 0; 0.5 1.5 0; 0.1 0.2 0.7]), Diagonal([1.0, 2.0, 3.0]), 2.5)
+        for A in factors, f in (MulAdd(A, b), inverse(MulAdd(A, b)))
+            # Flat batches are transformed as a whole, with the results of a
+            # transformation variate by variate:
+            Y = transform_samples(f, Z)
+            @test Y isa VectorOfSimilarVectors{Float64}
+            @test Y ≈ f.(Z)
+            Y_ladj, ladjs = BAT._transform_with_ladj(f, Z)
+            @test Y_ladj ≈ Y
+            @test ladjs ≈ [last(with_logabsdet_jacobian(f, z)) for z in Z]
+        end
     end
 
     @testset "executor preserves sample transforms" begin

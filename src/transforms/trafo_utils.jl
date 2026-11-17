@@ -39,6 +39,10 @@ _transform_batch(vs::AbstractValueShape, X::AbstractVector) = _batch_with_shape(
 
 _transform_batch(f::Base.Fix2{typeof(unshaped)}, X::AbstractVector) = nestedview(flatbatch(_own_batch(X, f.x)))
 
+# Affine maps transform a flat batch as a whole, AffineMaps treats a matrix
+# as a batch of column vectors:
+_transform_batch(f::Union{MulAdd,InvMulAdd}, X::VectorOfSimilarVectors{<:Real}) = nestedview(f(flatview(X)))
+
 _transform_batch(f, X::AbstractVector) = _canonical_batch(map(f, X))
 
 
@@ -122,11 +126,10 @@ _trafo_ladj_available_impl(f, xs::AbstractVector, ::Any) = Val(with_logabsdet_ja
 
 
 function _transform_dsv!!(f, dsv_y::DensitySampleVector, dsv_x::DensitySampleVector)
-    xs = dsv_x.v
-    ys_ladjs = with_logabsdet_jacobian.(f, xs)
+    ys, ladjs = _transform_with_ladj(f, dsv_x.v)
 
-    dsv_y.v .= first.(ys_ladjs)
-    dsv_y.logd .= dsv_x.logd .- getsecond.(ys_ladjs)
+    dsv_y.v .= ys
+    dsv_y.logd .= dsv_x.logd .- ladjs
     dsv_y.weight .= dsv_x.weight
     dsv_y.info .= dsv_x.info
     dsv_y.aux .= dsv_x.aux

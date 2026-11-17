@@ -274,6 +274,7 @@ end
 _transform_ladj(::Any) = nothing
 _transform_ladj(::typeof(identity)) = false
 _transform_ladj(f::MulAdd) = _mul_factor_ladj(f.A)
+_transform_ladj(f::InvMulAdd) = (ladj = _mul_factor_ladj(f.A); isnothing(ladj) ? nothing : -ladj)
 
 # Only for matrix-shaped factors is logabsdet the per-variate ladj; scalar
 # factors act on every dimension, their ladj depends on the variate length,
@@ -282,15 +283,16 @@ _mul_factor_ladj(A) = ndims(A) == 2 ? first(logabsdet(A)) : nothing
 _mul_factor_ladj(::Real) = nothing
 _mul_factor_ladj(::UniformScaling) = nothing
 
-# Batched transform application together with per-element LADJs, with a
-# single logabsdet evaluation for transforms with constant Jacobian:
+# Batched transform application together with per-element LADJs. Transforms
+# with a constant Jacobian are applied to the batch as a whole, with a single
+# logabsdet evaluation:
 function _transform_with_ladj(f, zs::AbstractVector)
     c = _transform_ladj(f)
     if isnothing(c)
         ys_ladjs = with_logabsdet_jacobian.(f, zs)
         return first.(ys_ladjs), getsecond.(ys_ladjs)
     else
-        return f.(zs), fill(c, length(eachindex(zs)))
+        return _transform_batch(f, zs), Fill(c, length(eachindex(zs)))
     end
 end
 
