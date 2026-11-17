@@ -61,19 +61,18 @@ function mcmc_trafo_tuning_init!!(
 end
 
 # Computes the lower Cholesky factor of `L * (I + sum_i w_i * u_i * u_iᵀ) * Lᵀ`,
-# with the update vectors `u_i` as the columns of `U`.
+# with the update vectors `u_i` as the columns of `U`. Returns `L` itself if
+# that matrix is not numerically positive definite.
 # Single-walker chains (a single update vector) use a rank-one Cholesky
 # up/downdate in O(n²) where possible, following the original RAM
-# formulation (Vihola 2012). Multi-walker chains use a full modified
-# Cholesky decomposition instead: BLAS-3 kernels beat sequential rank-one
-# sweeps already at moderate walker counts, and aggregated mixed-sign
-# walker updates can make the exact update indefinite, so the modified
-# decomposition is required as a positive-definiteness floor there anyway.
+# formulation (Vihola 2012). Multi-walker chains use a full Cholesky
+# decomposition instead: BLAS-3 kernels beat sequential rank-one sweeps
+# already at moderate walker counts.
 function _rank_k_cholesky_update(L::LowerTriangular{<:Real}, U::AbstractMatrix{<:Real}, w::AbstractVector{<:Real})
     if size(U, 2) == 1 && length(w) == 1
         return _rank_one_cholesky_update(L, view(U, :, 1), w[1])
     else
-        return _modified_cholesky_update(L, U, w)
+        return _full_cholesky_update(L, U, w)
     end
 end
 
@@ -115,9 +114,8 @@ end
 # the rounded `v`, so the downdate reports failure instead of relying on
 # a-priori feasibility. Rejected and failed downdates and non-finite
 # values (from numerically singular factors, they fail either comparison)
-# take the modified-decomposition floor instead, which is the desired
-# regularization for them anyway: rank-one downdates would degenerate
-# under long streaks of low acceptance.
+# take the full decomposition instead, which keeps the current factor if
+# the update is not numerically positive definite.
 function _rank_one_cholesky_update(L::LowerTriangular{<:Real}, u1::AbstractVector{<:Real}, w1::Real)
     v = sqrt(abs(w1)) .* (L * u1)
     margin = sqrt(eps(one(eltype(v))))
@@ -134,16 +132,18 @@ function _rank_one_cholesky_update(L::LowerTriangular{<:Real}, u1::AbstractVecto
             return LowerTriangular(A)
         end
     end
-    return _modified_cholesky_update(L, reshape(u1, :, 1), [w1])
+    return _full_cholesky_update(L, reshape(u1, :, 1), [w1])
 end
 
-# Modified Cholesky decomposition, used for multi-walker updates and as
-# the positive-definiteness floor when a rank-one up-/downdate is not
-# applicable:
-function _modified_cholesky_update(L::LowerTriangular{<:Real}, U::AbstractMatrix{<:Real}, w::AbstractVector{<:Real})
+# Full Cholesky decomposition, used for multi-walker updates and when a
+# rank-one up-/downdate is not applicable. The RAM update of a chain is
+# positive definite (see mcmc_tune_trafo_post_step!!), so the decomposition
+# can only fail due to rounding. The current factor stays in place then:
+function _full_cholesky_update(L::LowerTriangular{<:Real}, U::AbstractMatrix{<:Real}, w::AbstractVector{<:Real})
     V = L * U
     M = L * L' + (V .* w') * V'
-    return cholesky(Positive, M).L
+    C = cholesky(Hermitian(M, :L); check = false)
+    return issuccess(C) ? oftype(L, C.L) : L
 end
 
 function mcmc_tune_trafo_post_step!!(
@@ -173,15 +173,19 @@ function mcmc_tune_trafo_post_step!!(
 
     Σ_L = f_transform.A
 
-    # Walkers that didn't move don't change the factor:
+    # The factor update is the mean of the RAM updates of the walkers. Each
+    # of them, I + η * (p_accept - target_acceptance) * u * uᵀ / ‖u‖², has
+    # eigenvalues of at least 1 - η * target_acceptance > 0, so their mean
+    # is positive definite. Walkers that didn't move don't change the factor:
     sqnorm_u = vec(sum(abs2, U; dims = 1))
-    weights = ifelse.(sqnorm_u .> 0, η .* (p_accept .- target_acceptance) ./ sqnorm_u, zero(η))
+    n_walkers = length(p_accept)
+    weights = ifelse.(sqnorm_u .> 0, η .* (p_accept .- target_acceptance) ./ sqnorm_u, zero(η)) ./ n_walkers
     Σ_L_new = oftype(Σ_L, _rank_k_cholesky_update(Σ_L, U, weights))
 
     mean_update_rate = η / 10 # heuristic
     # The mean over the walkers of (1 - α) * b + α * x_proposed, with
     # α = mean_update_rate * p_accept:
-    new_b = oftype(b, b .+ (mean_update_rate / length(p_accept)) .* ((X_proposed .- b) * p_accept))
+    new_b = oftype(b, b .+ (mean_update_rate / n_walkers) .* ((X_proposed .- b) * p_accept))
 
     f_transform_new = MulAdd(Σ_L_new, new_b)
 
