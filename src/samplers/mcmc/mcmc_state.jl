@@ -234,39 +234,42 @@ function mcmc_step!!(mcmc_state::MCMCState)
     proposed.x.weight .= w_proposed
     proposed.z.weight .= w_proposed
 
-    idxs_acc = findall(accepted)
-    idxs_rej = findall(!, accepted)
-
-    # For each walker, mark proposed samples as accepted or rejected
-    for i in eachindex(proposed.x)
-        old_info = current.x.info[i]
-
-        sample_type = accepted[i]
-        new_info = MCMCSampleID(
-            old_info.chainid, 
-            old_info.walkerid,
-            old_info.chaincycle, 
-            chain_state.stepno, 
-            get_active_proposal_idx(proposal), 
-            sample_type
-        )
-
-        proposed.x.info[i] = new_info
-        proposed.z.info[i] = new_info
-    end
+    # Mark the proposed samples as accepted or rejected:
+    proposed.x.info .= _step_sampleid.(current.x.info, chain_state.stepno, active_prop_idx, accepted)
+    proposed.z.info .= proposed.x.info
 
     # Save current points to output if they will be overwritten, and save rejected proposed points
-    output[idxs_acc] = @view current.x[idxs_acc]
-    output[idxs_rej] = @view proposed.x[idxs_rej]
+    _select_samples!(output, accepted, current.x, proposed.x)
 
     # Overwrite current points with accepted proposed points
-    current.x[idxs_acc] = @view proposed.x[idxs_acc]
-    current.z[idxs_acc] = @view proposed.z[idxs_acc]
+    _select_samples!(current.x, accepted, proposed.x, current.x)
+    _select_samples!(current.z, accepted, proposed.z, current.z)
 
     chain_state = mcmc_state_new.chain_state
     mcmc_state_final = @set mcmc_state_new.chain_state = chain_state
 
     return mcmc_state_final
+end
+
+# The id of the sample that a walker proposes in a step:
+_step_sampleid(current::MCMCSampleID, stepno::Integer, proposalid::Integer, accepted::Bool) =
+    MCMCSampleID(current.chainid, current.walkerid, current.chaincycle, stepno, proposalid, accepted)
+
+# Sets each sample in `dest` to the sample in `a` where `mask` is true, and
+# to the sample in `b` elsewhere. `dest` may be `a` or `b`:
+function _select_samples!(dest::DensitySampleVector, mask::AbstractVector{Bool}, a::DensitySampleVector, b::DensitySampleVector)
+    _select_variates!(dest.v, mask, a.v, b.v)
+    dest.logd .= ifelse.(mask, a.logd, b.logd)
+    dest.weight .= ifelse.(mask, a.weight, b.weight)
+    dest.info .= ifelse.(mask, a.info, b.info)
+    dest.aux .= ifelse.(mask, a.aux, b.aux)
+    return dest
+end
+
+# Flat batches select whole columns:
+function _select_variates!(dest::VectorOfSimilarVectors, mask::AbstractVector{Bool}, a::VectorOfSimilarVectors, b::VectorOfSimilarVectors)
+    flatview(dest) .= ifelse.(mask', flatview(a), flatview(b))
+    return dest
 end
 
 # Log-abs-det Jacobian of a space transformation, if it is constant
