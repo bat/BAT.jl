@@ -3,7 +3,8 @@
 using BAT
 using Test
 
-using LinearAlgebra
+using LinearAlgebra, Statistics
+using Distributions
 using StableRNGs
 
 using BAT: _rank_k_cholesky_update, _lowrankdowndate!
@@ -23,7 +24,7 @@ using BAT: _rank_k_cholesky_update, _lowrankdowndate!
             # w_i * ||u_i||² = η * (p_accept_i - target_acceptance) > -1:
             w = [(rand(rng) - 0.5) / norm(ui)^2 for ui in u]
 
-            L_new = _rank_k_cholesky_update(L, u, w)
+            L_new = _rank_k_cholesky_update(L, stack(u), w)
             M = L * (I + sum(w[i] .* u[i] .* u[i]' for i in 1:k)) * L'
             @test istril(L_new)
             @test L_new * L_new' ≈ M
@@ -39,7 +40,7 @@ using BAT: _rank_k_cholesky_update, _lowrankdowndate!
         w = [-0.8 / norm(u[1])^2]
         L = LowerTriangular(Matrix(1.0 * I(3)))
         for _ in 1:5000
-            L = _rank_k_cholesky_update(L, u, w)
+            L = _rank_k_cholesky_update(L, stack(u), w)
         end
         @test all(isfinite, Matrix(L))
         @test istril(L)
@@ -51,7 +52,7 @@ using BAT: _rank_k_cholesky_update, _lowrankdowndate!
         L = LowerTriangular(Matrix(1.0 * I(2)))
         u = [[1.0, 0.0], [1.0, 0.1]]
         w = [-0.9, -0.9]
-        L_new = _rank_k_cholesky_update(L, u, w)
+        L_new = _rank_k_cholesky_update(L, stack(u), w)
         @test istril(L_new)
         @test all(isfinite, Matrix(L_new))
         @test isposdef(Matrix(L_new * L_new'))
@@ -68,7 +69,7 @@ using BAT: _rank_k_cholesky_update, _lowrankdowndate!
         L = LowerTriangular(Lm)
         u = [randn(rng, d) for _ in 1:k]
         w = [(rand(rng) - 0.5) / (k * norm(ui)^2) for ui in u]
-        L_new = _rank_k_cholesky_update(L, u, w)
+        L_new = _rank_k_cholesky_update(L, stack(u), w)
         M = L * (I + sum(w[i] .* u[i] .* u[i]' for i in 1:k)) * L'
         @test istril(L_new)
         @test L_new * L_new' ≈ M
@@ -112,7 +113,7 @@ using BAT: _rank_k_cholesky_update, _lowrankdowndate!
         L = LowerTriangular(Lm)
         u = [fill(0.5, 4)]
         w = [-(1 - 1e-6)]
-        L_new = _rank_k_cholesky_update(L, u, w)
+        L_new = _rank_k_cholesky_update(L, stack(u), w)
         M = L * (I + w[1] .* u[1] .* u[1]') * L'
         @test istril(L_new)
         @test all(isfinite, Matrix(L_new))
@@ -126,17 +127,64 @@ using BAT: _rank_k_cholesky_update, _lowrankdowndate!
         L = LowerTriangular(Matrix(1.0 * I(2)))
         u = [[1.0, 0.0]]
         w = [-(1 - 1e-12)]
-        L_new = _rank_k_cholesky_update(L, u, w)
+        L_new = _rank_k_cholesky_update(L, stack(u), w)
         @test istril(L_new)
         @test all(isfinite, Matrix(L_new))
         M = L * (I + w[1] .* u[1] .* u[1]') * L'
         @test Matrix(L_new * L_new') ≈ M
     end
 
+    @testset "tuning step" begin
+        target = batmeasure(MvNormal([1.0, -1.0, 0.5], [2.0 0.6 0.0; 0.6 1.0 0.3; 0.0 0.3 1.5]))
+        algorithm = TransformedMCMC(
+            proposal = RandomWalk(), pretransform = DoNotTransform(),
+            transform_tuning = RAMTuning(), nwalkers = 4,
+        )
+        context = BATContext(rng = StableRNG(789))
+        v_init = BAT.bat_ensemble_initvals(target, InitFromTarget(), 4, context)
+
+        # The transform after the first tuning step of a chain, and the
+        # result of the RAM update rule applied walker by walker:
+        function tuned_and_reference(stalled_walkers)
+            state = BAT.MCMCState(algorithm, target, 1, v_init, context)
+            chain = state.chain_state
+            chain.stepno = 1
+            chain, proposal, step_info = BAT.mcmc_propose!!(chain, chain.proposal, BAT._mcmc_step_rng(chain))
+            (; current, proposed) = chain
+            for i in stalled_walkers
+                proposed.z.v[i] .= current.z.v[i]
+                proposed.x.v[i] .= current.x.v[i]
+            end
+            f = chain.f_transform
+            f_tuned, _, _ = BAT.mcmc_tune_trafo_post_step!!(
+                f, state.trafo_tuner_state, chain, proposal, current, proposed, step_info
+            )
+
+            L, b, p_accept = f.A, f.b, step_info.p_accept
+            η = 1 # in the first tuning step
+            u = proposed.z.v .- current.z.v
+            w = [iszero(u[i]) ? 0.0 : η * (p_accept[i] - 0.234) / norm(u[i])^2 for i in eachindex(u)]
+            M = L * (I + sum(w[i] .* u[i] .* u[i]' for i in eachindex(u))) * L'
+            α = η / 10 .* p_accept
+            b_ref = mean((1 .- α[i]) .* b .+ α[i] .* proposed.x.v[i] for i in eachindex(u))
+            return f_tuned, M, b_ref
+        end
+
+        f_tuned, M, b_ref = tuned_and_reference(())
+        @test f_tuned.A isa LowerTriangular
+        @test f_tuned.A * f_tuned.A' ≈ M
+        @test f_tuned.b ≈ b_ref
+
+        # A walker that didn't move doesn't keep the others from tuning:
+        f_tuned, M, b_ref = tuned_and_reference((2,))
+        @test f_tuned.A * f_tuned.A' ≈ M
+        @test f_tuned.b ≈ b_ref
+    end
+
     @testset "requires a lower-triangular factor" begin
         A = randn(rng, 5, 5) + 3 * I
         u = [randn(rng, 5)]
         w = [0.2 / norm(u[1])^2]
-        @test_throws MethodError _rank_k_cholesky_update(A, u, w)
+        @test_throws MethodError _rank_k_cholesky_update(A, stack(u), w)
     end
 end
