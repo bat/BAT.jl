@@ -60,6 +60,7 @@ BAT.LogDVal
 BAT.MCMCSampleGenerator
 BAT.MCMCStepInfo
 BAT.MeasureLike
+BAT.MultiThreadedExec
 BAT.NoWhitening
 BAT.OnlineMvCov
 BAT.OnlineMvMean
