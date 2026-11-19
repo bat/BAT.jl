@@ -1,6 +1,30 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 
+"""
+    abstract type MCMCConvergenceTest <: ConvergenceTest
+
+Abstract supertype for convergence tests of Markov chain Monte Carlo output.
+"""
+abstract type MCMCConvergenceTest <: ConvergenceTest end
+
+
+"""
+    abstract type SingleChainMCMCConvergenceTest <: MCMCConvergenceTest
+
+Abstract supertype for MCMC convergence tests that assess one chain.
+"""
+abstract type SingleChainMCMCConvergenceTest <: MCMCConvergenceTest end
+
+
+"""
+    abstract type MultiChainMCMCConvergenceTest <: MCMCConvergenceTest
+
+Abstract supertype for MCMC convergence tests that compare multiple independent chains.
+"""
+abstract type MultiChainMCMCConvergenceTest <: MCMCConvergenceTest end
+
+
 function check_convergence!(
     chains::AbstractVector{<:MCMCIterator},
     samples::AbstractVector{<:DensitySampleVector},
@@ -53,7 +77,7 @@ end
 
 
 """
-    struct GelmanRubinConvergence <: ConvergenceTest
+    struct GelmanRubinConvergence <: MultiChainMCMCConvergenceTest
 
 Gelman-Rubin maximum R^2 convergence test.
 
@@ -69,7 +93,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct GelmanRubinConvergence <: ConvergenceTest
+@with_kw struct GelmanRubinConvergence <: MultiChainMCMCConvergenceTest
     threshold::Float64 = 1.1
 end
 
@@ -142,7 +166,7 @@ end
 
 
 """
-    struct BrooksGelmanConvergence <: ConvergenceTest
+    struct BrooksGelmanConvergence <: MultiChainMCMCConvergenceTest
 
 Brooks-Gelman maximum R^2 convergence test.
 
@@ -158,7 +182,7 @@ Fields:
 
 $(TYPEDFIELDS)
 """
-@with_kw struct BrooksGelmanConvergence <: ConvergenceTest
+@with_kw struct BrooksGelmanConvergence <: MultiChainMCMCConvergenceTest
     threshold::Float64 = 1.1
     corrected::Bool = false
 end
@@ -178,7 +202,121 @@ end
 
 
 
-function bat_convergence_impl(samples::DensitySampleVector, algorithm::Union{GelmanRubinConvergence, BrooksGelmanConvergence}, context::BATContext)
+function _rhat_walker_indices(chain::DensitySampleVector)
+    idxs = findall(>(0), chain.weight)
+    eltype(chain.info) <: MCMCSampleID || return [1 => idxs]
+    ids = sort!(unique(id.walkerid for id in view(chain.info, idxs)))
+    [id => sort!([i for i in idxs if chain.info[i].walkerid == id];
+        by = i -> (chain.info[i].chaincycle, chain.info[i].stepno)) for id in ids]
+end
+
+function _rhat_split_runs(chains)
+    counts = (chain -> accumulate(Base.Checked.checked_add, Int[0; chain.weight])).(chains)
+    n = last(first(counts))
+    all(c -> last(c) == n, counts) ||
+        throw(ArgumentError("Rank-normalized R-hat requires equal draw counts per chain."))
+    n >= 4 || return nothing
+    half = n ÷ 2
+    # Clip repetition runs at the split boundaries, omitting an odd middle draw.
+    map([(i, offset) for i in eachindex(chains) for offset in (0, n - half)]) do (i, offset)
+        weight = diff(clamp.(counts[i] .- offset, 0, half))
+        idxs = findall(>(0), weight)
+        (; v = view(chains[i].v, idxs), weight = weight[idxs])
+    end
+end
+
+function _rank_normalize(values, weights, order = sortperm(values))
+    total = sum(weights)
+    scores = Vector{Float64}(undef, length(values))
+    sorted = view(values, order)
+    before = 0
+    i = 1
+    while i <= length(order)
+        j = something(findnext(!=(sorted[i]), sorted, i + 1), length(order) + 1)
+        mass = sum(view(weights, view(order, i:j-1)))
+        after = total - before - mass
+        # Use the nearer tail so large repetition counts cannot round a quantile to one.
+        p = (min(before, after) + mass / 2 + 1 / 8) / (total + 1 / 4)
+        score = quantile(Normal(), p) * (before <= after ? 1 : -1)
+        scores[view(order, i:j-1)] .= score
+        before += mass
+        i = j
+    end
+    scores
+end
+
+function _split_rhat(values, weights, ranges, n)
+    stats = mean_and_var.(view.(Ref(values), ranges), FrequencyWeights.(view.(Ref(weights), ranges)); corrected = true)
+    sqrt((n - 1) / n + var(first.(stats)) / mean(last.(stats)))
+end
+
+function _rank_normalized_rhat(chains::AbstractVector{<:DensitySampleVector})
+    all(chain -> all(v -> all(isfinite, v), chain.v), chains) || return NaN
+    splits = _rhat_split_runs(chains)
+    isnothing(splits) && return NaN
+    weights = reduce(vcat, getproperty.(splits, :weight))
+    foldl(Base.Checked.checked_add, weights; init = 0)
+    ends = cumsum(length.(getproperty.(splits, :weight)))
+    ranges = UnitRange.([1; ends[1:end-1] .+ 1], ends)
+    n = sum(first(splits).weight)
+    maximum(1:totalndof(varshape(first(chains)))) do parameter
+        values = reduce(vcat, (part -> getindex.(part.v, parameter)).(splits))
+        order = sortperm(values)
+        counts = cumsum(view(weights, order))
+        half = last(counts) ÷ 2
+        i = searchsortedfirst(counts, half)
+        midpoint = float(values[order[i]])
+        counts[i] == half && (midpoint = midpoint / 2 + values[order[i + 1]] / 2)
+        folded = abs.(values .- midpoint)
+        all(isfinite, folded) || (folded = abs.(values ./ 2 .- midpoint / 2))
+        max(
+            _split_rhat(_rank_normalize(values, weights, order), weights, ranges, n),
+            _split_rhat(_rank_normalize(folded, weights), weights, ranges, n),
+        )
+    end
+end
+
+
+"""
+    RankNormalizedRhatConvergence(; threshold = 1.01)
+
+Rank-normalized and folded split R-hat convergence test from
+[Vehtari et al. (2021)](https://doi.org/10.1214/20-BA1221).
+
+Compare independent chains, treating integer weights as repetition counts.
+For multiple walkers, compare matching walker IDs across chains. Return the
+largest R-hat across parameters and walkers.
+"""
+@with_kw struct RankNormalizedRhatConvergence <: MultiChainMCMCConvergenceTest
+    threshold::Float64 = 1.01
+end
+
+export RankNormalizedRhatConvergence
+
+function bat_convergence_impl(samples::AbstractVector{<:DensitySampleVector}, algorithm::RankNormalizedRhatConvergence, ::BATContext)
+    length(samples) >= 2 || throw(ArgumentError("Rank-normalized R-hat requires at least two chains."))
+    parameters = all_active_names(varshape(first(samples)))
+    all(chain -> all_active_names(varshape(chain)) == parameters, samples) ||
+        throw(ArgumentError("Rank-normalized R-hat requires matching parameters."))
+    all(chain -> all(w -> w >= 0 && isinteger(w), chain.weight), samples) ||
+        throw(ArgumentError("Rank-normalized R-hat requires nonnegative integer-valued weights."))
+    walkers = _rhat_walker_indices.(samples)
+    ids = first.(first(walkers))
+    all(w -> first.(w) == ids, walkers) ||
+        throw(ArgumentError("Rank-normalized R-hat requires matching walker IDs."))
+    # Each comparison uses one walker from each independent sampler chain.
+    max_rhat = isempty(ids) ? NaN : maximum(eachindex(ids)) do i
+        chains = ((chain, w) -> unshaped.(chain[last(w[i])])).(samples, walkers)
+        _rank_normalized_rhat(chains)
+    end
+    vt = ValueAndThreshold{:max_rhat}(max_rhat, <=, algorithm.threshold)
+    @debug "Rank-normalized R-hat" converged=Bool(vt) max_rhat threshold=vt.threshold
+    (result = vt,)
+end
+
+
+
+function bat_convergence_impl(samples::DensitySampleVector, algorithm::MultiChainMCMCConvergenceTest, context::BATContext)
     # create a vector of chains
     chains_ind = unique([i.chainid for i in samples.info])
     vector_chains = DensitySampleVector[]
