@@ -61,6 +61,8 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v3
+      - name: Install development dependencies
+        run: julia --project=. .github/prepare-dev-deps.jl
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
         env:
@@ -94,6 +96,8 @@ jobs:
           version: '1'
           arch: x64
       - uses: julia-actions/cache@v3
+      - name: Install development dependencies
+        run: julia --project=. .github/prepare-dev-deps.jl test/optional/${{ matrix.optional-test }}
       - name: Run tests
         run: >-
           julia --project=test/optional/${{ matrix.optional-test }} -e '
@@ -109,6 +113,8 @@ jobs:
           version: '1'
           arch: x64
       - uses: julia-actions/cache@v3
+      - name: Install development dependencies
+        run: julia --project=. .github/prepare-dev-deps.jl test/optional/mgvi
       - name: Run tests
         run: >-
           julia --project=test/optional/mgvi --code-coverage=user -e '
@@ -136,10 +142,12 @@ jobs:
           version: ${{ matrix.version }}
           arch: x64
       - uses: julia-actions/cache@v3
+      - name: Install development dependencies
+        run: julia --project=. .github/prepare-dev-deps.jl test/optional/ellipticalslicesampling
       - name: Run tests
         run: >-
           julia --project=test/optional/ellipticalslicesampling --code-coverage=user -e '
-          using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate();
+          using Pkg; Pkg.instantiate();
           include(joinpath("test", "optional", "ellipticalslicesampling", "runtests.jl"))'
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v7
@@ -161,10 +169,12 @@ jobs:
           version: ${{ matrix.version }}
           arch: x64
       - uses: julia-actions/cache@v3
+      - name: Install development dependencies
+        run: julia --project=. .github/prepare-dev-deps.jl test/optional/slicesampling
       - name: Run tests
         run: >-
           julia --project=test/optional/slicesampling --code-coverage=user -e '
-          using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate();
+          using Pkg; Pkg.instantiate();
           include(joinpath("test", "optional", "slicesampling", "runtests.jl"))'
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v7
@@ -172,6 +182,21 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
+  test-importancesamplers:
+    name: ImportanceSamplers - ${{ github.event_name }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1.13'
+          arch: x64
+      - uses: julia-actions/cache@v3
+      - name: Run tests
+        run: >-
+          julia --project=test/optional/importancesamplers --threads=4 -e '
+          using Pkg; Pkg.instantiate();
+          include(joinpath("test", "optional", "importancesamplers", "runtests.jl"))'
   docs:
     name: Documentation
     runs-on: ubuntu-latest
@@ -181,8 +206,14 @@ jobs:
         with:
           version: '1'
       - uses: julia-actions/cache@v3
+      - name: Install development dependencies
+        run: julia --project=. .github/prepare-dev-deps.jl docs
       - uses: julia-actions/julia-buildpkg@v1
+        with:
+          project: docs
       - uses: julia-actions/julia-docdeploy@v1
+        with:
+          install-package: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Needed due to https://github.com/JuliaDocs/Documenter.jl/issues/1177

@@ -1,11 +1,20 @@
-struct Marginalization{D} <: AbstractVector{D} 
-    samples::DensitySampleVector
-    vsel::Any
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
+# A binned distribution `dist` (`UvBinnedDist` or `MvBinnedDist`) over the
+# free parameters of variates of shape `shape`:
+struct MarginalDist{D<:Distribution,S<:AbstractValueShape}
+    dist::D
+    shape::S
+
+    MarginalDist(dist::D; shape::S = varshape(dist)) where {D<:Distribution,S<:AbstractValueShape} = new{D,S}(dist, shape)
 end
 
-struct MarginalDist
-    dist::Union{ReshapedDist, Distribution}
-end
+ValueShapes.varshape(marg::MarginalDist) = marg.shape
+
+_marg_hist(marg::MarginalDist) = convert(Histogram, marg.dist)
+
+_binned_dist(hist::Histogram{<:Real,1}) = EmpiricalDistributions.UvBinnedDist(hist)
+_binned_dist(hist::Histogram) = EmpiricalDistributions.MvBinnedDist(hist)
 
 function _get_edges(data::Tuple, nbins::Tuple{Vararg{Integer}}, closed::Symbol)
     return StatsBase.histrange(data, StatsBase._nbins_tuple(data, nbins), closed)
@@ -33,12 +42,7 @@ function MarginalDist(
     end
 
     marg_samples = bat_marginalize(samples, vsel).result
-    vs = varshape(marg_samples)
-    vs isa NamedTupleShape ? shapes = [getproperty(acc, :shape) for acc in values(vs)] : shapes = [0,0]
-    UV = (vs isa ArrayShape && vsel isa Integer) || (length(shapes) == 1 && (shapes[1] isa Union{ScalarShape, ConstValueShape} || (shapes[1] isa ArrayShape && size(shapes[1]) == (1,))))
-
-    marg_samples = flatview(unshaped.(marg_samples).v)
-    cols = Tuple(Vector.(eachrow(marg_samples)))
+    cols = Tuple(Vector.(eachrow(flatbatch(marg_samples.v))))
 
     edges = if isa(bins, Integer)
         _get_edges(cols, (bins,), closed)
@@ -48,28 +52,40 @@ function MarginalDist(
         (_get_edges(cols, bins, closed),)
     end
 
-    hist = fit(Histogram, cols, FrequencyWeights(samples.weight), edges, closed = closed)
+    hist = fit(Histogram, cols, FrequencyWeights(marg_samples.weight), edges, closed = closed)
 
-    binned_dist = UV ? EmpiricalDistributions.UvBinnedDist(hist) : EmpiricalDistributions.MvBinnedDist(hist)
-    binned_dist = UV ? binned_dist : vs(binned_dist) isa ReshapedDist ? vs(binned_dist) : ReshapedDist(vs(binned_dist), vs)
-
-    return MarginalDist(binned_dist)
+    return MarginalDist(_binned_dist(hist), shape = varshape(marg_samples))
 end
 
-#for prior or MarginalDist
 #TODO: think about implementing parsing of already marginalized names for remarginalization
 function MarginalDist(
-    dist::Union{NamedTupleDist, MarginalDist},
+    dist::NamedTupleDist,
     vsel;
     bins = 200, #::Union{I, Vector{I}, Tuple{I}} where I<:Integer
     closed::Symbol = :left,
     nsamples::Integer = 10^6,
     filter::Bool = false
 )
-    dist = dist isa MarginalDist ? dist.dist : dist
-
-    vs = varshape(dist)
-    samples = vs.(DensitySampleVector(v = unshaped.(rand(dist, nsamples)), logd = fill(NaN, nsamples)))
-
+    μ = batmeasure(dist)
+    samples = DensitySampleVector(rand(μ^nsamples), μ)
     return MarginalDist(samples, vsel; bins, closed, filter)
+end
+
+# Marginal of a marginal distribution, sums the bin probabilities over all
+# parameters not selected by `vsel`:
+function MarginalDist(marg::MarginalDist, vsel)
+    dims, sel_shape = _resolve_vsel(varshape(marg), vsel)
+    hist = _marg_hist(marg)
+    masses = _bin_masses(hist)
+    other_dims = Tuple(setdiff(1:ndims(masses), dims))
+    marg_masses = permutedims(dropdims(sum(masses, dims = other_dims), dims = other_dims), invperm(sortperm(dims)))
+    marg_hist = Histogram(hist.edges[dims], marg_masses, hist.closed, false)
+    shape = varshape(marg) isa NamedTupleShape ? sel_shape : ArrayShape{Real}(length(dims))
+    return MarginalDist(_binned_dist(marg_hist); shape)
+end
+
+function _bin_masses(hist::Histogram{<:Real,N}) where N
+    hist.isdensity || return hist.weights
+    widths = ntuple(d -> reshape(diff(hist.edges[d]), ntuple(i -> i == d ? length(hist.edges[d]) - 1 : 1, Val(N))), Val(N))
+    return broadcast(*, hist.weights, widths...)
 end

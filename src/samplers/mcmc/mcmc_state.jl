@@ -9,14 +9,14 @@
 State of a MCMC chain.
 """
 mutable struct MCMCChainState{
-    M<:BATMeasure,
-    PR<:RNGPartition,
+    M<:AbstractMeasure,
+    SR<:AbstractRNG,
     FT<:Function,
     P<:MCMCProposalState,
     WS<:AbstractMCMCWeightingScheme,
     SVX<:DensitySampleVector,
     SVZ<:DensitySampleVector,
-    GC<:AbstractVector{<:GenContext},
+    AV<:AbstractVector{Bool},
     CTX<:BATContext
 } <: MCMCIterator
     target::M
@@ -26,11 +26,10 @@ mutable struct MCMCChainState{
     current::@NamedTuple{x::SVX, z::SVZ}
     proposed::@NamedTuple{x::SVX, z::SVZ}
     output::SVX
-    accepted::Vector{Bool}
+    accepted::AV
     walker_order::Vector{Int}
-    walker_genctxs::GC
     info::MCMCChainStateInfo
-    rngpart_cycle::PR
+    step_rngs::SR
     nattempts::Vector{Int64}
     nsamples::Vector{Int64}
     stepno::Int64
@@ -44,14 +43,15 @@ _contains_hamiltonian_mc(proposal::MCMCProposal) =
 
 function MCMCChainState(
     samplingalg::TransformedMCMC,
-    target::BATMeasure,
+    target::AbstractMeasure,
     chainid::Integer,
     x_init::AbstractVector{PV},
     context::BATContext
 ) where {P<:Real, PV<:AbstractVector{P}}
     _validate_mcmc_proposal_configuration(samplingalg.proposal, samplingalg.proposal_tuning)
+    cunit = get_compute_unit(context)
+    is_host_unit(cunit) || _check_device_mcmc_support(samplingalg)
 
-    n_walkers = length(x_init)
     target_unevaluated = unevaluated(target)
 
     if _contains_hamiltonian_mc(samplingalg.proposal) && samplingalg.sample_weighting isa ARPWeighting
@@ -60,23 +60,53 @@ function MCMCChainState(
         ))
     end
 
-    rngpart_cycle = RNGPartition(get_rng(context), 0:(typemax(Int16) - 2))
-    rng = get_rng(context)
+    rng = _keyed_rng(get_rng(context))
+    step_rngs = subrng(rng, :step)
 
     f = init_adaptive_transform(samplingalg.adaptive_transform, target, x_init, context)
     f_inv = inverse(f)
     proposal = _create_proposal_state(samplingalg.proposal, target_unevaluated, context, x_init, f, rng)
-
-    logd_x_init = BAT.checked_logdensityof.(target_unevaluated, x_init)
-    z_init = f_inv.(x_init)
+    z_init = VectorOfSimilarVectors(f_inv.(x_init))
     ladj_c = _transform_ladj(f)
+
+    # The transform and the walker positions are initialized on the host, the
+    # chain then lives on the compute unit of the context:
+    if is_host_unit(cunit)
+        return _mcmc_chain_state(
+            samplingalg, target_unevaluated, chainid, x_init, z_init, f, ladj_c, proposal, step_rngs, context
+        )
+    else
+        T = get_precision(context)
+        return _mcmc_chain_state(
+            samplingalg, adapt(cunit, target_unevaluated), chainid,
+            _device_batch(cunit, T, x_init), _device_batch(cunit, T, z_init), _device_transform(cunit, T, f),
+            ladj_c, proposal, step_rngs, context
+        )
+    end
+end
+
+function _mcmc_chain_state(
+    samplingalg::TransformedMCMC,
+    target_unevaluated::AbstractMeasure,
+    chainid::Integer,
+    x_init::AbstractVector{<:AbstractVector{<:Real}},
+    z_init::AbstractVector{<:AbstractVector{<:Real}},
+    f,
+    ladj_c::Union{Real,Nothing},
+    proposal::MCMCProposalState,
+    step_rngs::AbstractRNG,
+    context::BATContext
+)
+    n_walkers = length(x_init)
+
+    logd_x_init = BAT.checked_logdensities(target_unevaluated, x_init)
     logd_z_init = isnothing(ladj_c) ?
-        logdensityof.(MeasureBase.pullback(f, target_unevaluated), z_init) :
+        logdensities(MeasureBase.pullbck(f, target_unevaluated), z_init) :
         logd_x_init .+ ladj_c
 
     W = mcmc_weight_type(samplingalg.sample_weighting)
 
-    sample_weights_curr = zeros(W, n_walkers)
+    sample_weights_curr = fill!(similar(logd_x_init, W), zero(W))
     sample_info_curr = MCMCSampleID[MCMCSampleID(Int32(chainid), Int32(i), one(Int32), zero(Int64), get_active_proposal_idx(proposal), true) for i in 1:n_walkers]
     sample_aux_curr = fill(nothing, n_walkers)
 
@@ -97,7 +127,7 @@ function MCMCChainState(
 
     prop_locs_init = deepcopy(x_init)
     prop_logds_init = deepcopy(logd_x_init)
-    sample_weights_prop = zeros(W, n_walkers)
+    sample_weights_prop = deepcopy(sample_weights_curr)
     sample_info_prop = deepcopy(sample_info_curr) 
     sample_aux_prop = fill(nothing, n_walkers)
 
@@ -112,13 +142,10 @@ function MCMCChainState(
     current = (x = current_x_init, z = current_z_init)
     proposed = (x = proposed_init, z = deepcopy(current_z_init))
     output = deepcopy(current_x_init)
-    accepted = fill(false, n_walkers)
+    accepted = fill!(similar(logd_x_init, Bool), false)
     walker_order = sortperm(
         eachindex(sample_info_curr); by = i -> sample_info_curr[i].walkerid,
     )
-    walker_genctxs = map(1:n_walkers) do _
-        get_gencontext(set_rng(context, rngpart_createrng(typeof(rng))))
-    end
 
     stepno::Int64 = 0
     cycle::Int32 = 0
@@ -142,9 +169,8 @@ function MCMCChainState(
         output, 
         accepted,
         walker_order,
-        walker_genctxs,
         MCMCChainStateInfo(chainid, cycle, false, false),
-        rngpart_cycle,
+        step_rngs,
         nattempts,
         nsamples,
         stepno,
@@ -213,23 +239,15 @@ detailed_eff_acceptance_ratio(state::MCMCChainState) = state.nsamples ./ state.n
 
 
 function mcmc_step!!(mcmc_state::MCMCState)
-    reset_rng_counters!(mcmc_state)
-
     chain_state = mcmc_state.chain_state
     chain_state.stepno += 1
 
-    (;proposal, stepno, context) = chain_state
+    (;proposal, stepno) = chain_state
 
-    rng = get_rng(context)
-    n_rng_streams = _MCMC_N_RNG_PURPOSES * _MCMC_PROPOSALS_PER_PURPOSE
-    step_rngpart = RNGPartition(rng, Base.OneTo(n_rng_streams))
-    selection_idx = _mcmc_rng_stream_idx(_MCMC_PROPOSAL_SELECTION_PURPOSE, 1)
-    proposal_selection_rng = AbstractRNG(step_rngpart, selection_idx)
+    step_rng = _mcmc_step_rng(chain_state)
 
-    chain_state.proposal, _ = next_proposal!!(
-        proposal_selection_rng, proposal, stepno,
-    )
-    mcmc_state_new, step_info = _mcmc_propose_and_tune!!(mcmc_state, chain_state.proposal, step_rngpart)
+    chain_state.proposal, _ = next_proposal!!(step_rng, proposal, stepno)
+    mcmc_state_new, step_info = _mcmc_propose_and_tune!!(mcmc_state, chain_state.proposal, step_rng)
 
     chain_state = mcmc_state_new.chain_state
 
@@ -248,34 +266,16 @@ function mcmc_step!!(mcmc_state::MCMCState)
     proposed.x.weight .= w_proposed
     proposed.z.weight .= w_proposed
 
-    idxs_acc = findall(accepted)
-    idxs_rej = findall(!, accepted)
-
-    # For each walker, mark proposed samples as accepted or rejected
-    for i in eachindex(proposed.x)
-        old_info = current.x.info[i]
-
-        sample_type = accepted[i]
-        new_info = MCMCSampleID(
-            old_info.chainid, 
-            old_info.walkerid,
-            old_info.chaincycle, 
-            chain_state.stepno, 
-            get_active_proposal_idx(proposal), 
-            sample_type
-        )
-
-        proposed.x.info[i] = new_info
-        proposed.z.info[i] = new_info
-    end
+    # Mark the proposed samples as accepted or rejected:
+    proposed.x.info .= _step_sampleid.(current.x.info, chain_state.stepno, active_prop_idx, accepted)
+    proposed.z.info .= proposed.x.info
 
     # Save current points to output if they will be overwritten, and save rejected proposed points
-    output[idxs_acc] = @view current.x[idxs_acc]
-    output[idxs_rej] = @view proposed.x[idxs_rej]
+    _select_samples!(output, accepted, current.x, proposed.x)
 
     # Overwrite current points with accepted proposed points
-    current.x[idxs_acc] = @view proposed.x[idxs_acc]
-    current.z[idxs_acc] = @view proposed.z[idxs_acc]
+    _select_samples!(current.x, accepted, proposed.x, current.x)
+    _select_samples!(current.z, accepted, proposed.z, current.z)
 
     chain_state = mcmc_state_new.chain_state
     mcmc_state_final = @set mcmc_state_new.chain_state = chain_state
@@ -283,11 +283,33 @@ function mcmc_step!!(mcmc_state::MCMCState)
     return mcmc_state_final
 end
 
+# The id of the sample that a walker proposes in a step:
+_step_sampleid(current::MCMCSampleID, stepno::Integer, proposalid::Integer, accepted::Bool) =
+    MCMCSampleID(current.chainid, current.walkerid, current.chaincycle, stepno, proposalid, accepted)
+
+# Sets each sample in `dest` to the sample in `a` where `mask` is true, and
+# to the sample in `b` elsewhere. `dest` may be `a` or `b`:
+function _select_samples!(dest::DensitySampleVector, mask::AbstractVector{Bool}, a::DensitySampleVector, b::DensitySampleVector)
+    _select_variates!(dest.v, mask, a.v, b.v)
+    dest.logd .= ifelse.(mask, a.logd, b.logd)
+    dest.weight .= ifelse.(mask, a.weight, b.weight)
+    dest.info .= ifelse.(mask, a.info, b.info)
+    dest.aux .= ifelse.(mask, a.aux, b.aux)
+    return dest
+end
+
+# Flat batches select whole columns:
+function _select_variates!(dest::VectorOfSimilarVectors, mask::AbstractVector{Bool}, a::VectorOfSimilarVectors, b::VectorOfSimilarVectors)
+    flatview(dest) .= ifelse.(mask', flatview(a), flatview(b))
+    return dest
+end
+
 # Log-abs-det Jacobian of a space transformation, if it is constant
 # (nothing otherwise). `false` is the type-neutral additive zero:
 _transform_ladj(::Any) = nothing
 _transform_ladj(::typeof(identity)) = false
 _transform_ladj(f::MulAdd) = _mul_factor_ladj(f.A)
+_transform_ladj(f::InvMulAdd) = (ladj = _mul_factor_ladj(f.A); isnothing(ladj) ? nothing : -ladj)
 
 # Only for matrix-shaped factors is logabsdet the per-variate ladj; scalar
 # factors act on every dimension, their ladj depends on the variate length,
@@ -296,68 +318,58 @@ _mul_factor_ladj(A) = ndims(A) == 2 ? first(logabsdet(A)) : nothing
 _mul_factor_ladj(::Real) = nothing
 _mul_factor_ladj(::UniformScaling) = nothing
 
-# Batched transform application together with per-element LADJs, with a
-# single logabsdet evaluation for transforms with constant Jacobian:
+# Batched transform application together with per-element LADJs. Transforms
+# with a constant Jacobian are applied to the batch as a whole, with a single
+# logabsdet evaluation:
 function _transform_with_ladj(f, zs::AbstractVector)
     c = _transform_ladj(f)
     if isnothing(c)
         ys_ladjs = with_logabsdet_jacobian.(f, zs)
         return first.(ys_ladjs), getsecond.(ys_ladjs)
     else
-        return f.(zs), fill(c, length(eachindex(zs)))
+        return _transform_batch(f, zs), Fill(c, length(eachindex(zs)))
     end
 end
 
 
-_mcmc_propose_and_tune!!(state, proposal::MCMCProposalState, rngpart) =
-    _mcmc_propose_and_tune!!(state, proposal, rngpart, Val(1))
+_mcmc_propose_and_tune!!(state, proposal::MCMCProposalState, step_rng) =
+    _mcmc_propose_and_tune!!(state, proposal, step_rng, Val(1))
 
-function _mcmc_propose_and_tune!!(state, proposal, rngpart, i::Val{I}) where {I}
+function _mcmc_propose_and_tune!!(state, proposal, step_rng, i::Val{I}) where {I}
     active = get_active_proposal(proposal, i)
-    chain, active_new, step_info = mcmc_propose!!(state.chain_state, active, rngpart, I)
+    chain, active_new, step_info = mcmc_propose!!(state.chain_state, active, step_rng)
     chain = @set chain.proposal = update_active_proposal!!(proposal, active_new, i)
     state_new = @set state.chain_state = chain
     return mcmc_tune_post_step!!(state_new, active, step_info), step_info
 end
 
 @inline function mcmc_propose!!(chain_state::MCMCChainState, proposal::SMP,
-    step_rngpart::RNGPartition, proposal_idx::Integer) where {SMP<:SimpleMCMCProposalState}
+    step_rng::AbstractRNG) where {SMP<:SimpleMCMCProposalState}
     (; target, f_transform, current) = chain_state
 
     current_z = current.z.v
     logd_z_current = current.z.logd
 
-    walker_info = current.x.info
-    proposal_rngpart = _mcmc_walker_rngpart(
-        step_rngpart, _MCMC_PROPOSAL_TRANSITION_PURPOSE, proposal_idx)
-    genctxs = chain_state.walker_genctxs
-    foreach(genctxs, walker_info) do genctx, info
-        set_rng!(get_rng(genctx), proposal_rngpart, info.walkerid)
-    end
+    walker_draws = _walker_draws(proposal, chain_state, step_rng)
 
-    # TODO: MD; Make this function ! because it alters genctx?
-    z_proposed, hastings_correction = mcmc_propose_transition(current_z, proposal, genctxs)
+    z_proposed, hastings_correction = mcmc_propose_transition(current_z, proposal, walker_draws)
 
     x_proposed, ladj = _transform_with_ladj(f_transform, z_proposed)
 
-    logd_x_proposed = BAT.checked_logdensityof.(target, x_proposed)
-    logd_z_proposed::typeof(logd_x_proposed) = logd_x_proposed .+ ladj
-
     chain_state.proposed.x.v .= x_proposed
     chain_state.proposed.z.v .= z_proposed
+
+    # The walker positions are evaluated from the chain state's buffer, whose
+    # flat storage lets the target evaluate the whole batch at once:
+    logd_x_proposed = BAT.checked_logdensities(target, chain_state.proposed.x.v)
+    logd_z_proposed::typeof(logd_x_proposed) = logd_x_proposed .+ ladj
 
     chain_state.proposed.x.logd .= logd_x_proposed
     chain_state.proposed.z.logd .= logd_z_proposed
 
     log_accept_ratio = logd_z_proposed - logd_z_current + hastings_correction
     p_accept = @. ifelse(isnan(log_accept_ratio), zero(log_accept_ratio), clamp(exp(log_accept_ratio), 0, 1))
-    acceptance_rngpart = _mcmc_walker_rngpart(
-        step_rngpart, _MCMC_ACCEPTANCE_PURPOSE, proposal_idx)
-    accepted = map(eachindex(p_accept)) do i
-        rng = get_rng(genctxs[i])
-        set_rng!(rng, acceptance_rngpart, walker_info[i].walkerid)
-        rand(rng) < p_accept[i]
-    end
+    accepted = _walker_uniforms(walker_draws) .< p_accept
 
     chain_state.accepted .= accepted
 
@@ -368,27 +380,69 @@ end
     return chain_state, proposal, step_info
 end
 
-const _MCMC_PROPOSAL_SELECTION_PURPOSE = 1
-const _MCMC_PROPOSAL_TRANSITION_PURPOSE = 2
-const _MCMC_ACCEPTANCE_PURPOSE = 3
-const _MCMC_N_RNG_PURPOSES = 3
-# Purpose blocks are fixed-width so their stream indices cannot overlap;
-# multi-proposal construction and the index helper both enforce this limit.
-const _MCMC_PROPOSALS_PER_PURPOSE = typemax(Int16) - 2
+# Each step draws from one child of the chain's step stream root, identified
+# by cycle and step number, so the draws of a step depend on the chain's key
+# and the step's position only, not on earlier draws. The selection of the
+# active proposal draws from it first:
+_mcmc_step_rng(chain_state::MCMCChainState) =
+    subrng(chain_state.step_rngs, chain_state.info.cycle, chain_state.stepno)
 
-@inline function _mcmc_rng_stream_idx(purpose::Integer, proposal_idx::Integer)
-    1 <= purpose <= _MCMC_N_RNG_PURPOSES || throw(ArgumentError(
-        "MCMC RNG purpose must be between 1 and $_MCMC_N_RNG_PURPOSES, got $purpose"))
-    1 <= proposal_idx <= _MCMC_PROPOSALS_PER_PURPOSE || throw(ArgumentError(
-        "MCMC proposal index must be between 1 and $_MCMC_PROPOSALS_PER_PURPOSE, got $proposal_idx"))
-    return (purpose - 1) * _MCMC_PROPOSALS_PER_PURPOSE + proposal_idx
+# A walker's own child of the step RNG, identified by the walker id:
+_walker_rng(step_rng::AbstractRNG, info::MCMCSampleID) = subrng(step_rng, info.walkerid)
+
+# The random draws of the walkers within a step. `_walker_variates` and
+# `_walker_uniforms` return one draw per walker, in the storage order of the
+# walkers. A walker gets the same draws wherever it is stored.
+
+# Draws for all walkers in one call from the step RNG, the variates of a
+# proposal first, then the acceptance uniforms. Batches are drawn in the
+# order of the walker ids, `walker_rank` is the position of each stored
+# walker in that order:
+struct _BatchedWalkerDraws{C<:GenContext}
+    genctx::C
+    walker_rank::Vector{Int}
 end
 
-function _mcmc_walker_rngpart(
-    step_rngpart::RNGPartition, purpose::Integer, proposal_idx::Integer)
-    stream_rng = AbstractRNG(step_rngpart, _mcmc_rng_stream_idx(purpose, proposal_idx))
-    return RNGPartition(stream_rng, Base.OneTo(typemax(Int32) - 2))
+# Draws of each walker from its own child of the step RNG:
+struct _PerWalkerDraws{C<:GenContext}
+    genctxs::Vector{C}
 end
+
+# Proposals that draw their random numbers for all walkers at once, as one
+# variate per walker via `_walker_variates`, declare batched draws. Other
+# proposals get one random stream per walker:
+_draws_batched(::MCMCProposalState) = false
+
+function _walker_draws(proposal::MCMCProposalState, chain_state::MCMCChainState, step_rng::AbstractRNG)
+    genctx(rng) = get_gencontext(set_rng(chain_state.context, rng))
+    if _draws_batched(proposal)
+        return _BatchedWalkerDraws(genctx(step_rng), invperm(chain_state.walker_order))
+    else
+        return _PerWalkerDraws([genctx(_walker_rng(step_rng, info)) for info in chain_state.current.x.info])
+    end
+end
+
+# Brings draws for the walkers from the order of the walker ids into storage
+# order, with the walkers along the last dimension:
+_in_storage_order(X::AbstractVector, walker_rank) = walker_rank == eachindex(X) ? X : X[walker_rank]
+_in_storage_order(X::AbstractMatrix, walker_rank) = walker_rank == axes(X, 2) ? X : X[:, walker_rank]
+
+_walker_variates(draws::_BatchedWalkerDraws, μ::AbstractMeasure) =
+    _in_storage_order(rand(draws.genctx, μ^length(draws.walker_rank)), draws.walker_rank)
+
+_walker_variates(draws::_PerWalkerDraws, μ::AbstractMeasure) =
+    _canonical_batch(map(genctx -> rand(genctx, μ), draws.genctxs))
+
+# Standard normal variates, `n` for each walker, as the columns of a matrix:
+_walker_randn(draws::_BatchedWalkerDraws, n::Integer) =
+    _in_storage_order(randn(draws.genctx, (n, length(draws.walker_rank))), draws.walker_rank)
+
+_walker_randn(draws::_PerWalkerDraws, n::Integer) = stack(genctx -> randn(genctx, n), draws.genctxs)
+
+_walker_uniforms(draws::_BatchedWalkerDraws) =
+    _in_storage_order(rand(draws.genctx, length(draws.walker_rank)), draws.walker_rank)
+
+_walker_uniforms(draws::_PerWalkerDraws) = map(rand, draws.genctxs)
 
 _logical_walker_order(chain_state::MCMCChainState) = chain_state.walker_order
 
@@ -416,18 +470,6 @@ end
 # Proposals that compute z-space log-density gradients report the
 # gradients at the selected (post-accept/reject) states, others nothing:
 _selected_z_grads(::MCMCProposalState, ::AbstractVector{Bool}) = nothing
-
-function reset_rng_counters!(chain_state::MCMCChainState)
-    rng = get_rng(get_context(chain_state))
-    set_rng!(rng, chain_state.rngpart_cycle, chain_state.info.cycle)
-    rngpart_step = RNGPartition(rng, 0:(typemax(Int32) - 2))
-    set_rng!(rng, rngpart_step, chain_state.stepno)
-    nothing
-end
-
-function reset_rng_counters!(mcmc_state::MCMCState)
-    reset_rng_counters!(mcmc_state.chain_state)
-end
 
 function next_cycle!(chain_state::MCMCChainState)
     n_walkers = nwalkers(chain_state)
@@ -466,8 +508,6 @@ function next_cycle!(chain_state::MCMCChainState)
         ) for i in 1:n_walkers]
     chain_state.proposed.x.info .= new_proposed_info_vec
     chain_state.proposed.z.info .= new_proposed_info_vec
-
-    reset_rng_counters!(chain_state)
 
     chain_state
 end
@@ -591,7 +631,7 @@ function mcmc_tune_post_cycle!!(state::MCMCState, samples::AbstractVector{<:Dens
     α = eff_acceptance_ratio(chain_state_new)
 
     logds = [walker_smpls.logd for walker_smpls in samples]
-    max_log_posterior = maximum(maximum(logds))
+    max_log_posterior = maximum(Iterators.flatten(logds), init = -Inf)
 
     tuning_success = get_tuning_success(chain_state_new, proposal_state_new, proposal_tuner_state_new)
 
@@ -706,24 +746,24 @@ function mcmc_tuning_finalize!!(mcmc_state::MCMCState)
 end
 
 
+# Chain `id` draws from its own child stream of the run's root RNG, see
+# `_run_context`:
 function _construct_mcmc_state(
     samplingalg::TransformedMCMC,
-    target::BATMeasure,
-    rngpart::RNGPartition,
+    target::AbstractMeasure,
     id::Integer,
     initval_alg::InitvalAlgorithm,
-    parent_context::BATContext
+    run_context::BATContext
 )
-    new_context = set_rng(parent_context, AbstractRNG(rngpart, id))
+    new_context = set_rng(run_context, subrng(get_rng(run_context), :chain, id))
     v_init = bat_ensemble_initvals(target, initval_alg, samplingalg.nwalkers, new_context)
     return MCMCState(samplingalg, target, Int32(id), v_init, new_context)
 end
 
 _gen_mcmc_states(
     samplingalg::TransformedMCMC,
-    target::BATMeasure,
-    rngpart::RNGPartition,
+    target::AbstractMeasure,
     ids::AbstractRange{<:Integer},
     initval_alg::InitvalAlgorithm,
-    context::BATContext
-) = [_construct_mcmc_state(samplingalg, target, rngpart, id, initval_alg, context) for id in ids]
+    run_context::BATContext
+) = [_construct_mcmc_state(samplingalg, target, id, initval_alg, run_context) for id in ids]

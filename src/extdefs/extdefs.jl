@@ -2,6 +2,7 @@
 
 include("cuba_defs.jl")
 include("ellipticalslicesampling_defs.jl")
+include("importance_samplers_defs.jl")
 include("mgvi_defs.jl")
 include("nestedsamplers_defs.jl")
 include("optim_defs.jl")

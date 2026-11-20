@@ -32,7 +32,7 @@ using DoubleFloats
 using ElasticArrays
 using FFTW
 using FillArrays
-using ForwardDiffPullbacks
+using FillArrays: AbstractFill, getindex_value
 using FunctionChains
 using IntervalSets
 using InverseFunctions
@@ -53,11 +53,9 @@ using Tables
 using ValueShapes
 
 import ChainRulesCore
-import DistributionsAD
 import EmpiricalDistributions
 import HypothesisTests
 import Measurements
-import Random123
 import Sobol
 import StableRNGs
 import TypedTables
@@ -67,35 +65,32 @@ using Accessors: @set, @reset
 using OneTwoMany: getsecond
 
 import HeterogeneousComputing
-using HeterogeneousComputing: AbstractComputeUnit, CPUnit
+using HeterogeneousComputing: AbstractComputeUnit, CPUnit, is_host_unit
 using HeterogeneousComputing: GenContext, get_rng, get_precision, get_compute_unit, get_gencontext, allocate_array
+using HeterogeneousComputing: has_rng_streamkey, rng_streamkey, rootrng, subrng
 
 import StaticThings
-using StaticThings: IntegerLike, RealLike
+using StaticThings: IntegerLike, RealLike, asnonstatic
 
 import MeasureBase
 using MeasureBase: AbstractMeasure, DensityMeasure, Likelihood
 using MeasureBase: basemeasure, getdof, likelihoodof, testvalue
 using MeasureBase: pushfwd
-using MeasureBase: transport_to, transport_origin, from_origin, to_origin
-using MeasureBase: StdMeasure, StdUniform, StdNormal
-using MeasureBase: PowerMeasure, powermeasure, marginals
+using MeasureBase: transport_to, transports, transports_with_ladj, TransportFunction, transport_target
+using MeasureBase: StdUniform, StdNormal, Half
+using MeasureBase: asmeasure, AsMeasure, Dirac, mbind, mintegrate, mintegrate_exp
+using MeasureBase: productmeasure, insupportof
+using MeasureBase: logdensities
+using MeasureBase: PowerMeasure, marginals
 using MeasureBase: WeightedMeasure, weightedmeasure
-using MeasureBase: SuperpositionMeasure, superpose
 using MeasureBase: massof
 
 using MeasureBase: PushforwardMeasure, gettransform
 using MeasureBase: TransformVolCorr as PushFwdStyle, NoVolCorr as ChangeRootMeasure, WithVolCorr as KeepRootMeasure
 
-@static if isdefined(MeasureBase, :pwr_base)
-    import MeasureBase.pwr_base as _pwr_base
-    import MeasureBase.pwr_axes as _pwr_axes
-    import MeasureBase.pwr_size as _pwr_size
-else
-    _pwr_base(m::PowerMeasure) = m.parent
-    _pwr_axes(m::PowerMeasure) = m.axes
-    _pwr_size(m::PowerMeasure) = map(length, m.axes)
-end
+import MeasureBase.pwr_base as _pwr_base
+import MeasureBase.pwr_axes as _pwr_axes
+import MeasureBase.pwr_size as _pwr_size
 
 
 using IntervalSets: Domain
@@ -105,15 +100,14 @@ using LazyReports: LazyReport, lazyreport, lazyreport!, lazytable
 
 using ChainRulesCore: AbstractTangent, Tangent, NoTangent, ZeroTangent, AbstractThunk, unthunk
 
-using Functors: fmap
+using Functors: Functors, fmap
 
 using LogarithmicNumbers: ULogarithmic
 
 # For Dual specializations:
 import ForwardDiff
 
-# For StandardMvNormal:
-using IrrationalConstants: log2π, invsqrt2π
+using IrrationalConstants: log2π
 
 
 include("utils/utils.jl")
@@ -145,7 +139,7 @@ include("deprecations.jl")
 @compat public enable_error_log, error_log, EvalException
 @compat public ext_default, pkgext, PackageExtension
 @compat public get_adselector, get_valid_adselector, set_rng
-@compat public BinnedModeEstimator, DistributionTransform, PolarShellDistribution
+@compat public BinnedModeEstimator, PolarShellDistribution
 @compat public MCMCChainStateInfo, MCMCProposal, MCMCProposalState
 @compat public MCMCProposalTunerState, MCMCTransformTunerState
 @compat public MeasureEvalInfo, SimpleMCMCProposalState

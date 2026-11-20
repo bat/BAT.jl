@@ -29,7 +29,7 @@ log-densities.
 The components may be given in any form that can serve as a likelihood in a
 [`PosteriorMeasure`](@ref) and are converted accordingly.
 
-`MeasureBase.insupport` is only defined for the joint likelihood if it is
+`MeasureBase.insupportof` is only defined for the joint likelihood if it is
 defined for all of its components.
 """
 function joint_likelihood end
@@ -52,6 +52,6 @@ end
 
 (ℒ::JointLikelihood)(p) = exp(ULogarithmic, logdensityof(ℒ, p))
 
-MeasureBase.insupport(ℒ::JointLikelihood, p) = all(map(l -> MeasureBase.insupport(l, p), ℒ.likelihoods))
+MeasureBase.insupportof(ℒ::JointLikelihood, p) = all(map(l -> MeasureBase.insupportof(l, p), ℒ.likelihoods))
 
 _precompose_density(ℒ::JointLikelihood, g) = JointLikelihood(map(l -> _precompose_density(l, g), ℒ.likelihoods))

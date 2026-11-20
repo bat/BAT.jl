@@ -1,7 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
 include("mcmc_weighting.jl")
-include("proposaldist.jl")
 include("mcmc_sampleid.jl")
 include("mcmc_algorithm.jl")
 include("mcmc_sample.jl")
@@ -15,6 +14,7 @@ include("independent_mh_sampler.jl")
 include("mcmc_utils.jl")
 include("mcmc_multiproposal.jl")
 include("mcmc_tuning/mcmc_tuning.jl")
+include("mcmc_device.jl")
 include("mcmc_convergence.jl")
 include("chain_pool_init.jl")
 include("mcmc_retry_init.jl")

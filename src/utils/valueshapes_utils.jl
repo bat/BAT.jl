@@ -100,8 +100,6 @@ function _const_parameters(vs::NamedTupleShape)
     return Pair{String,Any}[string(path) => acc.shape.value for (path, acc) in leaves]
 end
 
-
-# Whether a value shape contains a constant anywhere, nested shapes included:
-_has_const_shape(::AbstractValueShape) = false
-_has_const_shape(::ConstValueShape) = true
-_has_const_shape(vs::NamedTupleShape) = any(acc -> _has_const_shape(acc.shape), values(vs))
+# Variates that are constant as a whole:
+_const_parameters(vs::ConstValueShape) = Pair{String,Any}["v" => vs.value]
+_const_parameters(vs::ConstValueShape{<:NamedTuple}) = Pair{String,Any}[string(k) => x for (k, x) in pairs(vs.value)]

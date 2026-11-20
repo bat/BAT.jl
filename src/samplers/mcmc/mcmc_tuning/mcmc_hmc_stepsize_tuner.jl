@@ -180,9 +180,12 @@ function mcmc_proposal_transform_committed!!(
     tuner::HMCStepSizeTunerState,
     chain_state::MCMCChainState
 )
-    rng = get_rng(chain_state.context)
-    zs = chain_state.current.z.v
-    stepsize_new = oftype(proposal.step_size, hmc_find_good_stepsize(rng, proposal.target_logdgrad, zs))
+    current = chain_state.current
+    probe_rngs = _hmc_probe_rngs(
+        proposal.tuning_rng, chain_state.info.cycle, chain_state.stepno,
+        (info.walkerid for info in current.x.info)
+    )
+    stepsize_new = oftype(proposal.step_size, hmc_find_good_stepsize(probe_rngs, proposal.target_logdgrad, current.z.v))
     proposal_new = @set proposal.step_size = stepsize_new
     _restart_dual_averaging!(tuner, stepsize_new)
     _reset_run_stats!(tuner)

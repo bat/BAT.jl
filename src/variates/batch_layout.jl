@@ -1,0 +1,332 @@
+# This file is a part of BAT.jl, licensed under the MIT License (MIT).
+
+
+# BAT stores batches of variates in the layout that `rand(μ^n)` produces:
+# vectors of numbers for scalar variates, nested arrays (ArraysOfArrays)
+# for array variates and struct vectors for named tuple variates. Constant
+# components carry no degrees of freedom and are stored as `Fill` columns.
+# Flat storage is the special case of a batch of real vectors.
+
+
+# Kinds of the columns (leaves) of a batch that are not struct vectors.
+# Constants come first, a Fill of numbers is a vector of numbers as well:
+struct _ScalarLeaf end
+struct _ArrayLeaf end
+struct _ConstLeaf end
+
+_leafkind(X::AbstractVector) = _nonconst_leafkind(X)
+_leafkind(::AbstractFill{<:Any,1}) = _ConstLeaf()
+
+_nonconst_leafkind(::AbstractVector{<:Real}) = _ScalarLeaf()
+_nonconst_leafkind(::AbstractVectorOfSimilarArrays{<:Real}) = _ArrayLeaf()
+_nonconst_leafkind(X::AbstractVector) = throw(ArgumentError("Unsupported batch layout of type $(nameof(typeof(X))) with elements of type $(eltype(X)), the variates of a batch must share one layout of real numbers, real arrays and named tuples of these"))
+
+
+_map_leaves(f, X::StructVector{<:NamedTuple}) = map(C -> _map_leaves(f, C), StructArrays.components(X))
+_map_leaves(f, X::AbstractVector) = f(X)
+
+_leaves(X::StructVector{<:NamedTuple}) = _concat_tuples(map(_leaves, values(StructArrays.components(X))))
+_leaves(X::AbstractVector) = (X,)
+
+# Batches with leaves of supported kinds only, as BAT's sample storage
+# requires:
+_checked_batch(X::AbstractVector) = (foreach(_leafkind, _leaves(X)); X)
+
+_concat_tuples(xs::Tuple) = isempty(xs) ? () : (first(xs)..., _concat_tuples(Base.tail(xs))...)
+
+
+# Batches of variates in the layout of BAT's sample storage, from batches
+# in that layout or from plain vectors of variates. Arrays of different sizes
+# and named tuples with different fields have no common layout:
+_canonical_batch(X::AbstractVector) = X
+_canonical_batch(X::AbstractVector{<:AbstractArray}) = convert(VectorOfSimilarArrays, _checked_uniform_size(X))
+_canonical_batch(X::AbstractVectorOfSimilarArrays) = X
+_canonical_batch(X::AbstractSlices) = convert(VectorOfSimilarArrays, X)
+_canonical_batch(X::AbstractFill{<:AbstractArray,1}) = X
+_canonical_batch(X::AbstractFill{<:NamedTuple,1}) = X
+_canonical_batch(X::AbstractVector{<:NamedTuple}) = _canonical_nt_batch(X)
+_canonical_nt_batch(X::AbstractVector{<:NamedTuple{names}}) where names = _canonical_batch(StructArray(X))
+_canonical_nt_batch(::AbstractVector{<:NamedTuple}) = throw(ArgumentError("Can't store named tuple variates with different field names in one batch"))
+# Empty named tuples carry no degrees of freedom:
+_canonical_nt_batch(X::AbstractVector{NamedTuple{(),Tuple{}}}) = Fill(NamedTuple(), length(eachindex(X)))
+_canonical_batch(X::StructVector{<:NamedTuple}) = StructArray(map(_canonical_batch, StructArrays.components(X)))
+_canonical_batch(X::ShapedAsNTArray{<:NamedTuple,1}) = unflatbatch(elshape(X), flatview(unshaped.(X)))
+_canonical_batch(X::AbstractVector{<:ShapedAsNT}) = _canonical_batch(map(getindex, X))
+
+function _checked_uniform_size(X::AbstractVector{<:AbstractArray})
+    i = findfirst(x -> size(x) != size(first(X)), X)
+    isnothing(i) || throw(ArgumentError("Can't store array variates of different sizes $(size(first(X))) and $(size(X[i])) in one batch"))
+    return X
+end
+
+
+"""
+    BAT.batch_varshape(X::AbstractVector)
+
+*BAT-internal, not part of stable public API.*
+
+The shape of the variates in the batch `X`, derived from its layout.
+`Fill` columns have constant value shapes.
+"""
+function batch_varshape end
+
+batch_varshape(X::StructVector{<:NamedTuple}) = NamedTupleShape(map(batch_varshape, StructArrays.components(X)))
+batch_varshape(X::AbstractVector) = _leaf_varshape(_leafkind(X), X)
+
+_leaf_varshape(::_ScalarLeaf, ::AbstractVector) = ScalarShape{Real}()
+_leaf_varshape(::_ArrayLeaf, X::AbstractVector) = ArrayShape{Real}(innersize(X)...)
+_leaf_varshape(::_ConstLeaf, X::AbstractVector) = ConstValueShape(getindex_value(X))
+
+
+"""
+    BAT.flatbatch(X::AbstractVector)::AbstractMatrix{<:Real}
+
+*BAT-internal, not part of stable public API.*
+
+The free components of the variates in the batch `X` as the columns of a
+matrix, in the standard-variate layout of their shape: leaves in
+declaration order, nested named tuples depth-first, arrays column-major,
+constants left out.
+
+Returns the flat storage of `X` itself for batches of real vectors and a
+new array, on the compute unit of `X`, otherwise. See
+[`BAT.unflatbatch`](@ref) for the inverse.
+"""
+function flatbatch end
+
+flatbatch(X::AbstractVectorOfSimilarVectors{<:Real}) = flatview(X)
+
+function flatbatch(X::AbstractVector)
+    blocks = _flat_blocks(X)
+    n = length(eachindex(X))
+    m = sum(B -> size(B, 1), blocks, init = 0)
+    T = isempty(blocks) ? Float64 : mapreduce(eltype, promote_type, blocks)
+    M = allocate_array(_flat_alloc_unit(get_compute_unit(X)), T, (m, n))
+    offset = 0
+    for B in blocks
+        k = size(B, 1)
+        view(M, (offset + 1):(offset + k), :) .= B
+        offset += k
+    end
+    return M
+end
+
+_flat_blocks(X::AbstractVector) = _concat_tuples(map(_flat_block, _leaves(X)))
+
+_flat_block(X::AbstractVector) = _flat_block(_leafkind(X), X)
+_flat_block(::_ScalarLeaf, X::AbstractVector) = (reshape(X, 1, :),)
+_flat_block(::_ArrayLeaf, X::AbstractVector) = (reshape(flatview(X), :, length(eachindex(X))),)
+_flat_block(::_ConstLeaf, ::AbstractVector) = ()
+
+_flat_alloc_unit(cunit::AbstractComputeUnit) = cunit
+_flat_alloc_unit(::HeterogeneousComputing.ComputeUnitIndependent) = CPUnit()
+
+
+"""
+    BAT.unflatbatch(vs::AbstractValueShape, M::AbstractMatrix{<:Real})
+    BAT.unflatbatch(μ::AbstractMeasure, M::AbstractMatrix{<:Real})
+
+*BAT-internal, not part of stable public API.*
+
+The batch of variates of shape `vs`, resp. of the variate shape of `μ`,
+whose free components are the columns of `M` (see [`BAT.flatbatch`](@ref)).
+Constant components become `Fill` columns. Copies the contents of `M` and
+the values of the constants.
+"""
+function unflatbatch end
+
+unflatbatch(μ::AbstractMeasure, M::AbstractMatrix{<:Real}) = unflatbatch(varshape(μ), M)
+
+function unflatbatch(vs::AbstractValueShape, M::AbstractMatrix{<:Real})
+    size(M, 1) == totalndof(vs) || throw(DimensionMismatch("Variate shape $vs has $(totalndof(vs)) degrees of freedom, but flat batch has $(size(M, 1)) rows"))
+    return _unflat_leaf(vs, M, 0)
+end
+
+# Leaves are copied into new plain arrays on the compute unit of `M`:
+function _unflat_leaf(::ScalarShape, M::AbstractMatrix, offset::Int)
+    X = allocate_array(_flat_alloc_unit(get_compute_unit(M)), eltype(M), (size(M, 2),))
+    X .= vec(view(M, _flat_rows(M, offset, 1), :))
+    return X
+end
+
+function _unflat_leaf(vs::ArrayShape, M::AbstractMatrix, offset::Int)
+    flat = allocate_array(_flat_alloc_unit(get_compute_unit(M)), eltype(M), (size(vs)..., size(M, 2)))
+    reshape(flat, :, size(M, 2)) .= view(M, _flat_rows(M, offset, totalndof(vs)), :)
+    return VectorOfSimilarArrays(flat)
+end
+
+_flat_rows(M::AbstractMatrix, offset::Int, len::Int) = firstindex(M, 1) .+ (offset:(offset + len - 1))
+
+_unflat_leaf(vs::ConstValueShape, M::AbstractMatrix, ::Int) = Fill(_owned_const(vs.value), size(M, 2))
+
+function _unflat_leaf(vs::NamedTupleShape, M::AbstractMatrix, offset::Int)
+    columns = map(acc -> _unflat_leaf(acc.shape, M, offset + acc.offset), values(vs))
+    return StructArray(NamedTuple{keys(vs)}(columns))
+end
+
+
+# A single variate of shape `vs` from per-component values `r` of its free
+# components in standard-variate layout (e.g. per-component statistics),
+# with `constf(value)` for constant components:
+_unflat_variate(vs::AbstractValueShape, r::AbstractVector, constf) = _unflat_variate(vs, r, constf, 0)
+_unflat_variate(::ScalarShape, r::AbstractVector, ::Any, offset::Int) = r[offset + 1]
+_unflat_variate(vs::ArrayShape, r::AbstractVector, ::Any, offset::Int) = reshape(r[(offset + 1):(offset + totalndof(vs))], size(vs))
+_unflat_variate(vs::ConstValueShape, ::AbstractVector, constf, ::Int) = constf(vs.value)
+
+function _unflat_variate(vs::NamedTupleShape, r::AbstractVector, constf, offset::Int)
+    NamedTuple{keys(vs)}(map(acc -> _unflat_variate(acc.shape, r, constf, offset + acc.offset), values(vs)))
+end
+
+
+# The batch `X` with variates of shape `vs`. Batches of flat real vectors are
+# reshaped to `vs` and vice versa, via the flat layout:
+function _batch_with_shape(X::AbstractVector, vs::AbstractValueShape)
+    vs_X = batch_varshape(X)
+    if vs_X <= vs
+        return X
+    elseif vs_X isa ArrayShape{<:Real,1} || vs isa ArrayShape{<:Real,1}
+        return unflatbatch(vs, flatbatch(X))
+    else
+        throw(ArgumentError("Can't reshape variates of shape $vs_X to shape $vs"))
+    end
+end
+
+
+"""
+    BAT._own_batch(X::AbstractVector, μ::AbstractMeasure)
+    BAT._own_batch(X::AbstractVector, vs::AbstractValueShape)
+
+*BAT-internal, not part of stable public API.*
+
+The batch `X` of variates of `μ`, resp. of shape `vs`, in the layout of
+BAT's sample storage. Constant components (point masses) must have the
+value of the point mass in all variates and become `Fill` columns with a
+copy of that value. Lazy columns are materialized. Dense columns are taken
+as they are, they must not share storage with anything else (`rand` and
+`transports` return fresh storage). Plain vectors of variates are
+converted to that layout.
+
+Throws an `ArgumentError` if the variates don't match the shape.
+"""
+_own_batch(X::AbstractVector, μ::AbstractMeasure) = _own_batch(X, varshape(μ))
+
+_own_batch(X::AbstractVector, vs::AbstractValueShape) = _own_batch_impl(_canonical_batch(X), vs)
+
+function _own_batch_impl(X::StructVector{<:NamedTuple}, vs::NamedTupleShape)
+    propertynames(X) == keys(vs) || throw(ArgumentError("Batch with fields $(propertynames(X)) doesn't match variate shape $vs"))
+    columns = map((acc, C) -> _own_batch_impl(C, acc.shape), values(vs), values(StructArrays.components(X)))
+    return StructArray(NamedTuple{keys(vs)}(columns))
+end
+
+_own_batch_impl(X::AbstractVector, vs::NamedTupleShape) = throw(ArgumentError("Batch of type $(nameof(typeof(X))) doesn't match variate shape $vs"))
+
+function _own_batch_impl(X::AbstractVector, vs::ConstValueShape)
+    _all_equal_to(X, vs.value) || throw(ArgumentError("Variates don't match the constant value $(vs.value) of their shape"))
+    return Fill(_owned_const(vs.value), length(eachindex(X)))
+end
+
+function _own_batch_impl(X::AbstractVector, vs::AbstractValueShape)
+    Y = _dense_batch(X)
+    batch_varshape(Y) <= vs || throw(ArgumentError("Variates with shape $(batch_varshape(Y)) don't match the variate shape $vs"))
+    return Y
+end
+
+# Compared with `==`, like MeasureBase checks the support of point masses:
+_all_equal_to(X::AbstractVector, value) = all(==(value), X)
+_all_equal_to(X::AbstractFill{<:Any,1}, value) = isempty(X) || getindex_value(X) == value
+
+# Sample storage never shares the (possibly mutable) value of a constant
+# component with measures or other samples:
+_owned_const(value) = deepcopy(value)
+
+_own_consts(X::StructVector{<:NamedTuple}) = StructArray(map(_own_consts, StructArrays.components(X)))
+_own_consts(X::AbstractFill{<:Any,1}) = Fill(_owned_const(getindex_value(X)), axes(X))
+_own_consts(X::AbstractVector) = X
+
+_dense_batch(X::StructVector{<:NamedTuple}) = StructArray(map(_dense_batch, StructArrays.components(X)))
+_dense_batch(X::AbstractVector) = _dense_leaf(_leafkind(X), X)
+
+# Free components that happen to be constant in `X`:
+_dense_leaf(::_ConstLeaf, X::AbstractVector) = _materialize_leaf(X)
+_dense_leaf(::_ScalarLeaf, X::AbstractVector) = X isa DenseArray ? X : copy(X)
+
+function _dense_leaf(::_ArrayLeaf, X::AbstractVector)
+    flat = flatview(X)
+    flat isa DenseArray ? X : VectorOfSimilarArrays(copy(flat))
+end
+
+
+"""
+    BAT._vcat_batches(Xs::AbstractVector...)
+
+*BAT-internal, not part of stable public API.*
+
+Concatenate batches of variates column by column. `Fill` columns stay
+`Fill` columns if their values are equal and are materialized otherwise.
+"""
+function _vcat_batches end
+
+function _vcat_batches(X::StructVector{<:NamedTuple}, Xs::StructVector{<:NamedTuple}...)
+    names = propertynames(X)
+    all(Y -> propertynames(Y) == names, Xs) || throw(ArgumentError("Can't concatenate batches of variates with different fields"))
+    columns = map(k -> _vcat_batches(getproperty(X, k), map(Y -> getproperty(Y, k), Xs)...), names)
+    return StructArray(NamedTuple{names}(columns))
+end
+
+function _vcat_batches(X::AbstractFill{<:Any,1}, Xs::AbstractFill{<:Any,1}...)
+    value = getindex_value(X)
+    if all(Y -> isequal(getindex_value(Y), value), Xs)
+        return Fill(_owned_const(value), sum(Y -> length(eachindex(Y)), (X, Xs...)))
+    else
+        return _vcat_dense(map(_materialize_leaf, (X, Xs...))...)
+    end
+end
+
+_vcat_batches(X::AbstractVector, Xs::AbstractVector...) = _vcat_dense(map(_materialize_leaf, (X, Xs...))...)
+
+# `Fill` columns in the dense layout of their values:
+_materialize_leaf(X::AbstractVector) = X
+_materialize_leaf(X::AbstractFill{<:Real,1}) = collect(X)
+
+function _materialize_leaf(X::AbstractFill{<:AbstractArray{<:Real},1})
+    value = getindex_value(X)
+    flat = similar(value, size(value)..., length(eachindex(X)))
+    flat .= value
+    return VectorOfSimilarArrays(flat)
+end
+
+_materialize_leaf(X::AbstractFill{<:NamedTuple,1}) = StructArray(map(x -> _materialize_leaf(Fill(x, length(eachindex(X)))), getindex_value(X)))
+
+_vcat_dense(X::StructVector{<:NamedTuple}, Xs::StructVector{<:NamedTuple}...) = _vcat_batches(X, Xs...)
+
+_vcat_dense(Xs::AbstractVector{<:Real}...) = vcat(Xs...)
+
+function _vcat_dense(Xs::AbstractVectorOfSimilarArrays{<:Real,N}...) where N
+    sz = innersize(first(Xs))
+    all(Y -> innersize(Y) == sz, Xs) || throw(DimensionMismatch("Can't concatenate batches of arrays of different sizes"))
+    return VectorOfSimilarArrays(cat(map(flatview, Xs)..., dims = N + 1))
+end
+
+_vcat_dense(Xs::AbstractVector...) = throw(ArgumentError("Can't concatenate batches of variates with different layouts"))
+
+
+# Leafwise comparison of batches:
+
+_batches_equal(cmp, X::StructVector{<:NamedTuple}, Y::StructVector{<:NamedTuple}) =
+    propertynames(X) == propertynames(Y) &&
+    all(k -> _batches_equal(cmp, getproperty(X, k), getproperty(Y, k)), propertynames(X))
+
+_batches_equal(cmp, X::AbstractVector, Y::AbstractVector) = cmp(X, Y)
+
+
+# Batches are grown in place only in flat storage (e.g. MCMC output in
+# standard space):
+_is_growable(X::StructVector{<:NamedTuple}) = all(_is_growable, values(StructArrays.components(X)))
+_is_growable(::Vector) = true
+_is_growable(X::AbstractVectorOfSimilarArrays) = flatview(X) isa ElasticArray
+_is_growable(::AbstractVector) = false
+
+function _check_growable(X::AbstractVector)
+    _is_growable(X) || throw(ArgumentError("Can't grow batches of variates of type $(nameof(typeof(X))) in place, use vcat instead"))
+    return nothing
+end

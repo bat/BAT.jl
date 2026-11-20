@@ -45,7 +45,7 @@ end
 
 
 """
-    struct EvaluatedMeasure <: BATMeasure
+    struct EvaluatedMeasure <: AbstractMeasure
 
 Combines a measure with samples and other information on it.
 
@@ -181,7 +181,7 @@ struct EvaluatedMeasure{
     U<:Union{Real,MeasureBase.AbstractUnknownMass},
     P<:Union{AbstractVector,Nothing},
     G<:Union{AbstractSampleGenerator,Nothing},
-} <: BATMeasure
+} <: AbstractMeasure
     unevaluated::M
     transform_intent::TI
     f_transform::TF
@@ -224,12 +224,12 @@ function EvaluatedMeasure(
     transform_intent::Union{TransformIntent,Unchanged} = unchanged,
     f_transform = unchanged,
     empirical::Union{DensitySampleMeasure,DensitySampleVector,BispacedMeasure,Nothing,Unchanged} = unchanged,
-    approx::Union{BATMeasure,Nothing,Unchanged} = unchanged,
+    approx::Union{AbstractMeasure,Nothing,Unchanged} = unchanged,
     dof::Union{IntegerLike,MeasureBase.NoDOF,Nothing,Unchanged} = unchanged,
     mass::Union{RealLike,MeasureBase.AbstractUnknownMass,Unchanged} = unchanged,
     modes::Union{AbstractVector,Nothing,Unchanged} = unchanged,
     samplegen::Union{AbstractSampleGenerator,Nothing,Unchanged} = unchanged,
-    transformed::Union{BATMeasure,Nothing,Unchanged} = unchanged,
+    transformed::Union{AbstractMeasure,Nothing,Unchanged} = unchanged,
     evalinfo::Union{MeasureEvalInfo,Nothing,Unchanged} = unchanged
 )
     em = convert(EvaluatedMeasure, measurelike)
@@ -280,7 +280,7 @@ function _em_sanity_checks(em::EvaluatedMeasure)
         if has_trcontent && isnothing(em.f_transform)
             throw(ArgumentError("An EvaluatedMeasure with transformed-space content must carry its f_transform"))
         end
-        f_hash = hash(em.f_transform)
+        f_hash = transform_witness(em.f_transform)
         if _pair_claims_mismatch(em.empirical, f_hash) || _pair_claims_mismatch(em.approx, f_hash) || _pair_claims_mismatch(em.unevaluated, f_hash)
             _throw_pair_hash_mismatch("Transformed-space content")
         end
@@ -337,7 +337,7 @@ function _update_evalmeasure(
     # evaluation knowledge is stripped off a given cache value:
     new_unevaluated = transformed isa Unchanged ? cur_unevaluated :
         isnothing(transformed) ? _strip_annex(cur_unevaluated) :
-        BispacedMeasure(cur_unevaluated.main, unevaluated(transformed), hash(new_f_transform))
+        BispacedMeasure(cur_unevaluated.main, unevaluated(transformed), transform_witness(new_f_transform))
     new_empirical = empirical isa Unchanged ? cur_empirical : _as_empirical_pair(empirical)
     new_approx = approx isa Unchanged ? cur_approx : _as_bispaced(approx)
 
@@ -383,7 +383,7 @@ _as_empirical_pair(p::BispacedMeasure) = p
 _as_empirical_pair(x::Union{DensitySampleMeasure,DensitySampleVector}) = BispacedMeasure(convert(DensitySampleMeasure, x))
 
 _getdof_or_nothing(::Nothing) = nothing
-_getdof_or_nothing(measure::BATMeasure) = _dofval_or_nothing(getdof(measure))
+_getdof_or_nothing(measure::AbstractMeasure) = _dofval_or_nothing(getdof(measure))
 
 _dofval_or_nothing(::Nothing) = nothing
 _dofval_or_nothing(dof::IntegerLike) = dof
@@ -391,7 +391,7 @@ _dofval_or_nothing(::MeasureBase.NoDOF) = nothing
 _dofval_or_nothing(dof) = throw(ArgumentError("Degrees of freedom must be an integer or MeasureBase.NoDOF, not $(nameof(typeof(dof)))."))
 
 _getmass_or_unknown(::Nothing) = MeasureBase.UnknownMass()
-_getmass_or_unknown(measure::BATMeasure) = massof(measure)
+_getmass_or_unknown(measure::AbstractMeasure) = massof(measure)
 
 
 @inline unevaluated(em::EvaluatedMeasure) = em.unevaluated.main
@@ -491,7 +491,7 @@ DensityInterface.logdensityof(em::EvaluatedMeasure) = logdensityof(unevaluated(e
 
 # Random generation uses the underlying measure, never the empirical
 # content (`rand` promises truly IID samples):
-Base.rand(gen::GenContext, em::EvaluatedMeasure) = rand(gen, unevaluated(em))
+MeasureBase.rand_impl(gen::GenContext, em::EvaluatedMeasure) = rand(gen, unevaluated(em))
 supports_rand(em::EvaluatedMeasure) = supports_rand(unevaluated(em))
 
 
@@ -506,8 +506,8 @@ function ValueShapes.unshaped(em::EvaluatedMeasure, vs::AbstractValueShape)
     # hash of the correspondingly composed transformation, their transformed
     # sides stay valid under it. Any foreign claim is invalidated instead of
     # being relabeled:
-    old_f_hash = hash(em.f_transform)
-    new_f_hash = hash(new_f_transform)
+    old_f_hash = transform_witness(em.f_transform)
+    new_f_hash = transform_witness(new_f_transform)
     new_unevaluated = _unshaped_pair(em.unevaluated, vs, old_f_hash, new_f_hash)
     new_empirical = _unshaped_pair(em.empirical, vs, old_f_hash, new_f_hash)
     new_approx = _unshaped_pair(em.approx, vs, old_f_hash, new_f_hash)
@@ -570,7 +570,7 @@ function MeasureBase.weightedmeasure(logweight::Real, em::EvaluatedMeasure)
     # content stay: the implied transform function does not change under
     # reweighting. samplegen survives on purpose as well, sample generation
     # only sees the normalized measure, which reweighting does not change:
-    new_unevaluated = BispacedMeasure(weightedmeasure(logweight, unevaluated(em)))
+    new_unevaluated = BispacedMeasure(_bat_weightedmeasure(logweight, unevaluated(em)))
     new_empirical = _renormalize_empirical(logweight, _empirical_rep(em))
     new_mass = _reweighted_mass(logweight, em.mass)
     return EvaluatedMeasure(
@@ -756,11 +756,11 @@ _viewrep_empirical(dsm::DensitySampleMeasure, ::DensitySampleVector, ::Any, ::Do
 
 function _viewrep_empirical(dsm::DensitySampleMeasure, smpls_z::DensitySampleVector, f_pretransform::Any, ::TransformIntent, n_dof, ess)
     dsm_z = _with_owner_sampling_law(smpls_z, dsm; dof = n_dof, ess = ess)
-    BispacedMeasure(dsm, dsm_z, hash(f_pretransform))
+    BispacedMeasure(dsm, dsm_z, transform_witness(f_pretransform))
 end
 
-_viewrep_measure(::BATMeasure, ::DoNotTransform) = unchanged
-_viewrep_measure(transformed_m::BATMeasure, ::TransformIntent) = unevaluated(transformed_m)
+_viewrep_measure(::AbstractMeasure, ::DoNotTransform) = unchanged
+_viewrep_measure(transformed_m::AbstractMeasure, ::TransformIntent) = unevaluated(transformed_m)
 
 _viewrep_f(::Any, ::DoNotTransform) = unchanged
 _viewrep_f(f_pretransform::Any, ::TransformIntent) = f_pretransform

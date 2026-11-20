@@ -18,8 +18,16 @@ BATContext(;
 )
 ```
 
-The default `rng` is seeded from `Random.default_rng()`, so results become
-reproducible via `Random.seed!`.
+The default `rng` is a keyed RNG (see `HeterogeneousComputing.rootrng`)
+seeded from `Random.default_rng()`, so results become reproducible via
+`Random.seed!`. The algorithm of the default generator is not part of the
+API and may change between BAT versions.
+
+MCMC derives the random streams of its chains and steps from a keyed root
+created at the start of each run (see `HeterogeneousComputing.subrng`). The
+root is a child of a keyed `rng` and uses its kind of generator, an `rng`
+without a stream key only provides the entropy for a root with the default
+generator. Other algorithms draw from `rng` directly.
 
 See [`get_batcontext`](@ref), [`set_batcontext`](@ref) and
 [`default_batcontext`](@ref).
@@ -40,7 +48,7 @@ end
 
 function BATContext(;
     precision::Type{T} = Float64,
-    rng::AbstractRNG = Philox4x((rand(UInt64), rand(UInt64)))::Philox4x{UInt64,10},
+    rng::AbstractRNG = rootrng(Random.default_rng()),
     cunit::AbstractComputeUnit = CPUnit(),
     ad::Union{ADSelector, Module, Symbol, Val} = NoAutoDiff(),
 ) where T
@@ -117,6 +125,20 @@ Returns a copy of `context` with the random number generator set to `rng`.
 """
 function set_rng(context::BATContext{T}, rng::AbstractRNG) where T
     BATContext{T}(rng, get_compute_unit(context), get_adselector(context))
+end
+
+# Each sampling run derives its chains from a fresh root, so repeated runs on
+# one context differ, while a context built from the same seed reproduces
+# them:
+_run_context(context::BATContext) = set_rng(context, _run_rng(get_rng(context)))
+
+# The root of a run is a child of a keyed RNG, under a nonce drawn from it,
+# so the run draws with the same kind of generator. An RNG without a stream
+# key only provides the entropy of a root:
+function _run_rng(rng::AbstractRNG)
+    has_rng_streamkey(rng) || return rootrng(rng)
+    nonce = rng_streamkey(rootrng(CPUnit(), rng))
+    return subrng(rng, :run, nonce...)
 end
 
 

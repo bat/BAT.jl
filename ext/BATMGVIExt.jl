@@ -10,9 +10,10 @@ import BAT
 import BAT
 BAT.pkgext(::Val{:MGVI}) = BAT.PackageExtension{:MGVI}()
 
-using BAT: MeasureLike, BATMeasure, DensitySample, DensitySampleVector, BATContext, unevaluated
+using BAT: MeasureLike, DensitySample, DensitySampleVector, BATContext, unevaluated
+using MeasureBase: AbstractMeasure
 using BAT: transform_and_unshape, bat_initval, apply_trafo_to_init, exec_map!
-using BAT: getlikelihood, getprior, StandardMvNormal
+using BAT: getlikelihood, getprior
 using BAT: checked_logdensityof
 using BAT: get_valid_adselector
 using BAT: should_log_progress_now
@@ -50,7 +51,7 @@ function _mgvi_schedule_next(schedule::FixedMGVISchedule, result::MGVIResult, sc
 end
 
 
-function _append_mgvi_samples!(smpls::DensitySampleVector, m::BATMeasure, flat_samples::AbstractMatrix{<:Real}, info::MGVISampleInfo)
+function _append_mgvi_samples!(smpls::DensitySampleVector, m::AbstractMeasure, flat_samples::AbstractMatrix{<:Real}, info::MGVISampleInfo)
     new_smpls_v = VectorOfSimilarVectors(flat_samples)
     n = length(new_smpls_v)
     new_logd = similar(smpls.logd, n)
@@ -153,7 +154,7 @@ function BAT.evalmeasure_impl(em::BAT.EvaluatedMeasure, algorithm::MGVISampling,
     elapsed_time = time() - start_time
     @debug "Generated final MGVI samples in transformed space after $nsteps, produced $n_samples_indep independent samples after $(@sprintf "%.1f s" elapsed_time)."
 
-    smpls = inverse(f_pretransform).(transformed_smpls)
+    smpls = BAT.transform_samples(inverse(f_pretransform), transformed_smpls)
     smpls_mnlp = last(smpls.info).mnlp
 
     elapsed_time = time() - start_time

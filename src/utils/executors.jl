@@ -7,7 +7,17 @@ abstract type BATExecutor end
 default_executor() = MultiThreadedExec()
 
 
+function exec_map(f::Base.Callable, executor::BATExecutor, X::AbstractVector)
+    T = Base.promote_op(f, eltype(X))
+    # Let map widen storage when the result type depends on the input value.
+    isconcretetype(T) || return map(f, X)
+    return exec_map!(f, executor, Vector{T}(undef, length(X)), X)
+end
+
+
 struct SequentialExec <: BATExecutor end
+
+exec_map(f::Base.Callable, ::SequentialExec, X::AbstractVector) = map(f, X)
 
 function exec_map!(f::Base.Callable, executor::SequentialExec, Y::AbstractVector, X::AbstractVector)
     @argcheck length(X) == length(Y) throw(ArgumentError("Input and output arrays must have equal lengths."))

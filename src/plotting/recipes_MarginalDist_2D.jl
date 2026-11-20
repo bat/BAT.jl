@@ -1,6 +1,6 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 @recipe function f(
-    marg::MarginalDist,
+    origmarg::MarginalDist,
     vsel::NTuple{2,Union{Symbol, Expr, Integer}};
     intervals = default_credibilities,
     colors = default_colors,
@@ -11,7 +11,8 @@
     interval_labels = [],
     normalize = true
 )
-    hist = convert(Histogram, marg.dist isa ReshapedDist ? marg.dist.dist : marg.dist)
+    marg = MarginalDist(origmarg, vsel)
+    hist = _marg_hist(marg)
     seriestype = get(plotattributes, :seriestype, :histogram2d)
 
     xlabel = get(plotattributes, :xguide, "x$(vsel[1])")
@@ -127,7 +128,7 @@
             intervals --> get(upper, "intervals", default_credibilities)
             legend --> get(upper, "legend", true)
 
-            marg, vsel[1]
+            marg, 1
         end
 
         # empty plot (needed since @layout macro not available)
@@ -159,7 +160,7 @@
             intervals --> get(diagonal, "intervals", default_credibilities)
             legend --> get(diagonal, "legend", false)
 
-            marg, (vsel[1], vsel[2])
+            marg, (1, 2)
         end
 
         @series begin
@@ -174,7 +175,7 @@
             intervals --> get(right, "intervals", default_credibilities)
             legend --> get(right, "legend", true)
 
-            marg, vsel[2]
+            marg, 2
         end
 
     else

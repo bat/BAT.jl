@@ -10,3 +10,4 @@ MGVI = "0.6"
 
 [sources]
 BAT = {path = "../../.."}
+MGVI = {rev = "ebd09893731760c59e9a38e5a114c454ff3da900", url = "https://github.com/JuliaBayes/MGVI.jl"}

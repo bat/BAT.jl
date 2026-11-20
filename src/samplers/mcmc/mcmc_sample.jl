@@ -50,7 +50,7 @@ export TransformedMCMC
 
 
 
-function MCMCState(samplingalg::TransformedMCMC, target::BATMeasure, id::Integer, v_init::AbstractVector, context::BATContext)
+function MCMCState(samplingalg::TransformedMCMC, target::AbstractMeasure, id::Integer, v_init::AbstractVector, context::BATContext)
     target_unevaluated = unevaluated(target)
     chain_state = MCMCChainState(samplingalg, target_unevaluated, Int32(id), v_init, context)
     trafo_tuner_state = create_trafo_tuner_state(samplingalg.transform_tuning, chain_state, 0, samplingalg.adaptive_transform)

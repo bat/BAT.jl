@@ -3,17 +3,20 @@ using BAT
 using Test
 
 using LinearAlgebra
-using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface
+using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface, StructArrays
+using MeasureBase
 using Random123
+using AffineMaps: MulAdd
+using HypothesisTests: ApproximateOneSampleKSTest, pvalue
 
 @testset "RandomWalk" begin
     context = BATContext(rng = Philox4x((564, 38)))
     objective = NamedTupleDist(a = Normal(1, 1.5), b = MvNormal([-1.0, 2.0], [2.0 1.5; 1.5 3.0]))
 
     shaped_target = @inferred(batmeasure(objective))
-    @test shaped_target isa BAT.BATDistMeasure
+    @test shaped_target isa MeasureBase.AbstractProductMeasure
     target = unshaped(shaped_target)
-    @test target isa BAT.BATDistMeasure
+    @test target isa MeasureBase.PushforwardMeasure
 
     proposal = RandomWalk()
     nchains = 4
@@ -134,12 +137,53 @@ using Random123
         )
         samples = smplres.result
         @test first(samples).info.chaincycle >= 2
-        @test samples.v isa ShapedAsNTArray
+        @test samples.v isa StructVector && varshape(samples) == varshape(objective)
         @test smplres.verified
+    end
+
+    @testset "innovations" begin
+        n, k, scale = 3, 10^5, 0.7
+        genctx = BAT.get_gencontext(BATContext(rng = Philox4x((564, 60))))
+        draw(innovations) = BAT._draw_innovations(BAT._BatchedWalkerDraws(genctx, collect(1:k)), innovations, n)
+        ks_pvalue(x, d) = pvalue(ApproximateOneSampleKSTest(x, d))
+
+        # Normal innovations in each dimension, independent of each other:
+        E = draw(BAT._NormalInnovations(scale))
+        @test size(E) == (n, k)
+        @test ks_pvalue(E[2, :], Normal(0, scale)) > 1e-3
+        @test ks_pvalue(vec(sum(abs2, E; dims = 1)) ./ scale^2, Chisq(n)) > 1e-3
+
+        # Innovations with a multivariate t-distribution, also for degrees of
+        # freedom that are not integers:
+        for ν in (1.0, 3.0, 2.5)
+            E = draw(BAT._TInnovations(ν, scale))
+            @test ks_pvalue(E[2, :] ./ scale, TDist(ν)) > 1e-3
+            @test ks_pvalue(vec(sum(abs2, E; dims = 1)) ./ (n * scale^2), FDist(n, ν)) > 1e-3
+        end
+
+        # Zero-centered normal and t innovations are symmetric, so the random
+        # walk has no Hastings terms for them:
+        for proposaldist in (Normal(0, 2), TDist(1.0), batmeasure(TDist(3.0)))
+            innovations = BAT._full_random_walk_proposal(proposaldist, n)
+            @test innovations isa BAT._SymmetricInnovations
+            _, hastings = BAT._random_walk_transition(BAT._BatchedWalkerDraws(genctx, collect(1:4)), innovations, n)
+            @test iszero(hastings)
+        end
+
+        # Other innovation measures may be asymmetric and keep them:
+        innovations = pushfwd(MulAdd(Diagonal(fill(0.8, 3)), [0.5, -0.3, 0.2]), StdNormal()^3)
+        @test BAT.sample_and_verify(
+            target,
+            TransformedMCMC(proposal = RandomWalk(proposaldist = innovations), pretransform = DoNotTransform()),
+            unshaped(objective),
+            BATContext(rng = Philox4x((564, 61))),
+            max_retries = 0,
+        ).verified
     end
 
     @testset "MCMC sampling in transformed space" begin
         prior = BAT.example_posterior().prior
+        ref_dist = BAT.example_prior()
         likelihood = logfuncdensity(v -> 0)
         inner_posterior = PosteriorMeasure(likelihood, prior)
         # Test with nested posteriors:
@@ -147,7 +191,7 @@ using Random123
         smplres = BAT.sample_and_verify(
             posterior,
             TransformedMCMC(proposal = RandomWalk(), pretransform = NormalBased()),
-            prior.dist,
+            ref_dist,
             BATContext(rng = Philox4x((564, 40))),
             max_retries = 0,
         )

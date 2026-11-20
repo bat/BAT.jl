@@ -2,7 +2,7 @@
 
 
 """
-    BAT.truncate_batmeasure(density::BATMeasure, bounds::AbstractArray{<:Interval})::BATMeasure
+    BAT.truncate_batmeasure(density::AbstractMeasure, bounds::AbstractArray{<:Interval})::AbstractMeasure
 
 *Experimental feature, not part of stable public API.*
 
@@ -10,24 +10,33 @@ Truncate `density` to `bounds`, the resulting density will be effectively
 zero outside of those bounds. In contrast `Distributions.truncated`,
 `truncate_batmeasure` does *not* renormalize the density.
 
-Requires `varshape(density) isa ArrayShape`.
-
-Only supports densities that are essentially products of univariate
-distributions, as well as posterior densities with such densities as priors.
+Measures with scalar variates are truncated to `only(bounds)` via
+MeasureBase's `truncate`. Measures with array variates must essentially be
+products of univariate distributions. Posterior measures are truncated via
+their priors.
 """
 function truncate_batmeasure end
 export truncate_batmeasure
 
 
 function truncate_batmeasure(density::AbstractPosteriorMeasure, bounds::AbstractArray{<:Interval})
-    @argcheck varshape(density) isa ArrayShape
+    @argcheck varshape(density) isa Union{ScalarShape,ArrayShape}
     PosteriorMeasure(getlikelihood(density), truncate_batmeasure(getprior(density), bounds))
 end
 
+function truncate_batmeasure(m::AbstractMeasure, bounds::AbstractArray{<:Interval})
+    length(eachindex(bounds)) == 1 || throw(ArgumentError("truncate_batmeasure supports measures with scalar variates and products of univariate distributions, but got a measure of type $(nameof(typeof(m))) and $(length(eachindex(bounds))) bounds"))
+    truncate(m, only(bounds))
+end
 
-function truncate_batmeasure(density::BATDistMeasure{<:MultivariateDistribution}, bounds::AbstractArray{<:Interval})
-    r = truncate_dist_hard(density.dist, bounds)
-    weightedmeasure(r.logweight, BATDistMeasure(r.dist))
+
+function truncate_batmeasure(m::AsMeasure{<:MultivariateDistribution}, bounds::AbstractArray{<:Interval})
+    r = truncate_dist_hard(m.obj, bounds)
+    weightedmeasure(r.logweight, asmeasure(r.dist))
+end
+
+function truncate_batmeasure(m::PowerMeasure{StdUniform}, bounds::AbstractArray{<:Interval})
+    truncate_batmeasure(asmeasure(product_distribution(Fill(Uniform(), _pwr_size(m)...))), bounds)
 end
 
 
@@ -97,14 +106,6 @@ function truncate_dist_hard(d::Union{Product, DiagNormal}, bounds::AbstractArray
     logweight = sum(x.logweight for x in r)
 
     return (dist = product_distribution(trunc_dists), logweight = logweight)
-end
-
-
-function truncate_dist_hard(d::StandardMvUniform, bounds::AbstractArray{<:Interval})
-    @argcheck length(eachindex(bounds)) == length(d)
-    n = length(eachindex(bounds))
-    pd = product_distribution(Uniform.(fill(false, n), fill(true, n)))
-    return truncate_dist_hard(pd, bounds)
 end
 
 

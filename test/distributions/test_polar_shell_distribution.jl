@@ -3,10 +3,13 @@
 using BAT
 using Test
 
+using DensityInterface
+
 using Random, Statistics, LinearAlgebra
 using Distributions, PDMats
 using StableRNGs
 using InverseFunctions
+using MeasureBase: StdUniform, StdNormal, transport_to
 
 
 @testset "polar_shell_distribution" begin
@@ -23,12 +26,12 @@ using InverseFunctions
     @test @inferred(logpdf(d, x)) isa Real
     @test log(@inferred(pdf(d, x))) ≈ logpdf(d, x)
 
-    f_tr = BAT.DistributionTransform(Normal, d)
-    y = @inferred(f_tr(x))
-    @test @inferred(inverse(f_tr)(y)) ≈ x
+    m = batmeasure(d)
+    @test logdensityof(m, x) ≈ logpdf(d, x)
 
-
-    f_tr = BAT.DistributionTransform(Uniform, d)
-    y = @inferred(f_tr(x))
-    @test @inferred(inverse(f_tr)(y)) ≈ x
+    for ν in (StdNormal()^2, StdUniform()^2)
+        f_tr = transport_to(ν, m)
+        y = @inferred(f_tr(x))
+        @test @inferred(inverse(f_tr)(y)) ≈ x
+    end
 end

@@ -23,7 +23,7 @@ end
     else 
         marg = MarginalDist(origmarg, vsel)
     end
-    hist = convert(Histogram, marg.dist isa ReshapedDist ? marg.dist.dist : marg.dist)
+    hist = _marg_hist(marg)
 
     orientation = get(plotattributes, :orientation, :vertical)
     (orientation != :vertical) ? swap = true : swap = false

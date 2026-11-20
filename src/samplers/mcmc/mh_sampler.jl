@@ -41,10 +41,27 @@ end
 
 export RandomWalk
 
+# Isotropic normal innovations of a random walk with the given scale in all
+# dimensions:
+struct _NormalInnovations{T<:Real}
+    scale::T
+end
+
+# Innovations of a random walk that follow an isotropic multivariate
+# t-distribution with `ν` degrees of freedom:
+struct _TInnovations{T<:Real}
+    ν::T
+    scale::T
+end
+
+# These innovations are drawn as arrays on the compute unit of the chain.
+# They are symmetric, so a random walk with them has no Hastings terms:
+const _SymmetricInnovations = Union{_NormalInnovations,_TInnovations}
+
 struct RandomWalkProposalState{
     TA<:Real,
     TAI<:Tuple{Vararg{Real}},
-    Q<:BATMeasure
+    Q<:Union{_SymmetricInnovations,AbstractMeasure}
 } <: SimpleMCMCProposalState
     target_acceptance::TA
     target_acceptance_int::TAI
@@ -62,31 +79,31 @@ bat_default(::Type{TransformedMCMC}, ::Val{:tempering}, proposal::RandomWalk) = 
 
 function _create_proposal_state(
     proposal::RandomWalk,
-    target::BATMeasure,
+    target::AbstractMeasure,
     context::BATContext,
     v_init::AbstractVector{PV},
     f_transform::Function,
     rng::AbstractRNG
 ) where {P<:Real, PV<:AbstractVector{P}}
     n_dims = totalndof(varshape(target))
-    mv_pdist = batmeasure(_full_random_walk_proposal(proposal.proposaldist, n_dims))
     return RandomWalkProposalState(
         proposal.target_acceptance,
         proposal.target_acceptance_int,
-        mv_pdist
+        _full_random_walk_proposal(proposal.proposaldist, n_dims)
     )
 end
 
 
+# The innovations of a random walk in all dimensions. A measure over the
+# innovation vectors is used as it is, it may be asymmetric:
 function _full_random_walk_proposal(m::AbstractMeasure, n_dims::Integer)
     x = testvalue(m)
     @argcheck x isa AbstractVector{<:Real} && length(x) == n_dims
     return m
 end
 
-function _full_random_walk_proposal(m::BATDistMeasure, n_dims::Integer)
-    d = convert(Distribution, m)
-    return batmeasure(_full_random_walk_proposal(d, n_dims))
+function _full_random_walk_proposal(m::AsMeasure{<:Distribution}, n_dims::Integer)
+    return _full_random_walk_proposal(m.obj, n_dims)
 end
 
 # A user-supplied full multivariate innovation distribution would need a
@@ -104,37 +121,65 @@ function _full_random_walk_proposal(d::Normal, n_dims::Integer)
     proposal_scale = 2.38 / sqrt(n_dims)
 
     @argcheck mean(d) ≈ 0 
-    σ² = var(d)
-    Σ = ScalMat(n_dims, proposal_scale^2 * σ²)
-    return MvNormal(Σ)
+    return _NormalInnovations(proposal_scale * std(d))
 end
 
 function _full_random_walk_proposal(d::TDist, n_dims::Integer)
     # BAT applies the Gaussian-RWM scale heuristically to t innovations:
     proposal_scale = 2.38 / sqrt(n_dims)
 
-    ν = dof(d)
-    Σ = ScalMat(n_dims, proposal_scale^2)
-    return Distributions.IsoTDist(ν, Σ)
+    return _TInnovations(promote(float(dof(d)), proposal_scale)...)
 end
 
 
+# The innovations of all walkers, as the columns of a matrix:
+function _draw_innovations(walker_draws, innovations::_NormalInnovations, n_dims::Integer)
+    Z = _walker_randn(walker_draws, n_dims)
+    return convert(eltype(Z), innovations.scale) .* Z
+end
+
+# A vector with a multivariate t-distribution is a normal vector, divided by
+# the root of a chi-square variate over its degrees of freedom:
+function _draw_innovations(walker_draws, innovations::_TInnovations, n_dims::Integer)
+    Z = _walker_randn(walker_draws, n_dims)
+    T = eltype(Z)
+    ν = innovations.ν
+    χ² = if isinteger(ν)
+        sum(abs2, _walker_randn(walker_draws, Int(ν)); dims = 1)
+    else
+        # Needs gamma variates, which have no sampler on devices:
+        reshape(_walker_variates(walker_draws, batmeasure(Chisq(ν))), 1, :)
+    end
+    return Z .* (convert(T, innovations.scale) ./ sqrt.(χ² ./ convert(T, ν)))
+end
+
+
+_draws_batched(::RandomWalkProposalState) = true
+
 function mcmc_propose_transition(
     current_z::ArrayOfSimilarArrays,
-    proposal::MCMCProposalState,
-    genctxs::AbstractVector,
+    proposal::RandomWalkProposalState,
+    walker_draws,
 )
-    proposal_measure = batmeasure(proposal.proposaldist)
+    Z_current = flatview(current_z)
+    transition, hastings_correction = _random_walk_transition(walker_draws, proposal.proposaldist, size(Z_current, 1))
+    return nestedview(Z_current .+ transition), hastings_correction
+end
 
-    transition = map(genctx -> rand(genctx, proposal_measure), genctxs)
-    proposed_z = current_z .+ transition
+# The transitions of all walkers, as the columns of a matrix, and the
+# Hastings terms of a random walk with them:
+function _random_walk_transition(walker_draws, innovations::_SymmetricInnovations, n_dims::Integer)
+    transition = _draw_innovations(walker_draws, innovations, n_dims)
+    return transition, Fill(false, size(transition, 2))
+end
 
-    p_prop_to_curr = checked_logdensityof.(proposal_measure, -transition)
-    p_curr_to_prop = checked_logdensityof.(proposal_measure, transition) 
-
-    hastings_correction = p_prop_to_curr .- p_curr_to_prop
-
-    return proposed_z, hastings_correction
+function _random_walk_transition(walker_draws, innovations::AbstractMeasure, n_dims::Integer)
+    # Flat batches, so that the innovation measure can evaluate the Hastings
+    # terms for all walkers at once:
+    transition = _walker_variates(walker_draws, innovations)
+    p_prop_to_curr = checked_logdensities(innovations, nestedview(-flatview(transition)))
+    p_curr_to_prop = checked_logdensities(innovations, transition)
+    return flatview(transition), p_prop_to_curr .- p_curr_to_prop
 end
 
 set_proposal_transform!!(proposal::RandomWalkProposalState, ::MCMCChainState) = proposal

@@ -9,7 +9,8 @@ using BAT
 
 BAT.pkgext(::Val{:UltraNest}) = BAT.PackageExtension{:UltraNest}()
 
-using BAT: MeasureLike, BATMeasure
+using BAT: MeasureLike
+using MeasureBase: AbstractMeasure
 using BAT: transform_and_unshape, all_active_names, exec_map!
 
 using Random
@@ -88,12 +89,12 @@ function BAT.evalmeasure_impl(em::BAT.EvaluatedMeasure, algorithm::ReactiveNeste
     logvals_trafo = pyconvert(Vector{Float64}, unest_wsamples["logl"])
     weight = pyconvert(Vector{Float64}, unest_wsamples["weights"])
     transformed_smpls = DensitySampleVector(v = v_trafo_us, logd = logvals_trafo, weight = weight)
-    smpls = inverse(f_pretransform).(transformed_smpls)
+    smpls = BAT.transform_samples(inverse(f_pretransform), transformed_smpls)
 
     uwv_trafo_us = VectorOfSimilarVectors(convert(Matrix{Float64}, pyconvert(Matrix{Float64}, unest_result["samples"])'))
     uwlogvals_trafo = map(logdensityof(transformed_m_uneval), uwv_trafo_us)
     uwtransformed_smpls = DensitySampleVector(v = uwv_trafo_us, logd = uwlogvals_trafo)
-    uwsmpls = inverse(f_pretransform).(uwtransformed_smpls)
+    uwsmpls = BAT.transform_samples(inverse(f_pretransform), uwtransformed_smpls)
 
     logz = pyconvert(Float64, unest_result["logz"])
     logzerr = pyconvert(Float64, unest_result["logzerr"])

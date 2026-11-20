@@ -227,7 +227,7 @@ end
 
 function _create_proposal_state(
     multi_proposal::MCMCMultiProposal, 
-    target::BATMeasure, 
+    target::AbstractMeasure, 
     context::BATContext, 
     v_init::AbstractVector{PV},
     f_transform::Function,
@@ -235,18 +235,16 @@ function _create_proposal_state(
 ) where {P<:Real, PV<:AbstractVector{P}}
 
     nproposals = length(multi_proposal.proposals)
-    nproposals <= _MCMC_PROPOSALS_PER_PURPOSE || throw(ArgumentError(
-        "MCMCMultiProposal supports at most $_MCMC_PROPOSALS_PER_PURPOSE proposals, got $nproposals",
-    ))
 
-    proposal_states_init = map(multi_proposal.proposals) do proposal
+    # Each component derives its random streams from a child RNG of its own:
+    proposal_states_init = map(multi_proposal.proposals, ntuple(identity, nproposals)) do proposal, i
         _create_proposal_state(
             proposal,
             target,
             context,
             v_init,
             f_transform,
-            rng
+            subrng(rng, :proposal, i)
         )
     end
 
@@ -286,9 +284,9 @@ _with_proposal_index(f, proposals::Tuple, idx::Integer) =
 end
 _with_proposal_index(f, ::Tuple{}, idx::Integer) = throw(BoundsError())
 
-function _mcmc_propose_and_tune!!(state, proposal::MultiProposalState, rngpart)
+function _mcmc_propose_and_tune!!(state, proposal::MultiProposalState, step_rng)
     _with_proposal_index(proposal.proposal_states, proposal.active_idx) do i
-        _mcmc_propose_and_tune!!(state, proposal, rngpart, i)
+        _mcmc_propose_and_tune!!(state, proposal, step_rng, i)
     end
 end
 

@@ -4,7 +4,8 @@ using BAT
 using Test
 
 using Distributed, Random
-using ArraysOfArrays, Distributions, PDMats, StatsBase
+using ArraysOfArrays, Distributions, PDMats, StatsBase, StructArrays, ValueShapes
+using FillArrays: Fill
 using DensityInterface
 using Random123
 
@@ -14,7 +15,7 @@ using Random123
     cmat = [1.0 1.5; 1.5 4.0]
     Σ = @inferred PDMat(cmat)
     mv_dist = MvNormal(mvec, Σ)
-    likelihood = logfuncdensity(logdensityof(BAT.BATDistMeasure(mv_dist)))
+    likelihood = logfuncdensity(logdensityof(batmeasure(mv_dist)))
     prior = product_distribution(Uniform.([-5, -8], [5, 8]))
     nchains = 4
     nwalkers = 1
@@ -62,4 +63,31 @@ using Random123
         Normal(), BATContext(rng = Philox4x((564, 44))), max_retries = 0,
     )
     @test smplres_normal.verified
+
+    @testset "structured samples" begin
+        prior = distprod(a = Normal(), b = [Normal(), Normal()], c = 4.2, d = (x = Exponential(),))
+        posterior = PosteriorMeasure(logfuncdensity(v -> -abs2(v.a - 0.5) / 2), prior)
+        for pretransform in (NormalBased(), DoNotTransform())
+            em = evalmeasure(
+                posterior, TransformedMCMC(pretransform = pretransform, nsteps = 10^3, strict = false),
+                BATContext(rng = Philox4x((564, 46))),
+            )
+            smpls = samplesof(em)
+            @test smpls.v.c isa Fill && smpls.v.b isa ArrayOfSimilarArrays && smpls.v.d isa StructVector
+            @test varshape(smpls) == varshape(prior)
+            @test smpls.logd[1:5] ≈ [logdensityof(posterior, smpls.v[i]) for i in 1:5]
+            rpt = sprint(show, MIME"text/plain"(), em)
+            @test all(name -> occursin(name, rpt), ("b[2]", "d.x", "Fixed parameters", "MCMC chains"))
+        end
+    end
+
+    @testset "convergence tests" begin
+        rng = Philox4x((564, 45))
+        chains = [DensitySampleVector(v = nestedview(randn(rng, 2, 100)), logd = zeros(100)) for _ in 1:3]
+        for alg in (GelmanRubinConvergence(), BrooksGelmanConvergence())
+            vt = bat_convergence(chains, alg, BATContext()).result
+            @test vt isa ValueAndThreshold{:max_Rsqr}
+            @test convert(Bool, vt) == (vt.value <= vt.threshold)
+        end
+    end
 end

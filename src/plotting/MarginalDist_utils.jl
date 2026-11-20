@@ -9,7 +9,7 @@ Find the modes of a MarginalDist.
 Returns a vector of the bin-centers of the bin(s) with the heighest weight.
 """
 function find_marginalmodes(marg::MarginalDist)
-    hist = convert(Histogram, marg.dist isa ReshapedDist ? marg.dist.dist : marg.dist)
+    hist = _marg_hist(marg)
     dims = ndims(hist.weights)
 
     max = maximum(hist.weights)
@@ -29,7 +29,7 @@ end
 Returns a vector of the bin-centers.
 """
 function get_bin_centers(marg::MarginalDist)
-    hist = convert(Histogram, marg.dist isa ReshapedDist ? marg.dist.dist : marg.dist)
+    hist = _marg_hist(marg)
     edges = hist.edges
     dims = ndims(hist.weights)
 
@@ -178,28 +178,17 @@ function get_probability_content(
 end
 
 
+# Contour levels of the smallest regions of the histogram that contain the
+# given probabilities, plus a level above the maximum:
 function calculate_levels(
     hist::StatsBase.Histogram,
     intervals::Array{<:Real, 1}
 )
-    intervals = sort(intervals)
-    levels = Vector{Real}(undef, length(intervals)+1)
-
     weights = sort(vec(hist.weights), rev=true)
-
-    weight_ids = sortperm(weights, rev=true);
     sum_of_weights = sum(weights)
+    cum_probs = cumsum(weights) ./ sum_of_weights
 
-    sum_w = 0.0
-
-    for w_id in weight_ids
-        if(sum_w <= intervals[end])
-            i = findfirst(x -> sum_w <= x, intervals)
-            levels[i] = weights[w_id]
-            sum_w += weights[w_id]/sum_of_weights
-        end
-    end
-
-    levels[end] = 1.1*sum_of_weights
+    levels = [float(weights[min(searchsortedfirst(cum_probs, p), end)]) for p in intervals]
+    push!(levels, 1.1*sum_of_weights)
     return sort(levels)
 end

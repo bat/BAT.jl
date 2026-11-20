@@ -4,7 +4,7 @@ using BAT
 using Test
 
 using Statistics
-using ArraysOfArrays, ElasticArrays, StatsBase
+using ArraysOfArrays, ElasticArrays, FillArrays, StatsBase, StructArrays
 using StableRNGs
 
 @testset "effective_sample_size" begin
@@ -56,6 +56,16 @@ using StableRNGs
         )
         @test bat_eff_sample_size(scaled, algorithm, context).result ≈
             bat_eff_sample_size(samples, algorithm, context).result
+    end
+
+    @testset "structured samples" begin
+        n = length(v)
+        X = (a = v1, b = VectorOfSimilarArrays(reshape(flatview(v)[2:3, :], 2, 1, n)), c = Fill(4.2, n))
+        structured = DensitySampleVector(v = StructArray(X), logd = zeros(n))
+        flat_ess = bat_eff_sample_size(DensitySampleVector(v = v, logd = zeros(n)), algorithm, context).result
+        ess = bat_eff_sample_size(structured, algorithm, context).result
+        @test ess.a ≈ flat_ess[1] && vec(ess.b) ≈ flat_ess[2:3] && size(ess.b) == (2, 1)
+        @test ess.c == n
     end
 
     @testset "pooled ESS" begin

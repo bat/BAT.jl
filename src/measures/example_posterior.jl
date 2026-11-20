@@ -34,7 +34,7 @@ end
 
 function example_posterior(rng::AbstractRNG = example_stable_rng(), prior::Distribution = example_prior())
     likelihood = example_likelihood(prior, rng)
-    lbqintegral(likelihood, prior)
+    batmeasure(mintegrate(likelihood, batmeasure(prior)))
 end
 
 function example_posterior_with_dirichlet(rng::AbstractRNG = example_stable_rng())
