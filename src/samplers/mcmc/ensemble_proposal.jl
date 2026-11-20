@@ -3,6 +3,9 @@
 abstract type AbstractEnsembleProposal <: MCMCProposal end
 abstract type AbstractEnsembleMove <: MCMCProposalState end
 
+# EnsembleMCMC releases before 0.0.6 take the partitioned RNG directly.
+_ensemble_key(rng::AbstractRNG) = rng
+
 """
     EnsembleProposal(move; executor=nothing, batch_logdensity! = nothing,
                      record_transitions=false)

@@ -35,7 +35,7 @@ function BAT._create_proposal_state(
     logdensity = isnothing(proposal.batch_logdensity!) ? scalar :
         EnsembleMCMC.BatchedLogDensity(scalar,
             (values, positions) -> proposal.batch_logdensity!(values, density, positions))
-    ensemble = EnsembleMCMC.initialize(rng, logdensity, z_init;
+    ensemble = EnsembleMCMC.initialize(BAT._ensemble_key(rng), logdensity, z_init;
         move=proposal.move, executor, logdensities=logd_z_init)
     state = EnsembleMCMC.current_state(ensemble)
     transitions = proposal.record_transitions ?
@@ -76,7 +76,7 @@ function BAT.mcmc_propose!!(
     rng = AbstractRNG(chain_state.rngpart_cycle, chain_state.info.cycle)
     steps = BAT.RNGPartition(rng, 0:(typemax(Int32) - 2))
     BAT.set_rng!(rng, steps, chain_state.stepno - 1)
-    EnsembleMCMC.step!(proposal.ensemble, rng; proposal_index)
+    EnsembleMCMC.step!(proposal.ensemble, BAT._ensemble_key(rng); proposal_index)
     transition = EnsembleMCMC.current_state(proposal.ensemble)
     proposed = chain_state.proposed
     for i in eachindex(transition.candidates)

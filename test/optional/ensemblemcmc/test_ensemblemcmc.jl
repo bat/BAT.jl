@@ -11,7 +11,7 @@ import EnsembleMCMC
         nchains=2, nsteps=64, convergence=AssumeConvergence(),
         init=MCMCRetryInit(nsteps_init=30), burnin=MCMCMultiCycleBurnin(nsteps_per_cycle=30, max_ncycles=1),
     )
-    em = evalmeasure(posterior, algorithm, BATContext(rng=Philox4x((573, 2026))))
+    em = evalmeasure(posterior, algorithm, BATContext(rng=Threefry4x((573, 2026, 0, 0))))
     @test BAT.validate_evalmeasure(em) === em
     @test logdensityof(posterior).(samplesof(em).v) ≈ samplesof(em).logd
 end
