@@ -6,8 +6,8 @@ using LinearAlgebra
 using StatsBase, Distributions, ValueShapes, ArraysOfArrays, DensityInterface, StructArrays
 using MeasureBase
 using Random123
-using Accessors: @set
 using AffineMaps: MulAdd
+using HypothesisTests: ApproximateOneSampleKSTest, pvalue
 
 @testset "RandomWalk" begin
     context = BATContext(rng = Philox4x((564, 38)))
@@ -141,21 +141,33 @@ using AffineMaps: MulAdd
         @test smplres.verified
     end
 
-    @testset "Hastings terms" begin
-        # The Hastings terms of symmetric innovations vanish exactly, so the
-        # random walk doesn't compute them:
-        for proposaldist in (Normal(), TDist(1.0), TDist(3.0))
-            context = BATContext(rng = Philox4x((564, 60)))
-            v_inits = BAT.bat_ensemble_initvals(target, InitFromTarget(), 8, context)
-            algorithm = TransformedMCMC(proposal = RandomWalk(proposaldist = proposaldist), nwalkers = 8)
-            chain = BAT.MCMCState(algorithm, target, 1, unshaped.(v_inits), context).chain_state
-            rw = chain.proposal
-            @test rw.symmetric
-            walker_draws() = BAT._walker_draws(rw, chain, BAT._mcmc_step_rng(chain))
-            z, hastings = BAT.mcmc_propose_transition(chain.current.z.v, rw, walker_draws())
-            z_ref, hastings_ref = BAT.mcmc_propose_transition(chain.current.z.v, (@set rw.symmetric = false), walker_draws())
-            @test z == z_ref
-            @test hastings == hastings_ref
+    @testset "innovations" begin
+        n, k, scale = 3, 10^5, 0.7
+        genctx = BAT.get_gencontext(BATContext(rng = Philox4x((564, 60))))
+        draw(innovations) = BAT._draw_innovations(BAT._BatchedWalkerDraws(genctx, collect(1:k)), innovations, n)
+        ks_pvalue(x, d) = pvalue(ApproximateOneSampleKSTest(x, d))
+
+        # Normal innovations in each dimension, independent of each other:
+        E = draw(BAT._NormalInnovations(scale))
+        @test size(E) == (n, k)
+        @test ks_pvalue(E[2, :], Normal(0, scale)) > 1e-3
+        @test ks_pvalue(vec(sum(abs2, E; dims = 1)) ./ scale^2, Chisq(n)) > 1e-3
+
+        # Innovations with a multivariate t-distribution, also for degrees of
+        # freedom that are not integers:
+        for ν in (1.0, 3.0, 2.5)
+            E = draw(BAT._TInnovations(ν, scale))
+            @test ks_pvalue(E[2, :] ./ scale, TDist(ν)) > 1e-3
+            @test ks_pvalue(vec(sum(abs2, E; dims = 1)) ./ (n * scale^2), FDist(n, ν)) > 1e-3
+        end
+
+        # Zero-centered normal and t innovations are symmetric, so the random
+        # walk has no Hastings terms for them:
+        for proposaldist in (Normal(0, 2), TDist(1.0), batmeasure(TDist(3.0)))
+            innovations = BAT._full_random_walk_proposal(proposaldist, n)
+            @test innovations isa BAT._SymmetricInnovations
+            _, hastings = BAT._random_walk_transition(BAT._BatchedWalkerDraws(genctx, collect(1:4)), innovations, n)
+            @test iszero(hastings)
         end
 
         # Other innovation measures may be asymmetric and keep them:

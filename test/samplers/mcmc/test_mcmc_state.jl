@@ -6,6 +6,7 @@ using Test
 using ArraysOfArrays, Random
 using JLArrays
 import GPUArraysCore
+using HeterogeneousComputing: get_compute_unit, get_gencontext
 
 # Operations on device arrays must not fall back to scalar indexing:
 GPUArraysCore.allowscalar(false)
@@ -37,5 +38,19 @@ GPUArraysCore.allowscalar(false)
         V = BAT._select_variates!(on_device(samples(3)), JLArray(mask), on_device(a), on_device(b))
         @test flatview(V) isa JLArray
         @test Array(flatview(V)) == flatview(selected.v)
+    end
+
+    @testset "walker draws on devices" begin
+        # The random draws of a step are arrays on the compute unit of the
+        # context, in its precision:
+        cunit = get_compute_unit(JLArray(Float32[0]))
+        genctx = get_gencontext(BATContext(precision = Float32, cunit = cunit))
+        n, k = 3, 8
+        draws = BAT._BatchedWalkerDraws(genctx, collect(1:k))
+        for innovations in (BAT._NormalInnovations(0.5), BAT._TInnovations(1.0, 0.5), BAT._TInnovations(3.0, 0.5))
+            E = BAT._draw_innovations(draws, innovations, n)
+            @test E isa JLArray{Float32,2} && size(E) == (n, k)
+        end
+        @test BAT._walker_uniforms(draws) isa JLArray{Float32,1}
     end
 end

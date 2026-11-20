@@ -390,16 +390,25 @@ function _walker_draws(proposal::MCMCProposalState, chain_state::MCMCChainState,
     end
 end
 
-function _walker_variates(draws::_BatchedWalkerDraws, μ::AbstractMeasure)
-    X = rand(draws.genctx, μ^length(draws.walker_rank))
-    return X[draws.walker_rank]
-end
+# Brings draws for the walkers from the order of the walker ids into storage
+# order, with the walkers along the last dimension:
+_in_storage_order(X::AbstractVector, walker_rank) = walker_rank == eachindex(X) ? X : X[walker_rank]
+_in_storage_order(X::AbstractMatrix, walker_rank) = walker_rank == axes(X, 2) ? X : X[:, walker_rank]
+
+_walker_variates(draws::_BatchedWalkerDraws, μ::AbstractMeasure) =
+    _in_storage_order(rand(draws.genctx, μ^length(draws.walker_rank)), draws.walker_rank)
 
 _walker_variates(draws::_PerWalkerDraws, μ::AbstractMeasure) =
-    VectorOfSimilarVectors(map(genctx -> rand(genctx, μ), draws.genctxs))
+    _canonical_batch(map(genctx -> rand(genctx, μ), draws.genctxs))
+
+# Standard normal variates, `n` for each walker, as the columns of a matrix:
+_walker_randn(draws::_BatchedWalkerDraws, n::Integer) =
+    _in_storage_order(randn(draws.genctx, (n, length(draws.walker_rank))), draws.walker_rank)
+
+_walker_randn(draws::_PerWalkerDraws, n::Integer) = stack(genctx -> randn(genctx, n), draws.genctxs)
 
 _walker_uniforms(draws::_BatchedWalkerDraws) =
-    rand(draws.genctx, length(draws.walker_rank))[draws.walker_rank]
+    _in_storage_order(rand(draws.genctx, length(draws.walker_rank)), draws.walker_rank)
 
 _walker_uniforms(draws::_PerWalkerDraws) = map(rand, draws.genctxs)
 
