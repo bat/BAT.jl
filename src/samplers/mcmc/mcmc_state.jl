@@ -16,6 +16,7 @@ mutable struct MCMCChainState{
     WS<:AbstractMCMCWeightingScheme,
     SVX<:DensitySampleVector,
     SVZ<:DensitySampleVector,
+    AV<:AbstractVector{Bool},
     CTX<:BATContext
 } <: MCMCIterator
     target::M
@@ -25,7 +26,7 @@ mutable struct MCMCChainState{
     current::@NamedTuple{x::SVX, z::SVZ}
     proposed::@NamedTuple{x::SVX, z::SVZ}
     output::SVX
-    accepted::Vector{Bool}
+    accepted::AV
     walker_order::Vector{Int}
     info::MCMCChainStateInfo
     step_rngs::SR
@@ -48,8 +49,9 @@ function MCMCChainState(
     context::BATContext
 ) where {P<:Real, PV<:AbstractVector{P}}
     _validate_mcmc_proposal_configuration(samplingalg.proposal, samplingalg.proposal_tuning)
+    cunit = get_compute_unit(context)
+    is_host_unit(cunit) || _check_device_mcmc_support(samplingalg)
 
-    n_walkers = length(x_init)
     target_unevaluated = unevaluated(target)
 
     if _contains_hamiltonian_mc(samplingalg.proposal) && samplingalg.sample_weighting isa ARPWeighting
@@ -64,17 +66,47 @@ function MCMCChainState(
     f = init_adaptive_transform(samplingalg.adaptive_transform, target, x_init, context)
     f_inv = inverse(f)
     proposal = _create_proposal_state(samplingalg.proposal, target_unevaluated, context, x_init, f, rng)
-
-    logd_x_init = BAT.checked_logdensities(target_unevaluated, x_init)
     z_init = VectorOfSimilarVectors(f_inv.(x_init))
     ladj_c = _transform_ladj(f)
+
+    # The transform and the walker positions are initialized on the host, the
+    # chain then lives on the compute unit of the context:
+    if is_host_unit(cunit)
+        return _mcmc_chain_state(
+            samplingalg, target_unevaluated, chainid, x_init, z_init, f, ladj_c, proposal, step_rngs, context
+        )
+    else
+        T = get_precision(context)
+        return _mcmc_chain_state(
+            samplingalg, adapt(cunit, target_unevaluated), chainid,
+            _device_batch(cunit, T, x_init), _device_batch(cunit, T, z_init), _device_transform(cunit, T, f),
+            ladj_c, proposal, step_rngs, context
+        )
+    end
+end
+
+function _mcmc_chain_state(
+    samplingalg::TransformedMCMC,
+    target_unevaluated::AbstractMeasure,
+    chainid::Integer,
+    x_init::AbstractVector{<:AbstractVector{<:Real}},
+    z_init::AbstractVector{<:AbstractVector{<:Real}},
+    f,
+    ladj_c::Union{Real,Nothing},
+    proposal::MCMCProposalState,
+    step_rngs::AbstractRNG,
+    context::BATContext
+)
+    n_walkers = length(x_init)
+
+    logd_x_init = BAT.checked_logdensities(target_unevaluated, x_init)
     logd_z_init = isnothing(ladj_c) ?
         logdensities(MeasureBase.pullbck(f, target_unevaluated), z_init) :
         logd_x_init .+ ladj_c
 
     W = mcmc_weight_type(samplingalg.sample_weighting)
 
-    sample_weights_curr = zeros(W, n_walkers)
+    sample_weights_curr = fill!(similar(logd_x_init, W), zero(W))
     sample_info_curr = MCMCSampleID[MCMCSampleID(Int32(chainid), Int32(i), one(Int32), zero(Int64), get_active_proposal_idx(proposal), true) for i in 1:n_walkers]
     sample_aux_curr = fill(nothing, n_walkers)
 
@@ -95,7 +127,7 @@ function MCMCChainState(
 
     prop_locs_init = deepcopy(x_init)
     prop_logds_init = deepcopy(logd_x_init)
-    sample_weights_prop = zeros(W, n_walkers)
+    sample_weights_prop = deepcopy(sample_weights_curr)
     sample_info_prop = deepcopy(sample_info_curr) 
     sample_aux_prop = fill(nothing, n_walkers)
 
@@ -110,7 +142,7 @@ function MCMCChainState(
     current = (x = current_x_init, z = current_z_init)
     proposed = (x = proposed_init, z = deepcopy(current_z_init))
     output = deepcopy(current_x_init)
-    accepted = fill(false, n_walkers)
+    accepted = fill!(similar(logd_x_init, Bool), false)
     walker_order = sortperm(
         eachindex(sample_info_curr); by = i -> sample_info_curr[i].walkerid,
     )

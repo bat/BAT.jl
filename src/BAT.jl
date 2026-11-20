@@ -65,7 +65,7 @@ using Accessors: @set, @reset
 using OneTwoMany: getsecond
 
 import HeterogeneousComputing
-using HeterogeneousComputing: AbstractComputeUnit, CPUnit
+using HeterogeneousComputing: AbstractComputeUnit, CPUnit, is_host_unit
 using HeterogeneousComputing: GenContext, get_rng, get_precision, get_compute_unit, get_gencontext, allocate_array
 using HeterogeneousComputing: has_rng_streamkey, rng_streamkey, rootrng, subrng
 

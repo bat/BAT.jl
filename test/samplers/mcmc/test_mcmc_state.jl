@@ -3,10 +3,12 @@
 using BAT
 using Test
 
-using ArraysOfArrays, Random
+using ArraysOfArrays, Distributions, LinearAlgebra, Random
+using DensityInterface: logdensityof
 using JLArrays
 import GPUArraysCore
 using HeterogeneousComputing: get_compute_unit, get_gencontext
+import MeasureBase
 
 # Operations on device arrays must not fall back to scalar indexing:
 GPUArraysCore.allowscalar(false)
@@ -52,5 +54,37 @@ GPUArraysCore.allowscalar(false)
             @test E isa JLArray{Float32,2} && size(E) == (n, k)
         end
         @test BAT._walker_uniforms(draws) isa JLArray{Float32,1}
+    end
+
+    @testset "chain states on devices" begin
+        n, k = 3, 4
+        target = batmeasure(MvNormal([0.5, -0.5, 1.0], [2.0 0.6 0.0; 0.6 1.0 0.3; 0.0 0.3 1.5]))
+        x_init = nestedview(randn(Xoshiro(1), n, k))
+        context = BATContext(precision = Float32, cunit = get_compute_unit(JLArray(Float32[0])))
+        algorithm(; kwargs...) = TransformedMCMC(; pretransform = DoNotTransform(), nwalkers = k, kwargs...)
+
+        # Walker positions, transform and density values live on the compute
+        # unit of the context, positions in its precision:
+        chain = BAT.MCMCState(algorithm(), target, 1, x_init, context).chain_state
+        for samples in (chain.current.x, chain.current.z, chain.proposed.x, chain.proposed.z, chain.output)
+            @test flatview(samples.v) isa JLArray{Float32,2}
+            @test samples.logd isa JLArray && samples.weight isa JLArray
+        end
+        @test chain.accepted isa JLArray{Bool,1}
+        @test chain.f_transform.A isa LowerTriangular{Float32,<:JLArray}
+        @test Array(flatview(chain.current.x.v)) ≈ flatview(x_init)
+        @test Array(chain.current.x.logd) ≈ logdensityof(target).(x_init) rtol = 1e-5
+
+        # Other MCMC components are refused, not run on the host instead:
+        unsupported = (
+            (proposal = HamiltonianMC(),),
+            (proposal = MALAProposal(),),
+            (proposal = RandomWalk(proposaldist = MeasureBase.StdNormal()^n),),
+            (sample_weighting = ARPWeighting(),),
+            (adaptive_transform = BAT.DiagonalAffineTransform(), transform_tuning = BAT.NoMCMCTransformTuning()),
+        )
+        for components in unsupported
+            @test_throws "compute units other than the host" BAT.MCMCState(algorithm(; components...), target, 1, x_init, context)
+        end
     end
 end
