@@ -37,6 +37,9 @@ function _validate_mcmc_proposal_tuning_configuration(
     multi_proposal::MCMCMultiProposal,
     ::AdaptiveMultiPropTuning,
 )
+    _contains_ensemble_move(multi_proposal) && throw(ArgumentError(
+        "AdaptiveMultiPropTuning does not support MCMCMultiProposal with ensemble moves",
+    ))
     multi_proposal.picking_rule isa Categorical || throw(ArgumentError(
         "AdaptiveMultiPropTuning supports only categorical MCMCMultiProposal picking rules",
     ))
