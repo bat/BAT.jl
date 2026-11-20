@@ -79,7 +79,10 @@ import ForwardDiff, Zygote
         mcmc_state, samples = iterate_and_collect_samples()
 
         @test mcmc_state.chain_state.stepno == nsteps + nsteps_adapt
-        @test minimum(samples.weight) == 0
+        # A NUTS step that ends where it started repeats the current sample,
+        # so only the sample at the start of the iteration can keep a weight
+        # of zero, and only if the first step moves away from it:
+        @test count(iszero, samples.weight) <= 1
         @test sum(samples.weight) == nsteps
 
         @test BAT.test_dist_samples(unshaped(objective), samples, context)
