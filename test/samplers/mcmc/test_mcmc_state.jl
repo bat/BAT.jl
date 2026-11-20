@@ -7,6 +7,9 @@ using ArraysOfArrays, Random
 using JLArrays
 import GPUArraysCore
 
+# Operations on device arrays must not fall back to scalar indexing:
+GPUArraysCore.allowscalar(false)
+
 @testset "mcmc_state" begin
     @testset "sample selection" begin
         n, k = 3, 6
@@ -31,13 +34,8 @@ import GPUArraysCore
 
         # Batches of variates on a device are selected as a whole:
         on_device(samples) = nestedview(JLArray(flatview(samples.v)))
-        GPUArraysCore.allowscalar(false)
-        try
-            V = BAT._select_variates!(on_device(samples(3)), JLArray(mask), on_device(a), on_device(b))
-            @test flatview(V) isa JLArray
-            @test Array(flatview(V)) == flatview(selected.v)
-        finally
-            GPUArraysCore.allowscalar()
-        end
+        V = BAT._select_variates!(on_device(samples(3)), JLArray(mask), on_device(a), on_device(b))
+        @test flatview(V) isa JLArray
+        @test Array(flatview(V)) == flatview(selected.v)
     end
 end
